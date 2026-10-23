@@ -446,6 +446,9 @@ export interface PaperLibraryHost {
   importFile(host: HTMLElement): Promise<boolean>;
   /** Import a PDF or picture already in the vault. True when papers were added. */
   importFromVault(): Promise<boolean>;
+  /** Create or edit a native paper in the configured vault paper folder. */
+  createGenerated?(): Promise<boolean>;
+  editGenerated?(entry: PaperEntry): Promise<boolean>;
   /** Browse the community template gallery. True when papers were added from it. */
   browseCommunity?(): Promise<boolean>;
   /** Share a template with the community gallery; `path` preselects it. */
@@ -570,6 +573,8 @@ export class MyTemplatesSection {
       });
     };
     const browse = host.browseCommunity?.bind(host);
+    const create = host.createGenerated?.bind(host);
+    if (create) item("wand-sparkles", "Create paper…", () => void create().then(refresh));
     if (browse) item("globe", "Community templates…", () => void browse().then(refresh));
     item("file-up", "From files…", (button) => void host.importFile(button).then(refresh));
     item("folder-open", "From vault…", () => void host.importFromVault().then(refresh));
@@ -596,7 +601,7 @@ export class MyTemplatesSection {
         cls: "goodobsidian-template-card is-large clickable-icon",
         attr: { "aria-label": name, title: name },
       });
-      this.cardMenu(frame, entry.path, pages);
+      this.cardMenu(frame, entry, pages);
       const canvas = root.createEl("canvas", { cls: "goodobsidian-template-preview" });
       root.createDiv({ cls: "goodobsidian-template-name", text: name });
       root.addEventListener("click", () => this.options.onChoose(entry));
@@ -607,18 +612,20 @@ export class MyTemplatesSection {
     if (entries.length === 0) {
       row.createDiv({
         cls: "goodobsidian-my-papers-empty",
-        text: "Tap + to bring in a PDF or picture, or to find one in the community gallery: every page of it is a paper here.",
+        text: "Tap + to create a paper, bring in a PDF or picture, or browse the community gallery.",
       });
     }
     this.sync();
   }
 
   /** The ⋯ on a card: share the template, or delete it (the whole file, every page). */
-  private cardMenu(frame: HTMLElement, path: string, pages: number): void {
+  private cardMenu(frame: HTMLElement, entry: PaperEntry, pages: number): void {
     const { host } = this.options;
-    const share = host.shareTemplate?.bind(host);
+    const path = entry.path;
+    const share = entry.generated ? undefined : host.shareTemplate?.bind(host);
     const remove = host.deleteTemplate?.bind(host);
-    if (!share && !remove) return;
+    const edit = entry.generated ? host.editGenerated?.bind(host) : undefined;
+    if (!share && !remove && !edit) return;
     const more = frame.createEl("button", {
       cls: "goodobsidian-template-card-more clickable-icon",
       attr: { "aria-label": "Template options", title: "Template options" },
@@ -627,6 +634,18 @@ export class MyTemplatesSection {
     more.addEventListener("click", (event) => {
       event.stopPropagation();
       const menu = new Menu();
+      if (edit) {
+        menu.addItem((item) =>
+          item
+            .setTitle("Edit paper…")
+            .setIcon("pencil")
+            .onClick(() =>
+              void edit(entry).then((changed) => {
+                if (changed) void this.render();
+              }),
+            ),
+        );
+      }
       if (share) {
         menu.addItem((item) =>
           item

@@ -95,6 +95,27 @@ describe("fillPaper", () => {
   });
 });
 
+describe("generated paper", () => {
+  it("clips the ruling to margins and blank sections, then draws divider lines", () => {
+    const ctx = draw({
+      kind: "squared",
+      margins: { top: 40, right: 40, bottom: 40, left: 40 },
+      blankZones: [{ side: "right", size: 180 }],
+      dividers: [{ side: "right", inset: 180, color: "#dd7777", width: 1 }],
+    });
+    expect(ctx.ops).toContainEqual({ op: "rect", x: 40, y: 40, w: 764, h: 1368 });
+    expect(ctx.ops).toContainEqual({ op: "clip" });
+    expect(verticalXs(ctx.ops)).toContain(844.5);
+  });
+
+  it("renders structured paper as deterministic diagonal fibres", () => {
+    const first = draw({ kind: "blank", texture: "fine" });
+    const second = draw({ kind: "blank", texture: "fine" });
+    expect(segments(first.ops)).toEqual(segments(second.ops));
+    expect(segments(first.ops).length).toBeGreaterThan(0);
+  });
+});
+
 describe("resolveSpacing", () => {
   it("defaults per ruling, exactly as the contract's table says", () => {
     expect(resolveSpacing(undefined, "ruled-narrow")).toBe(28);

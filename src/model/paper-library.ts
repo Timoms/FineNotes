@@ -14,6 +14,7 @@
  */
 
 import type { PageGeometry, PdfBackdrop } from "./document";
+import type { GeneratedPaperFile } from "./generated-paper";
 
 /** The library's folder inside the templates folder. */
 export const PAPERS_FOLDER = "Papers";
@@ -54,6 +55,8 @@ export interface PaperEntry {
   height: number;
   /** What the picker shows under it. */
   name: string;
+  /** Present for an editable `.finepaper`; absent for a PDF page. */
+  generated?: GeneratedPaperFile;
 }
 
 /** The library's folder for templates folder `templateFolder`. */

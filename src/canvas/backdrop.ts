@@ -1374,11 +1374,167 @@ export function drawSyntheticRules(
   };
 
   ctx.save();
+  clipGeneratedRuling(ctx, backdrop, geometry);
   ctx.strokeStyle = context.color;
   ctx.fillStyle = context.color;
   ctx.lineWidth = RULE_WIDTH * context.weight;
   ctx.beginPath();
   if (entry.draw(ctx, context) !== "painted") ctx.stroke();
+  ctx.restore();
+}
+
+/** Keep a generated ruling inside its margins and outside its blank sections. */
+function clipGeneratedRuling(
+  ctx: CanvasRenderingContext2D,
+  backdrop: SyntheticBackdrop,
+  geometry: PageGeometry,
+): void {
+  if (!backdrop.margins && !backdrop.blankZones?.length) return;
+  const margins = backdrop.margins ?? { top: 0, right: 0, bottom: 0, left: 0 };
+  let x0 = margins.left;
+  let y0 = margins.top;
+  let x1 = geometry.width - margins.right;
+  let y1 = geometry.height - margins.bottom;
+  for (const zone of backdrop.blankZones ?? []) {
+    if (zone.side === "left") x0 += zone.size;
+    else if (zone.side === "right") x1 -= zone.size;
+    else if (zone.side === "top") y0 += zone.size;
+    else y1 -= zone.size;
+  }
+  ctx.beginPath();
+  ctx.rect(x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0));
+  ctx.clip();
+}
+
+const PAPER_TEXTURE_SIZE = 192;
+const paperTextureTiles = new Map<string, HTMLCanvasElement>();
+
+/**
+ * Paper grain is a repeated physical tile: fine tonal noise, occasional pulp
+ * impurities and longer fibres. It is cached, so repainting or zooming never
+ * regenerates thousands of marks and the grain never shimmers.
+ */
+function drawPaperTexture(
+  ctx: CanvasRenderingContext2D,
+  backdrop: SyntheticBackdrop,
+  geometry: PageGeometry,
+  night: boolean,
+): void {
+  const texture = backdrop.texture;
+  if (!texture || texture === "plain") return;
+  const tile = paperTextureTile(texture, night);
+  if (tile && typeof ctx.createPattern === "function") {
+    const pattern = ctx.createPattern(tile, "repeat");
+    if (pattern) {
+      ctx.save();
+      ctx.fillStyle = pattern;
+      ctx.fillRect(0, 0, geometry.width, geometry.height);
+      ctx.restore();
+      return;
+    }
+  }
+  // Non-DOM canvases (including the pure recording test canvas) retain a
+  // bounded fibre fallback instead of losing texture entirely.
+  const fibres = texture === "heavy" ? 420 : 190;
+  ctx.save();
+  ctx.globalAlpha = texture === "heavy" ? 0.14 : 0.075;
+  ctx.strokeStyle = night ? "#ffffff" : "#5d5141";
+  ctx.lineWidth = texture === "heavy" ? 0.8 : 0.45;
+  ctx.beginPath();
+  for (let i = 0; i < fibres; i++) {
+    // Integer hashes keep the same fibres on screen, in previews and in PDF.
+    const x = ((i * 2654435761) >>> 0) % Math.max(1, Math.round(geometry.width));
+    const y = ((i * 1597334677 + 1013904223) >>> 0) % Math.max(1, Math.round(geometry.height));
+    const length = texture === "heavy" ? 9 : 5;
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + length, y + 1.5);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function paperTextureTile(
+  texture: "fine" | "heavy",
+  night: boolean,
+): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
+  const key = `${texture}:${night ? "night" : "day"}`;
+  const known = paperTextureTiles.get(key);
+  if (known) return known;
+  const tile = createEl("canvas");
+  tile.width = PAPER_TEXTURE_SIZE;
+  tile.height = PAPER_TEXTURE_SIZE;
+  const ctx = tile.getContext("2d");
+  if (!ctx) return null;
+  let seed = texture === "heavy" ? 0x71c3a2d9 : 0x34a91f07;
+  const random = (): number => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
+
+  // Dense, low-contrast tonal variation gives the surface a tooth even when
+  // a small preview downsamples it.
+  const pixels = ctx.createImageData(PAPER_TEXTURE_SIZE, PAPER_TEXTURE_SIZE);
+  const strength = texture === "heavy" ? 18 : 9;
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const warm = random() > 0.22;
+    const tone = night ? 255 : warm ? 74 : 120;
+    pixels.data[i] = tone;
+    pixels.data[i + 1] = night ? 255 : warm ? 63 : 108;
+    pixels.data[i + 2] = night ? 255 : warm ? 48 : 91;
+    pixels.data[i + 3] = Math.round(random() * strength);
+  }
+  ctx.putImageData(pixels, 0, 0);
+
+  // Pulp flecks and fibres create irregular scale cues instead of looking
+  // like a uniform digital noise filter.
+  const flecks = texture === "heavy" ? 150 : 65;
+  ctx.fillStyle = night ? "rgb(255 255 255 / 13%)" : "rgb(76 60 38 / 13%)";
+  for (let i = 0; i < flecks; i++) {
+    const radius = (texture === "heavy" ? 0.35 : 0.2) + random() * (texture === "heavy" ? 1.15 : 0.55);
+    ctx.beginPath();
+    ctx.arc(random() * PAPER_TEXTURE_SIZE, random() * PAPER_TEXTURE_SIZE, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.strokeStyle = night ? "rgb(255 255 255 / 11%)" : "rgb(91 72 46 / 12%)";
+  ctx.lineWidth = texture === "heavy" ? 0.8 : 0.45;
+  const fibres = texture === "heavy" ? 52 : 24;
+  ctx.beginPath();
+  for (let i = 0; i < fibres; i++) {
+    const x = random() * PAPER_TEXTURE_SIZE;
+    const y = random() * PAPER_TEXTURE_SIZE;
+    const length = 5 + random() * (texture === "heavy" ? 18 : 10);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + length, y + (random() - 0.5) * 3);
+  }
+  ctx.stroke();
+  paperTextureTiles.set(key, tile);
+  return tile;
+}
+
+function drawPaperDividers(
+  ctx: CanvasRenderingContext2D,
+  backdrop: SyntheticBackdrop,
+  geometry: PageGeometry,
+  night: boolean,
+): void {
+  if (!backdrop.dividers?.length) return;
+  ctx.save();
+  for (const divider of backdrop.dividers) {
+    ctx.strokeStyle = shownColor(divider.color, night);
+    ctx.lineWidth = divider.width;
+    ctx.beginPath();
+    if (divider.side === "left" || divider.side === "right") {
+      const x = divider.side === "left" ? divider.inset : geometry.width - divider.inset;
+      ctx.moveTo(crisp(x), 0);
+      ctx.lineTo(crisp(x), geometry.height);
+    } else {
+      const y = divider.side === "top" ? divider.inset : geometry.height - divider.inset;
+      ctx.moveTo(0, crisp(y));
+      ctx.lineTo(geometry.width, crisp(y));
+    }
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -1395,7 +1551,9 @@ export function drawSynthetic(
 ): void {
   const look = pageLook(backdrop, theme);
   fillPaper(ctx, geometry, theme, look.paper);
+  drawPaperTexture(ctx, backdrop, geometry, look.night);
   drawSyntheticRules(ctx, backdrop, geometry, theme, weight);
+  drawPaperDividers(ctx, backdrop, geometry, look.night);
   if (backdrop.printed?.length) drawPrinted(ctx, backdrop.printed, look.night);
 }
 

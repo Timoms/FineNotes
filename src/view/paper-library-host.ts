@@ -10,6 +10,11 @@ import { type App, FuzzySuggestModal, Notice, type TFile, normalizePath } from "
 import { picturePdf, rgbFromRgba } from "../import/image-pdf";
 import type { PageGeometry, PdfBackdrop } from "../model/document";
 import {
+  GENERATED_PAPER_EXTENSION,
+  encodeGeneratedPaper,
+  parseGeneratedPaper,
+} from "../model/generated-paper";
+import {
   MAX_PAPER_BYTES,
   type PaperEntry,
   isPaperSource,
@@ -24,6 +29,8 @@ import { imageMimeOf, loadImage, pickImageFile, releaseCanvas } from "./image-im
 import { measurePdfPages } from "./pdf-pages";
 import type { PaperLibraryHost } from "./template-picker";
 import { ConfirmModal } from "./template-ui";
+import { PaperGeneratorModal } from "./paper-generator";
+import { LIGHT_PAPER, drawSynthetic } from "../canvas/backdrop";
 
 /** What the system file picker offers. */
 const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
@@ -105,10 +112,33 @@ export class VaultPaperLibrary implements PaperLibraryHost {
     const prefix = `${this.folder}/`;
     const files = this.app.vault
       .getFiles()
-      .filter((file) => file.path.startsWith(prefix) && file.extension.toLowerCase() === "pdf")
+      .filter(
+        (file) =>
+          file.path.startsWith(prefix) &&
+          (file.extension.toLowerCase() === "pdf" ||
+            file.extension.toLowerCase() === GENERATED_PAPER_EXTENSION),
+      )
       .sort((a, b) => a.basename.localeCompare(b.basename));
     const out: PaperEntry[] = [];
     for (const file of files) {
+      if (file.extension.toLowerCase() === GENERATED_PAPER_EXTENSION) {
+        try {
+          const generated = parseGeneratedPaper(JSON.parse(await this.app.vault.read(file)));
+          if (generated) {
+            out.push({
+              path: file.path,
+              page: 0,
+              width: generated.geometry.width,
+              height: generated.geometry.height,
+              name: file.basename,
+              generated,
+            });
+          }
+        } catch {
+          // A malformed generated paper is omitted, exactly like a broken PDF.
+        }
+        continue;
+      }
       const stamp = `${file.stat.size}:${file.stat.mtime}`;
       const known = this.sizes.get(file.path);
       if (known?.stamp === stamp) {
@@ -130,12 +160,70 @@ export class VaultPaperLibrary implements PaperLibraryHost {
   }
 
   paint(canvas: HTMLCanvasElement, entry: PaperEntry, cssWidth: number): void {
+    if (entry.generated) {
+      paintGenerated(canvas, entry.generated, cssWidth);
+      return;
+    }
     this.paintPage(
       canvas,
       paperBackdrop(entry.path, entry.page),
       paperGeometry(entry, PREVIEW_PAGE_WIDTH),
       cssWidth,
     );
+  }
+
+  createGenerated(): Promise<boolean> {
+    return this.openGenerator(null);
+  }
+
+  editGenerated(entry: PaperEntry): Promise<boolean> {
+    return entry.generated ? this.openGenerator(entry) : Promise.resolve(false);
+  }
+
+  private openGenerator(entry: PaperEntry | null): Promise<boolean> {
+    return new Promise((resolve) => {
+      let settled = false;
+      const modal = new PaperGeneratorModal(
+        this.app,
+        entry?.generated ? { name: entry.name, paper: entry.generated } : null,
+        async (name, paper) => {
+          try {
+            const folder = this.folder;
+            if (!this.app.vault.getFolderByPath(folder)) {
+              await this.app.vault.createFolder(folder).catch(() => undefined);
+            }
+            const text = encodeGeneratedPaper(paper);
+            if (entry) {
+              const file = this.app.vault.getFileByPath(entry.path);
+              if (!file) throw new Error("the template file is gone");
+              await this.app.vault.modify(file, text);
+              if (name !== entry.name) {
+                const target = this.freePath(folder, name, GENERATED_PAPER_EXTENSION);
+                await this.app.fileManager.renameFile(file, target);
+              }
+            } else {
+              await this.app.vault.create(
+                this.freePath(folder, name, GENERATED_PAPER_EXTENSION),
+                text,
+              );
+            }
+            new Notice(`FineNotes: "${name}" is in My templates.`);
+            settled = true;
+            resolve(true);
+            return true;
+          } catch (error) {
+            new Notice(`FineNotes: couldn't save that paper — ${String(error)}`);
+            return false;
+          }
+        },
+      );
+      const close = modal.onClose.bind(modal);
+      modal.onClose = () => {
+        close();
+        if (!settled) resolve(false);
+      };
+      modal.open();
+    });
   }
 
   async importFile(host: HTMLElement): Promise<boolean> {
@@ -194,7 +282,7 @@ export class VaultPaperLibrary implements PaperLibraryHost {
       if (!this.app.vault.getFolderByPath(folder)) {
         await this.app.vault.createFolder(folder).catch(() => undefined);
       }
-      const path = this.freePath(folder, paperName(name));
+      const path = this.freePath(folder, paperName(name), "pdf");
       await this.app.vault.createBinary(path, pdf.slice().buffer);
       new Notice(
         pages.length === 1
@@ -210,12 +298,35 @@ export class VaultPaperLibrary implements PaperLibraryHost {
     }
   }
 
-  private freePath(folder: string, stem: string): string {
+  private freePath(folder: string, stem: string, extension: string): string {
+    const safe = paperName(stem);
     for (let n = 1; ; n++) {
-      const path = normalizePath(`${folder}/${n === 1 ? stem : `${stem} ${n}`}.pdf`);
+      const path = normalizePath(`${folder}/${n === 1 ? safe : `${safe} ${n}`}.${extension}`);
       if (!this.app.vault.getAbstractFileByPath(path)) return path;
     }
   }
+}
+
+function paintGenerated(
+  canvas: HTMLCanvasElement,
+  paper: NonNullable<PaperEntry["generated"]>,
+  cssWidth: number,
+): void {
+  const dpr = window.devicePixelRatio || 1;
+  const k = (cssWidth / paper.geometry.width) * dpr;
+  canvas.width = Math.max(1, Math.round(paper.geometry.width * k));
+  canvas.height = Math.max(1, Math.round(paper.geometry.height * k));
+  canvas.setCssStyles({ aspectRatio: `${paper.geometry.width} / ${paper.geometry.height}` });
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  drawSynthetic(
+    ctx,
+    paper.backdrop,
+    paper.geometry,
+    LIGHT_PAPER,
+    Math.max(1, 0.5 / (cssWidth / paper.geometry.width)),
+  );
 }
 
 /** A picture as a one-page PDF: a photo as JPEG, anything else as exact pixels. */

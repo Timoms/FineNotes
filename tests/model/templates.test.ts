@@ -103,6 +103,12 @@ describe("page sizes", () => {
     const a5 = sizeGeometry("a5", false);
     expect(a5.height).toBeCloseTo(sizeGeometry("standard", false).width, -1);
   });
+
+  it("offers the full ISO A0–A6 range", () => {
+    expect(PAGE_SIZES.map((size) => size.label)).toEqual(
+      expect.arrayContaining(["A0", "A1", "A2", "A3", "A4 (Standard)", "A5", "A6"]),
+    );
+  });
 });
 
 describe("recent templates", () => {
@@ -134,6 +140,17 @@ describe("recent templates", () => {
         { kind: "squared", spacing: -3, color: 7 },
       ]),
     ).toEqual([{ kind: "dotted", paperColor: "#fbf8ed" }, { kind: "squared" }]);
+  });
+
+  it("keeps generated layout fields in recent templates", () => {
+    const backdrop = {
+      kind: "ruled-wide" as const,
+      texture: "heavy" as const,
+      margins: { top: 20, right: 20, bottom: 20, left: 20 },
+      blankZones: [{ side: "right" as const, size: 140 }],
+      dividers: [{ side: "right" as const, inset: 140, color: "#dd7777", width: 1 }],
+    };
+    expect(parseRecent([backdrop])).toEqual([backdrop]);
   });
 
   it("the popover leads with the current template and skips its duplicate", () => {
