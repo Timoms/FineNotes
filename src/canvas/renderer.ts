@@ -72,6 +72,7 @@ import {
   tableLayoutKey,
 } from "./table-layout";
 import { imageBounds, rotationOf } from "./image-geometry";
+import { STICKY_NOTE_SIZE } from "../model/sticky-notes";
 import { paintGraph } from "./graph-paint";
 import { graphBounds } from "../model/graph-element";
 import type { DocumentLayout, PageBox } from "./page-layout";
@@ -289,6 +290,17 @@ export function drawPlacedImage(
   }
   ctx.translate(-image.w / 2, -image.h / 2);
   painter.paintImage(ctx, image, deviceScale);
+  if (image.sticky?.strokes.length) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, image.w, image.h);
+    ctx.clip();
+    ctx.scale(image.w / STICKY_NOTE_SIZE, image.h / STICKY_NOTE_SIZE);
+    for (const stroke of image.sticky.strokes) {
+      fillStroke(ctx, stroke.pts, styleOf(stroke, true), DEFAULT_HIGHLIGHTER_ALPHA, false);
+    }
+    ctx.restore();
+  }
   ctx.restore();
 }
 

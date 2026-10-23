@@ -116,6 +116,16 @@ export function duplicateImage(
   if (image.crop) copy.crop = { ...image.crop };
   if (image.flipX === true) copy.flipX = true;
   if (image.flipY === true) copy.flipY = true;
+  if (image.sticky) {
+    copy.sticky = {
+      color: image.sticky.color,
+      strokes: image.sticky.strokes.map((stroke) => ({
+        ...stroke,
+        pts: [...stroke.pts],
+        ...(stroke.samples ? { samples: [...stroke.samples] } : {}),
+      })),
+    };
+  }
   return copy;
 }
 

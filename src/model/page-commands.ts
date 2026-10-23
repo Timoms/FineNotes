@@ -43,6 +43,31 @@ export class AddStrokeToPage implements Command {
   }
 }
 
+/** Append ink to a sticky note so it follows that paper through every transform. */
+export class AddStrokeToSticky implements Command {
+  readonly label = "Draw on sticky note";
+  constructor(
+    readonly pageId: string,
+    private readonly imageId: string,
+    private readonly stroke: Stroke,
+  ) {}
+
+  apply(doc: InkDocument): void {
+    const image = pageById(doc, this.pageId)?.images.find(
+      (candidate) => candidate.id === this.imageId,
+    );
+    image?.sticky?.strokes.push(this.stroke);
+  }
+
+  invert(doc: InkDocument): void {
+    const strokes = pageById(doc, this.pageId)?.images.find((image) => image.id === this.imageId)
+      ?.sticky?.strokes;
+    if (!strokes) return;
+    const index = strokes.indexOf(this.stroke);
+    if (index >= 0) strokes.splice(index, 1);
+  }
+}
+
 /** Place a typed text box on one page. */
 export class AddTextBoxToPage implements Command {
   readonly label = "Add text box";

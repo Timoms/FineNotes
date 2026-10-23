@@ -45,6 +45,8 @@ export interface InsertImageOptions {
   center?: { x: number; y: number };
   /** Select it once placed, as GoodNotes does. Default `true`. */
   select?: boolean;
+  /** Add feature-specific persistent data before insertion enters history. */
+  configure?: (image: ImageElement) => void;
 }
 
 /** What an entry can do. Built fresh by the view each time the menu opens. */
