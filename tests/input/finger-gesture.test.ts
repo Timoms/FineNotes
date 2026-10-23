@@ -58,6 +58,15 @@ describe("FingerGesture", () => {
     expect(log[log.length - 2]).toBe("pinch x2 at -3,-4");
   });
 
+  it("reports incremental two-finger rotation", () => {
+    const rotations: number[] = [];
+    const g = new FingerGesture({ onPinch: (info) => rotations.push(info.rotation) });
+    g.down(1, -10, 0, 1);
+    g.down(2, 10, 0, 2);
+    g.move(2, 0, 10, 3);
+    expect(rotations[0]).toBeCloseTo(45);
+  });
+
   it("restarts the pan wherever the fingers are when one joins or leaves", () => {
     const { g, log } = gesture();
     g.down(1, 0, 0, 1);

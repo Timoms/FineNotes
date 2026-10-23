@@ -20,6 +20,8 @@ export interface PinchInfo {
   /** The pinch midpoint, client px. */
   centerX: number;
   centerY: number;
+  /** Incremental clockwise rotation since the previous pinch event, degrees. */
+  rotation: number;
 }
 
 /** What the gesture reports. Every member is optional: take what you need. */
@@ -48,6 +50,7 @@ export class FingerGesture {
    * while there is no pinch. Zero until they spread, so no step divides by it.
    */
   private spread: number | null = null;
+  private angle: number | null = null;
 
   constructor(private readonly listener: FingerGestureListener) {}
 
@@ -80,9 +83,14 @@ export class FingerGesture {
           scaleFactor: focus.spread / this.spread,
           centerX: focus.x,
           centerY: focus.y,
+          rotation:
+            this.angle === null || focus.angle === null
+              ? 0
+              : ((((focus.angle - this.angle) * 180) / Math.PI + 540) % 360) - 180,
         });
       }
       this.spread = focus.spread;
+      this.angle = focus.angle;
     }
     this.listener.onPanMove?.(focus.x, focus.y, t);
   }
@@ -111,6 +119,7 @@ export class FingerGesture {
     if (dropped.length === 0) return dropped;
     this.fingers.clear();
     this.spread = null;
+    this.angle = null;
     this.listener.onPanCancel?.();
     return dropped;
   }
@@ -123,6 +132,7 @@ export class FingerGesture {
     } else {
       const starting = this.spread === null;
       this.spread = focus.spread;
+      this.angle = focus.angle;
       if (starting) this.listener.onPinchStart?.(focus.x, focus.y);
     }
     this.listener.onPanStart?.(focus.x, focus.y, t);
@@ -131,6 +141,7 @@ export class FingerGesture {
   private endPinch(): void {
     if (this.spread === null) return;
     this.spread = null;
+    this.angle = null;
     this.listener.onPinchEnd?.();
   }
 
@@ -138,13 +149,14 @@ export class FingerGesture {
    * Where the gesture is, and the distance between its two fingers (null
    * with one). Only called while at least one finger is down.
    */
-  private focus(): { x: number; y: number; spread: number | null } {
+  private focus(): { x: number; y: number; spread: number | null; angle: number | null } {
     const [a, b] = [...this.fingers.values()];
-    if (!b) return { x: a.x, y: a.y, spread: null };
+    if (!b) return { x: a.x, y: a.y, spread: null, angle: null };
     return {
       x: (a.x + b.x) / 2,
       y: (a.y + b.y) / 2,
       spread: Math.hypot(b.x - a.x, b.y - a.y),
+      angle: Math.atan2(b.y - a.y, b.x - a.x),
     };
   }
 }
