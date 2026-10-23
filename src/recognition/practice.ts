@@ -22,6 +22,7 @@
 import { writingLines } from "../canvas/backdrop";
 import { assignLines, lineAt } from "../canvas/writing-lines";
 import { SCHEMA_VERSION } from "../constants";
+import { MATH_SYMBOLS } from "../model/math-symbols";
 import {
   type InkDocument,
   type Page,
@@ -35,7 +36,7 @@ import {
 export const PRACTICE_FORMAT = 1;
 
 /** The lines to copy, set by set. Set 1 is the one the first practice notebooks had. */
-export const PRACTICE_SETS: readonly (readonly string[])[] = [
+const SENTENCE_PRACTICE_SETS: readonly (readonly string[])[] = [
   [
     "The quick brown fox jumps over the lazy dog.",
     "Pack my box with five dozen liquor jugs!",
@@ -132,6 +133,24 @@ export const PRACTICE_SETS: readonly (readonly string[])[] = [
     "A subset B and x not in B => x not in A",
     "F = G * m_1 * m_2 / r^2",
   ],
+];
+
+/** The personal glyph library: Grape's text alphabet plus useful written maths. */
+export const HANDWRITING_SYMBOLS: readonly string[] = [
+  ..."!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~\\",
+  ...MATH_SYMBOLS.filter(
+    (symbol) =>
+      !"!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~\\".includes(
+        symbol,
+      ),
+  ),
+];
+
+/** Set 4 is deliberately one labelled character per writing space. */
+export const SYMBOL_PRACTICE_SET = 4;
+export const PRACTICE_SETS: readonly (readonly string[])[] = [
+  ...SENTENCE_PRACTICE_SETS,
+  HANDWRITING_SYMBOLS,
 ];
 
 /** Set 1's lines (the first practice notebooks had only these). */

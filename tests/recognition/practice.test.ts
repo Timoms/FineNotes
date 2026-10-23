@@ -7,8 +7,10 @@ import { describe, expect, it } from "vitest";
 import type { PrintedText, Stroke, SyntheticBackdrop } from "../../src/model/document";
 import {
   PRACTICE_FORMAT,
+  HANDWRITING_SYMBOLS,
   PRACTICE_LINES,
   PRACTICE_SETS,
+  SYMBOL_PRACTICE_SET,
   buildPracticeFile,
   isPracticeNotebook,
   practiceLines,
@@ -50,7 +52,7 @@ describe("the practice file", () => {
     expect(words).toMatch(/Handwriting practice/);
     expect(words).toMatch(/Learn now/);
     expect(words).toMatch(/delete this file/);
-    expect(words).toMatch(/set 1 of 3/);
+    expect(words).toMatch(/set 1 of 4/);
     expect(promptsOf(cover)).toEqual([]);
     expect(pages.flatMap(promptsOf).map((line) => line.text)).toEqual(PRACTICE_LINES);
     expect(pages.every((p) => p.backdrop.kind === "ruled-wide")).toBe(true);
@@ -62,13 +64,15 @@ describe("the practice file", () => {
     expect(isPracticeNotebook(doc)).toBe(true);
   });
 
-  it("has three different sets, each asking only for characters the model can write", () => {
-    expect(PRACTICE_SETS).toHaveLength(3);
+  it("has three sentence sets and a per-symbol sheet", () => {
+    expect(PRACTICE_SETS).toHaveLength(4);
     const alphabet = parseBundle(readFileSync("models/grape-2.0.bin")).meta.alphabet;
     const all = PRACTICE_SETS.flat();
     expect(new Set(all).size).toBe(all.length);
-    for (const line of all) expect(encodeLabel(line, alphabet), line).not.toBeNull();
-    for (const [i, set] of PRACTICE_SETS.entries()) {
+    for (const line of PRACTICE_SETS.slice(0, 3).flat()) {
+      expect(encodeLabel(line, alphabet), line).not.toBeNull();
+    }
+    for (const [i, set] of PRACTICE_SETS.slice(0, 3).entries()) {
       expect(set, `set ${i + 1}`).toHaveLength(30);
       // Every letter of the alphabet, in both cases, somewhere in the set.
       const text = set.join(" ");
@@ -80,8 +84,16 @@ describe("the practice file", () => {
     const third = buildPracticeFile(3, A4);
     expect(third.practice?.set).toBe(3);
     expect(third.pages.slice(1).flatMap(promptsOf)[0].text).toBe(PRACTICE_SETS[2][0]);
+    const symbols = buildPracticeFile(SYMBOL_PRACTICE_SET, A4);
+    expect(
+      symbols.pages
+        .slice(1)
+        .flatMap(promptsOf)
+        .map((p) => p.text),
+    ).toEqual(HANDWRITING_SYMBOLS);
+    for (const char of "AaZz09!@#[]{}+=<>?") expect(HANDWRITING_SYMBOLS).toContain(char);
     // Out of range: the nearest set.
-    expect(buildPracticeFile(9, A4).practice?.set).toBe(3);
+    expect(buildPracticeFile(9, A4).practice?.set).toBe(4);
   });
 
   it("survives a save and a load, raw samples and all", () => {

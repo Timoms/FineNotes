@@ -170,6 +170,23 @@ export async function readPracticeLines(
   }));
 }
 
+/** The newest exact one-character sample, for generating ink in the writer's own hand. */
+export async function readPracticeGlyph(
+  host: LearningHost,
+  symbol: string,
+): Promise<LabelledLine | null> {
+  if ([...symbol].length !== 1) return null;
+  const files = practiceFiles(host);
+  for (let i = files.length - 1; i >= 0; i--) {
+    const lines = await readPracticeLines(host, files[i].path);
+    if (!lines) continue;
+    for (let j = lines.length - 1; j >= 0; j--) {
+      if (lines[j].text === symbol && lines[j].strokes.length > 0) return lines[j];
+    }
+  }
+  return null;
+}
+
 /**
  * The words answered under "Underline words it may have misread", as
  * labelled lines (`recognition/hwr/corrections.ts`).

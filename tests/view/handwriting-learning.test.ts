@@ -19,6 +19,7 @@ const {
   practiceSheets,
   previousKey,
   readAllPracticeLines,
+  readPracticeGlyph,
   readPracticeLines,
   swapWithPrevious,
   nextPracticeSet,
@@ -27,7 +28,8 @@ const {
   MIN_PRACTICE_LINES,
   LEARN_STEPS,
 } = await import("../../src/view/handwriting-learning");
-const { buildPracticeFile, PRACTICE_LINES } = await import("../../src/recognition/practice");
+const { buildPracticeFile, PRACTICE_LINES, SYMBOL_PRACTICE_SET } =
+  await import("../../src/recognition/practice");
 
 describe("the learned model", () => {
   it("lives in the plugin's folder, with the one it replaced beside it", () => {
@@ -68,8 +70,9 @@ describe("practice sets", () => {
     expect(nextPracticeSet([])).toBe(1);
     expect(nextPracticeSet([1])).toBe(2);
     expect(nextPracticeSet([1, 2, null])).toBe(3);
-    expect(nextPracticeSet([1, 2, 3])).toBe(1);
-    expect(nextPracticeSet([1, 2, 3, 1])).toBe(2);
+    expect(nextPracticeSet([1, 2, 3])).toBe(4);
+    expect(nextPracticeSet([1, 2, 3, 4])).toBe(1);
+    expect(nextPracticeSet([1, 2, 3, 4, 1])).toBe(2);
   });
 });
 
@@ -109,6 +112,18 @@ describe("readPracticeLines", () => {
     expect(lines).toEqual([
       { text: PRACTICE_LINES[0], strokes: [{ pts: [80, y - 8, 0.5, 300, y + 8, 0.5], t0: 12 }] },
     ]);
+  });
+
+  it("finds an exact personal glyph sample for generated handwriting", async () => {
+    const doc = buildPracticeFile(SYMBOL_PRACTICE_SET, DEFAULT_PAGE_GEOMETRY);
+    const y = 40 * 3 + 20;
+    doc.pages[1].strokes = [
+      { id: "s1", color: "#000", size: 2, tool: "pen", pts: [80, y - 8, 0.5, 90, y + 8, 0.5] },
+    ];
+    const path = "P/Handwriting practice 4.practice.md";
+    const { host } = fakeHost({ [path]: "" }, { [path]: doc });
+    expect(await readPracticeGlyph(host, "!")).toMatchObject({ text: "!" });
+    expect(await readPracticeGlyph(host, "π")).toBeNull();
   });
 });
 
