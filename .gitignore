@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-
+build/
 # Build output (release artifacts are attached to GitHub Releases, not committed)
 main.js
 main.js.map
