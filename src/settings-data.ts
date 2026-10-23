@@ -55,7 +55,7 @@ export interface GoodObsidianSettings {
   eraserSize: number;
   /** "Erase highlighter only" / "Erase pen only" (0.5). Checked where it is read. */
   eraserFilter: EraserFilter;
-  /** Freehand or rectangular lasso (0.5). Checked where it is read. */
+  /** Freehand, rectangular, ruled-line, or single-element selection. */
   lassoMode: LassoMode;
   /** What the lasso picks up (0.5). May hold anything; checked where it is read. */
   lassoFilter: LassoFilter;
@@ -263,6 +263,8 @@ export interface GoodObsidianSettings {
    * pen turned, as GoodNotes draws them (`ink/straighten.ts`).
    */
   straightHighlighter: boolean;
+  /** Gently smooth freehand pen input without changing its endpoints. */
+  handwritingCleanup: boolean;
 
   /**
    * The settings tab's sections shown open, by id; every other one is
@@ -279,6 +281,10 @@ export interface GoodObsidianSettings {
    * where read (`parseCalculatorData`, model/calculator-store.ts).
    */
   calculator?: unknown;
+  /** Appearance and units of the movable drawing ruler. Checked where read. */
+  ruler?: unknown;
+  /** Actions arranged around the floating pen companion. Checked where read. */
+  companionActions?: unknown;
 }
 
 // The records are copies, so a host that edits its settings in place cannot
@@ -355,6 +361,7 @@ export const DEFAULT_SETTINGS: GoodObsidianSettings = {
   barrelButton: "erase",
   penCursor: "ink",
   straightHighlighter: true,
+  handwritingCleanup: false,
 
   settingsOpen: [],
   scribbleTipDismissed: false,

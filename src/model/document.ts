@@ -16,6 +16,7 @@
  */
 
 import { DEFAULT_PAGE_HEIGHT, DEFAULT_PAPER_WIDTH, SCHEMA_VERSION } from "../constants";
+import type { PaperBlankZone, PaperDivider, PaperInsets, PaperTexture } from "./generated-paper";
 
 export type Tool = "pen" | "highlighter";
 
@@ -259,6 +260,14 @@ export interface SyntheticBackdrop {
    * Paper" from "Yellow Paper". Default white.
    */
   paperColor?: string;
+  /** Procedural paper grain; absent is plain paper. */
+  texture?: PaperTexture;
+  /** Insets that clip rules and grids, in page px. */
+  margins?: PaperInsets;
+  /** Sections that keep the paper but remove its ruling. */
+  blankZones?: PaperBlankZone[];
+  /** Margin/divider lines painted independently of the ruling. */
+  dividers?: PaperDivider[];
   /**
    * Text printed on the paper: the practice file's cover and its prompts.
    * Part of the template, drawn with it, so it can be neither edited, moved
@@ -339,6 +348,13 @@ export interface ImageElement {
    * to but not including 1. Absent is fully opaque.
    */
   opacity?: number;
+  /** A physical sticky note owns ink in its 180x180 paper coordinate space. */
+  sticky?: StickyNoteData;
+}
+
+export interface StickyNoteData {
+  color: string;
+  strokes: Stroke[];
 }
 
 /** The faintest a picture may be drawn: fainter would be a picture nobody can find. */

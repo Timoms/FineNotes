@@ -134,6 +134,11 @@ import { relativeLuminance } from "./model/cover";
 import { SavedPenModal } from "./view/saved-pen-modal";
 import type { BarrelAction } from "./input/pen-modifiers";
 import { type PenCursorStyle, penCursorStyleOf } from "./view/pen-cursor";
+import {
+  COMPANION_ACTIONS,
+  type CompanionAction,
+  companionActionsOf,
+} from "./model/companion-menu";
 
 export { DEFAULT_SETTINGS, type GoodObsidianSettings, type ToolId } from "./settings-data";
 
@@ -1097,6 +1102,23 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
           visible: !Platform.isMobile,
         },
         this.info(
+          drawnRow("Floating pen menu", "", (s) => this.drawCompanionActions(s), [
+            "radial menu",
+            "quick tools",
+            "floating button",
+            "pin shortcuts",
+          ]),
+          "Choose the shortcuts arranged around the movable round pen button. The button remains available while its menu collapses during writing.",
+        ),
+        this.info(
+          toggle("handwritingCleanup", "Clean up handwriting", "", [
+            "smooth handwriting",
+            "cleanup",
+            "steady ink",
+          ]),
+          "Gently removes sampling wobble while keeping each stroke's endpoints, pressure and character shape.",
+        ),
+        this.info(
           drawnRow("Keyboard shortcuts", "", (s) => this.drawShortcutsButton(s), [
             "hotkeys",
             "keys",
@@ -1232,6 +1254,31 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
     );
   }
 
+  private drawCompanionActions(setting: Setting): void {
+    const current = companionActionsOf(this.plugin.settings.companionActions);
+    const selected = new Set<CompanionAction>(current);
+    const wrap = setting.controlEl.createDiv({ cls: "goodobsidian-companion-settings" });
+    for (const action of COMPANION_ACTIONS) {
+      const button = wrap.createEl("button", {
+        cls: "goodobsidian-companion-setting clickable-icon",
+        text: action.label,
+        attr: { "aria-pressed": String(selected.has(action.id)) },
+      });
+      button.toggleClass("is-active", selected.has(action.id));
+      button.addEventListener("click", () => {
+        if (selected.has(action.id)) {
+          if (selected.size === 1) return;
+          selected.delete(action.id);
+        } else selected.add(action.id);
+        button.toggleClass("is-active", selected.has(action.id));
+        button.setAttribute("aria-pressed", String(selected.has(action.id)));
+        this.plugin.saveCompanionActions(
+          COMPANION_ACTIONS.filter((item) => selected.has(item.id)).map((item) => item.id),
+        );
+      });
+    }
+  }
+
   /** The paper, and where new notebooks go and how they are made. */
   private pagesGroup(): SettingDefinitionItem {
     const settings = this.plugin.settings;
@@ -1293,7 +1340,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
             { type: "text", key: "templateFolder", placeholder: "FineNotes templates" },
             ["template", "folder", "share"],
           ),
-          "Where Save as template puts .finetemplate files, and New notebook from template looks first.",
+          "Where notebook templates live. Generated papers and imported paper templates are kept in its Papers subfolder.",
         ),
         this.info(
           controlRow(

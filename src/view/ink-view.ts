@@ -19,7 +19,8 @@
 import { SetFurniture, furnitureText } from "../model/furniture";
 import { SetPageTab, nextTabColor } from "../model/page-tabs";
 import { SAVED_STICKERS_COLLECTION } from "./sticker-modal";
-import { stickerFolderOf } from "../model/stickers";
+import { STICKERS, stickerFileName, stickerFolderOf, stickerSvg } from "../model/stickers";
+import { STICKY_NOTE_COLORS, stickyNoteFileName, stickyNoteSvg } from "../model/sticky-notes";
 import { readShapeToolStyle } from "../model/shape-style";
 import { notebookKeyScope } from "./notebook-keys";
 import { Notice, Platform, TextFileView, TFile, type WorkspaceLeaf, normalizePath } from "obsidian";
@@ -39,6 +40,7 @@ import {
   type PageComment,
   type Page,
   type TextBoxElement,
+  strokeBounds,
   emptyDocument,
 } from "../model/document";
 import { DocumentEncoder, buildInkFile, parseInkFile } from "../model/serialize";
@@ -62,7 +64,13 @@ import { adoptTaskStates, notebookTasks, syncTaskIndex } from "../recognition/ta
 import { makeTask } from "../model/tasks";
 import { type RenderedPage, renderPageForAi } from "../recognition/page-render";
 import { type DeviceReading, aiKeyFolded, buildAiMenu } from "../recognition/ai-menu-model";
-import { learnedRecord, practiceFiles, writePracticePage } from "./handwriting-learning";
+import {
+  learnedRecord,
+  practiceFiles,
+  readPracticeGlyph,
+  writePracticePage,
+} from "./handwriting-learning";
+import { SYMBOL_PRACTICE_SET } from "../recognition/practice";
 import {
   type ChatImage,
   type ChatTurn,
@@ -96,6 +104,7 @@ import {
   paperGeometry,
   paperName,
 } from "../model/paper-library";
+import { cloneGeneratedBackdrop } from "../model/generated-paper";
 import { PdfImportModal, VaultPdfSuggestModal } from "./pdf-import-modal";
 import { WriteHold } from "./write-hold";
 import { VaultBackdropRenderer } from "./backdrop-renderer";
@@ -126,9 +135,21 @@ import {
   drawGraphMath,
   graphStateFor,
 } from "./calculator-popover";
-import { parseCalculatorData, windowOf, withWindow } from "../model/calculator-store";
+import {
+  type WindowPlace,
+  parseCalculatorData,
+  windowOf,
+  withWindow,
+} from "../model/calculator-store";
 import { GraphWindow } from "./graph-window";
 import { centredOrigin } from "../model/calculator-keys";
+import { evaluate, formatValue } from "../model/calculator";
+import { calculateNote } from "../model/calculation-notes";
+import { canInkMath, inkFromSample, inkMath } from "../ink/math-glyphs";
+import { parseRulerSettings } from "./ruler";
+import { FloatingPenMenu } from "./floating-pen-menu";
+import { MathSymbolPopover } from "./math-symbol-popover";
+import { type CompanionAction, companionActionsOf } from "../model/companion-menu";
 import {
   AddGraph,
   EditGraph,
@@ -291,6 +312,38 @@ import { errorMessage } from "../util/errors";
 import { writeSystemText } from "./system-clipboard";
 import { obsidianOpenUri } from "../model/home-link";
 
+/** Strokes likely belonging to the equation line that just ended. */
+export function calculationLineStrokes(strokes: readonly Stroke[], latest: Stroke): Stroke[] {
+  const anchor = strokeBounds(latest);
+  if (!anchor) return [];
+  const centreY = (anchor.minY + anchor.maxY) / 2;
+  const reach = Math.max(42, (anchor.maxY - anchor.minY) * 3);
+  const cutoff = latest.t0 === undefined ? null : latest.t0 - 30_000;
+  return strokes
+    .filter((stroke) => {
+      if (stroke.tool !== "pen" || stroke.shape) return false;
+      if (cutoff !== null && stroke.t0 !== undefined && stroke.t0 < cutoff) return false;
+      const bounds = strokeBounds(stroke);
+      if (!bounds || bounds.minX > anchor.maxX + 20) return false;
+      const y = (bounds.minY + bounds.maxY) / 2;
+      return Math.abs(y - centreY) <= reach;
+    })
+    .slice(-60);
+}
+
+function unionStrokeBounds(
+  strokes: readonly Stroke[],
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  const bounds = strokes.map(strokeBounds).filter((value) => value !== null);
+  if (bounds.length === 0) return null;
+  return {
+    minX: Math.min(...bounds.map((value) => value.minX)),
+    minY: Math.min(...bounds.map((value) => value.minY)),
+    maxX: Math.max(...bounds.map((value) => value.maxX)),
+    maxY: Math.max(...bounds.map((value) => value.maxY)),
+  };
+}
+
 /** Quiet time after the page being read changes before it is remembered. */
 const LAST_PAGE_DEBOUNCE_MS = 500;
 
@@ -298,6 +351,8 @@ const LAST_PAGE_DEBOUNCE_MS = 500;
 const READ_ONLY_NOTICE = "FineNotes: this notebook is read-only until its ink loads cleanly.";
 /** How long the page in view must stay before it is checked for misread words, ms. */
 const WORD_CHECK_WAIT_MS = 1500;
+/** Pause after the last stroke before Calculation Notes reads its line. */
+const CALCULATION_NOTE_WAIT_MS = 700;
 /** How long after one "this notebook is read-only" notice the next may show, ms. */
 const READ_ONLY_NOTICE_MS = 4000;
 /** How long after a notebook opens "Update available" appears, ms: once the bar is laid out. */
@@ -403,6 +458,7 @@ export class InkView extends TextFileView {
   private readOnlyNoticeAt = 0;
   private surface: InkSurface | null = null;
   private toolbar: Toolbar | null = null;
+  private companion: FloatingPenMenu | null = null;
   private sidebar: PageSidebar | null = null;
   /** The ⋯ panel, while open. */
   private morePanel: MorePanel | null = null;
@@ -412,6 +468,8 @@ export class InkView extends TextFileView {
   private coverPopover: { popover: CoverPopover; anchor: HTMLElement } | null = null;
   private aiMenu: AiMenuPopover | null = null;
   private calculator: CalculatorPopover | null = null;
+  private mathSymbols: MathSymbolPopover | null = null;
+  private mathSymbolPlace: WindowPlace | null = null;
   /** The graph popped out of the calculator, floating over the notebook. */
   private graphWindow: GraphWindow | null = null;
   /** The transcription in progress, if any; `cancelled` is set by tapping its notice. */
@@ -495,6 +553,10 @@ export class InkView extends TextFileView {
   private unwatchUpdates: (() => void) | null = null;
   /** The wait before the page in view is checked for misread words. */
   private wordCheckTimer = 0;
+  private calculationTimer = 0;
+  private pendingCalculation: { pageId: string; strokeId: string } | null = null;
+  private readonly calculatedLines = new Set<string>();
+  private readonly calculationVariables = new Map<string, Map<string, string>>();
   /** Pages read on the device this session, by key, at the hash they were read at. */
   private readonly deviceRead = new Map<string, string>();
   /** The pen is on the page. */
@@ -639,6 +701,8 @@ export class InkView extends TextFileView {
     if (held) new Notice(HELD_LOAD_NOTICE, 10000);
     this.noteBody = body;
     this.doc = doc ?? this.blankNotebook();
+    this.calculationVariables.clear();
+    this.calculatedLines.clear();
     if (doc && payload !== undefined && !held) this.encoder.remember(payload, json);
     // Files it points at that moved while it was closed (#14), and notes
     // its links lead to that Obsidian renamed in the links list.
@@ -790,6 +854,7 @@ export class InkView extends TextFileView {
   /** The pen touched the page or left it: hold, or let go of, what would stall it. */
   private penActivity(down: boolean): void {
     this.penIsDown = down;
+    if (down) this.companion?.collapse();
     window.clearTimeout(this.quietTimer);
     this.quietTimer = 0;
     const t = performance.now();
@@ -824,6 +889,9 @@ export class InkView extends TextFileView {
     this.deviceTimer = 0;
     window.clearTimeout(this.wordCheckTimer);
     this.wordCheckTimer = 0;
+    window.clearTimeout(this.calculationTimer);
+    this.calculationTimer = 0;
+    this.pendingCalculation = null;
     this.wordPopover?.close();
     this.wordPopover = null;
     window.clearTimeout(this.quietTimer);
@@ -833,6 +901,8 @@ export class InkView extends TextFileView {
     this.surface = null;
     this.toolbar?.destroy();
     this.toolbar = null;
+    this.companion?.destroy();
+    this.companion = null;
     this.unwatchUpdates?.();
     this.unwatchUpdates = null;
     this.sidebar?.destroy();
@@ -853,6 +923,8 @@ export class InkView extends TextFileView {
     this.aiMenu = null;
     this.calculator?.close();
     this.calculator = null;
+    this.mathSymbols?.close();
+    this.mathSymbols = null;
     this.graphWindow?.close();
     this.graphWindow = null;
     if (this.transcription) this.transcription.cancelled = true;
@@ -914,6 +986,58 @@ export class InkView extends TextFileView {
    */
   setPenCursor(style: unknown): void {
     this.surface?.setPenCursor(Platform.isMobile ? "arrow" : penCursorStyleOf(style));
+  }
+
+  setCompanionActions(actions: unknown): void {
+    this.companion?.setActions(companionActionsOf(actions));
+  }
+
+  private runCompanionAction(action: CompanionAction): void {
+    if (action === "stickers" || action === "sticky") return;
+    if (action === "ruler") {
+      const active = this.surface?.toggleRuler() ?? false;
+      this.toolbar?.setRulerActive(active);
+      return;
+    }
+    if (this.isProtected()) return;
+    if (action === "highlighter") this.toolState.penType = "highlighter";
+    else if (action === "pen" && this.toolState.penType === "highlighter") {
+      this.toolState.penType = "fountain";
+    }
+    this.toolState.tool = action;
+    this.surface?.setTool(action);
+    this.toolbar?.setState(this.toolState);
+  }
+
+  private async insertQuickSticker(id: string): Promise<void> {
+    const sticker = STICKERS.find((item) => item.id === id);
+    if (!sticker || this.isProtected()) return;
+    const svg = stickerSvg(sticker, this.toolState.color);
+    await this.insertImageBytes(
+      new TextEncoder().encode(svg).buffer,
+      "image/svg+xml",
+      stickerFileName(sticker, this.toolState.color),
+    );
+  }
+
+  private async insertQuickSticky(
+    color: string,
+    at: { x: number; y: number } | null,
+  ): Promise<void> {
+    if (this.isProtected()) return;
+    const point = at ? this.surface?.pagePointAtClient(at.x, at.y) : null;
+    const svg = stickyNoteSvg(color);
+    await this.insertImageBytes(
+      new TextEncoder().encode(svg).buffer,
+      "image/svg+xml",
+      stickyNoteFileName(color),
+      {
+        ...(point ? { pageIndex: point.pageIndex, center: { x: point.x, y: point.y } } : {}),
+        configure: (image) => {
+          image.sticky = { color, strokes: [] };
+        },
+      },
+    );
   }
 
   /** Keep the pen in hand for the next notebook, and the next start (FineNotes#24). */
@@ -1184,6 +1308,58 @@ export class InkView extends TextFileView {
     this.calculator = new CalculatorPopover(this.contentEl, this.calculatorHost());
   }
 
+  /** Toggle the movable table of handwritten symbols beside the calculator. */
+  private toggleMathSymbols(): void {
+    const open = this.mathSymbols;
+    this.mathSymbols = null;
+    if (open?.isOpen) {
+      open.close();
+      return;
+    }
+    this.mathSymbols = new MathSymbolPopover(this.contentEl, {
+      place: (symbol, at) => void this.insertMathSymbol(symbol, at),
+      practice: () => void this.plugin.createPracticeFile(SYMBOL_PRACTICE_SET),
+      loadPlace: () => this.mathSymbolPlace,
+      savePlace: (place) => (this.mathSymbolPlace = place),
+    });
+  }
+
+  /** Insert a palette glyph at its drop point, preferring the writer's practice sample. */
+  private async insertMathSymbol(
+    symbol: string,
+    at: { x: number; y: number } | null,
+  ): Promise<void> {
+    const surface = this.surface;
+    if (!surface || this.isProtected()) return;
+    const dropped = at ? surface.pagePointAtClient(at.x, at.y) : null;
+    if (at && !dropped) return;
+    const index = dropped?.pageIndex ?? surface.currentPage;
+    const page = surface.document.pages[index];
+    if (!page) return;
+    const visible = surface.visiblePageRect(index) ?? {
+      x: 0,
+      y: 0,
+      w: page.geometry.width,
+      h: page.geometry.height,
+    };
+    const centre = dropped ?? {
+      pageIndex: index,
+      x: visible.x + visible.w / 2,
+      y: visible.y + visible.h / 2,
+    };
+    const sample = await readPracticeGlyph(this.plugin.learningHost(), symbol);
+    if (this.surface !== surface || this.isProtected()) return;
+    const preview = sample
+      ? inkFromSample(sample.strokes, { x: 0, y: 0 }, this.toolState.color)
+      : inkMath(symbol, { x: 0, y: 0 }, this.toolState.color, 2.2, 1.55);
+    if (!preview || preview.strokes.length === 0) return;
+    const origin = { x: centre.x - preview.width / 2, y: centre.y - preview.height / 2 };
+    const ink = sample
+      ? inkFromSample(sample.strokes, origin, this.toolState.color)
+      : inkMath(symbol, origin, this.toolState.color, 2.2, 1.55);
+    if (ink) surface.insertGeneratedInk(page.id, ink.strokes);
+  }
+
   /** What the calculator needs from this notebook. */
   private calculatorHost(): CalculatorHost {
     return {
@@ -1266,6 +1442,16 @@ export class InkView extends TextFileView {
     const index = surface.currentPage;
     const page = surface.document.pages[index];
     if (!page) return false;
+    if (canInkMath(text)) {
+      const preview = inkMath(text, { x: 0, y: 0 }, this.toolState.color);
+      const at = centredOrigin(
+        surface.visiblePageRect(index),
+        page.geometry,
+        preview.width,
+        preview.height,
+      );
+      return surface.insertGeneratedInk(page.id, inkMath(text, at, this.toolState.color).strokes);
+    }
     const style = textStyleOf(sanitizeTextStyle(this.settings.textStyle));
     // A first guess at the box's size, to centre it; the box fits its text.
     // Steps come as several lines: the widest one sets the width.
@@ -2190,6 +2376,12 @@ export class InkView extends TextFileView {
       id: reading.id,
     };
     this.pageReadings.set(page.id, entry);
+    const variables = new Map<string, string>();
+    for (const line of entry.lines) {
+      const note = calculateNote(line, variables);
+      if (note.kind === "assignment") variables.set(note.name, note.expression);
+    }
+    this.calculationVariables?.set(page.id, variables);
     return entry;
   }
 
@@ -2378,6 +2570,12 @@ export class InkView extends TextFileView {
         onInsertPdf: (anchor) => this.openImageMenu(anchor, true),
         onAi: (anchor) => this.openAiMenu(anchor),
         onCalculator: () => this.toggleCalculator(),
+        onMathSymbols: () => this.toggleMathSymbols(),
+        onRuler: () => this.surface?.toggleRuler() ?? false,
+        onRulerSettings: (settings) => {
+          this.surface?.setRulerSettings(settings);
+          this.plugin.saveRulerSettings(settings);
+        },
         // Inside the tap: the microphone is only granted from a user gesture.
         onRecord: () => this.audio?.toggleRecording(),
         onSettings: () => this.openNoteSettings(),
@@ -2530,6 +2728,11 @@ export class InkView extends TextFileView {
         onAddSection: (index, at, strokeIds) => this.addSection(index, at, strokeIds),
         onLinkStrokes: (index, strokeIds, current) => this.linkInk(index, strokeIds, current),
         onMakeTask: (index, strokeIds) => this.makeInkTask(index, strokeIds),
+        onQuickMath: (index, strokeIds, bounds) =>
+          void this.calculateSelectedInk(index, strokeIds, bounds),
+        onCopyInkText: (index, strokeIds) => void this.copySelectedInkText(index, strokeIds),
+        onStrokeCommitted: (_index, stroke) => this.scheduleCalculationNote(stroke),
+        handwritingCleanup: () => this.settings.handwritingCleanup === true,
         onOpenLink: (target) => this.openInkLink(target),
         onTapComment: (index, comment) => this.openComment(index, comment),
         onAddComment: (index, at) => {
@@ -2555,6 +2758,21 @@ export class InkView extends TextFileView {
       },
     );
     this.surface.setBackdropPainter(this.backdrops);
+    const rulerSettings = parseRulerSettings(this.settings.ruler);
+    this.surface.setRulerSettings(rulerSettings);
+    this.toolbar.setRulerSettings(rulerSettings);
+    this.companion = new FloatingPenMenu(this.surface.surfaceEl, this.settings.companionActions, {
+      run: (action) => this.runCompanionAction(action),
+      stickers: () =>
+        STICKERS.slice(0, 24).map((sticker) => ({
+          id: sticker.id,
+          label: sticker.name,
+          svg: stickerSvg(sticker, this.toolState.color),
+        })),
+      pickSticker: (id) => void this.insertQuickSticker(id),
+      stickyNotes: () => STICKY_NOTE_COLORS.map((color) => ({ color, svg: stickyNoteSvg(color) })),
+      placeSticky: (color, at) => void this.insertQuickSticky(color, at),
+    });
     this.surface.toastChrome = () => this.toolbar?.chromeSpans() ?? [];
     this.surface.setNotebookTitle(this.notebookTitle());
     this.setPenCursor(this.settings.penCursor);
@@ -3401,6 +3619,142 @@ export class InkView extends TextFileView {
     });
   }
 
+  /** Read a lassoed equation, evaluate it locally, and write the answer as ordinary ink. */
+  private async calculateSelectedInk(
+    index: number,
+    strokeIds: string[],
+    bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  ): Promise<void> {
+    const surface = this.surface;
+    const page = surface?.document.pages[index];
+    if (!surface || !page || this.isProtected()) return;
+    const read = await this.readSelection(page, strokeIds);
+    if (this.surface !== surface || !surface.document.pages.includes(page) || this.isProtected()) {
+      return;
+    }
+    const expression = read.text
+      .trim()
+      .replace(/[×·]/g, "*")
+      .replace(/÷/g, "/")
+      .replace(/−/g, "-")
+      .replace(/=\s*$/, "");
+    this.writeCalculationResult(surface, page, bounds, expression, read);
+  }
+
+  /** Copy handwriting as ordinary text, using the same local reader as links and tasks. */
+  private async copySelectedInkText(index: number, strokeIds: string[]): Promise<void> {
+    const page = this.surface?.document.pages[index];
+    if (!page) return;
+    const read = await this.readSelection(page, strokeIds);
+    if (!read.text.trim()) {
+      new Notice("FineNotes: that handwriting could not be read.");
+      return;
+    }
+    void writeSystemText(read.text.trim()).then(
+      () => new Notice("FineNotes: handwriting copied as text."),
+      () => new Notice("FineNotes: the clipboard is not available here."),
+    );
+  }
+
+  /** Debounce a freshly written line; a trailing equals sign turns it into Calculation Notes. */
+  private scheduleCalculationNote(stroke: Stroke): void {
+    if (stroke.tool !== "pen" || this.settings.handwritingOnDevice === false) return;
+    const page = this.surface?.document.pages.find((candidate) =>
+      candidate.strokes.some((item) => item.id === stroke.id),
+    );
+    if (!page) return;
+    this.pendingCalculation = { pageId: page.id, strokeId: stroke.id };
+    window.clearTimeout(this.calculationTimer);
+    this.calculationTimer = window.setTimeout(() => {
+      this.calculationTimer = 0;
+      void this.calculatePendingLine();
+    }, CALCULATION_NOTE_WAIT_MS);
+  }
+
+  private async calculatePendingLine(): Promise<void> {
+    const pending = this.pendingCalculation;
+    this.pendingCalculation = null;
+    const surface = this.surface;
+    const page = surface?.document.pages.find((candidate) => candidate.id === pending?.pageId);
+    const latest = page?.strokes.find((stroke) => stroke.id === pending?.strokeId);
+    if (!surface || !page || !latest || this.isProtected()) return;
+    const strokes = calculationLineStrokes(page.strokes, latest);
+    if (strokes.length < 2) return;
+    const ids = strokes.map((stroke) => stroke.id);
+    const read = await this.readSelection(page, ids);
+    if (this.surface !== surface || !surface.document.pages.includes(page)) return;
+    const written = read.text.trim();
+    let variables = this.calculationVariables.get(page.id);
+    if (!variables) {
+      variables = new Map();
+      this.calculationVariables.set(page.id, variables);
+    }
+    const note = calculateNote(written, variables);
+    if (note.kind === "assignment") {
+      variables.set(note.name, note.expression);
+      return;
+    }
+    if (note.kind !== "answer") return;
+    const { expression, answer } = note;
+    const signature = `${page.id}:${ids.join(",")}:${expression}`;
+    if (!expression || this.calculatedLines.has(signature)) return;
+    this.calculatedLines.add(signature);
+    const bounds = unionStrokeBounds(strokes);
+    if (!bounds) return;
+    if (!this.writeCalculationAnswer(surface, page, bounds, expression, answer, read)) {
+      this.calculatedLines.delete(signature);
+    }
+  }
+
+  private writeCalculationResult(
+    surface: InkSurface,
+    page: Page,
+    bounds: { minX: number; minY: number; maxX: number; maxY: number },
+    expression: string,
+    read: SelectionText,
+  ): boolean {
+    if (!expression) {
+      new Notice("FineNotes: the selected equation could not be read.");
+      return false;
+    }
+    const result = evaluate(expression);
+    if (!result.ok) {
+      new Notice(`FineNotes: ${result.error}.`);
+      return false;
+    }
+    const answer = formatValue(result.value, { fractions: true });
+    if (!answer) {
+      new Notice("FineNotes: that result cannot be written.");
+      return false;
+    }
+    return this.writeCalculationAnswer(surface, page, bounds, expression, answer, read);
+  }
+
+  private writeCalculationAnswer(
+    surface: InkSurface,
+    page: Page,
+    bounds: { minX: number; minY: number; maxX: number; maxY: number },
+    expression: string,
+    answer: string,
+    read: SelectionText,
+  ): boolean {
+    const preview = inkMath(`= ${answer}`, { x: 0, y: 0 }, this.toolState.color);
+    const gap = 18;
+    let x = bounds.maxX + gap;
+    let y = (bounds.minY + bounds.maxY - preview.height) / 2;
+    if (x + preview.width > page.geometry.width - gap) {
+      x = Math.max(gap, bounds.minX);
+      y = bounds.maxY + gap;
+    }
+    y = Math.min(Math.max(gap, y), page.geometry.height - preview.height - gap);
+    const rendered = inkMath(`= ${answer}`, { x, y }, this.toolState.color);
+    const inserted = surface.insertGeneratedInk(page.id, rendered.strokes);
+    if (inserted && read.words.length > 0) {
+      this.recordEdits(page, read.words, expression);
+    }
+    return inserted;
+  }
+
   /** The vault's notes for the link picker, most recently changed first. */
   private linkableNotes(): LinkableNote[] {
     const from = this.file?.path ?? "";
@@ -4170,6 +4524,28 @@ export class InkView extends TextFileView {
     const surface = this.surface;
     if (!note || !surface || this.isProtected()) return;
     if (mode === "add" && this.refuseSinglePage()) return;
+    if (entry.generated) {
+      const page = surface.document.pages[ref];
+      if (!page) return;
+      const backdrop = cloneGeneratedBackdrop(entry.generated.backdrop);
+      const geometry = { ...entry.generated.geometry };
+      if (mode === "add") {
+        const doc = surface.document;
+        const insert = pageFromTemplate(
+          doc,
+          insertIndexFor(position, ref, doc.pages.length),
+          backdrop,
+          geometry,
+        );
+        surface.applyCommand(new AddPage(insert.index, insert.page));
+        surface.goToPage(insert.index, true);
+      } else {
+        surface.applyCommand(new SetPageTemplate(page, backdrop, geometry));
+      }
+      this.rememberTemplate(backdrop);
+      this.requestSave();
+      return;
+    }
     const source = this.app.vault.getFileByPath(entry.path);
     if (!source) {
       new Notice("FineNotes: that template's file is gone from the vault.");
@@ -4449,6 +4825,7 @@ export class InkView extends TextFileView {
       options.box ??
       placeImageBox({ width, height }, page.geometry, around ?? surface.visibleRegion(index));
     const image = newImageElement(doc, path, box);
+    options.configure?.(image);
     surface.applyCommand(new InsertImage(page.id, image));
     if (options.select !== false) surface.selectImage(page.id, image.id);
     return image;

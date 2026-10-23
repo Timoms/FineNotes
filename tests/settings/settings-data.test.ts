@@ -126,6 +126,7 @@ const FRESH_INSTALL = {
   barrelButton: "erase",
   penCursor: "ink",
   straightHighlighter: true,
+  handwritingCleanup: false,
   settingsOpen: [],
   scribbleTipDismissed: false,
 };
@@ -216,6 +217,7 @@ const USED_VAULT = {
   barrelButton: "pan",
   penCursor: "crosshair",
   straightHighlighter: false,
+  handwritingCleanup: true,
   settingsOpen: ["writing", "ai"],
   scribbleTipDismissed: true,
   experimentalFutureFlag: 7,

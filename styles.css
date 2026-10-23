@@ -886,6 +886,684 @@ body,
   background: var(--gob-desk);
 }
 
+/* The translucent ruler is screen chrome, not page content: it stays the same
+   physical size while the page zooms. Pointer input passes through it; the
+   surface routes fingers that land inside it to moving the ruler. */
+.goodobsidian-ruler {
+  --gob-ruler-edge: rgb(45 48 52 / 42%);
+  position: absolute;
+  z-index: 8;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  pointer-events: none;
+  transform-origin: center;
+  border: 1px solid var(--gob-ruler-edge);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--background-primary) 64%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 42%),
+    inset 0 -1px 0 rgb(0 0 0 / 8%);
+  filter: drop-shadow(0 0 0.7px var(--gob-ruler-edge)) drop-shadow(0 2px 2px rgb(0 0 0 / 16%))
+    drop-shadow(0 6px 8px rgb(0 0 0 / 15%));
+  backdrop-filter: blur(3px);
+}
+
+.goodobsidian-ruler[data-theme="light"] {
+  --gob-ruler-edge: rgb(35 35 35 / 35%);
+  border-color: rgb(35 35 35 / 35%);
+  background: rgb(250 246 225 / 88%);
+  color: #252525;
+}
+
+.goodobsidian-ruler[data-theme="dark"] {
+  --gob-ruler-edge: rgb(255 255 255 / 32%);
+  border-color: rgb(255 255 255 / 32%);
+  background: rgb(35 38 44 / 90%);
+  color: #f3f3f3;
+}
+
+.goodobsidian-ruler[data-theme="school"][data-kind="ruler"] {
+  --gob-ruler-edge: rgb(49 91 35 / 48%);
+  border-color: rgb(49 91 35 / 48%);
+  background: rgb(139 190 91 / 52%);
+  color: #284c1d;
+}
+
+.goodobsidian-ruler[data-theme="school"][data-kind="triangle"] {
+  --gob-ruler-edge: rgb(70 75 65 / 38%);
+  border-color: rgb(70 75 65 / 38%);
+  background: rgb(246 250 235 / 34%);
+  color: #3d4438;
+}
+
+.goodobsidian-ruler[data-theme="school"][data-kind="protractor"] {
+  --gob-ruler-edge: rgb(150 75 15 / 48%);
+  border-color: rgb(150 75 15 / 48%);
+  background: rgb(242 143 55 / 52%);
+  color: #713b11;
+}
+
+.goodobsidian-ruler[data-kind="triangle"] {
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  border-radius: 3px;
+}
+
+.goodobsidian-ruler[data-kind="triangle"] .goodobsidian-ruler-ticks {
+  align-items: start;
+}
+
+.goodobsidian-ruler[data-kind="triangle"] .goodobsidian-ruler-handle.is-move {
+  top: 24%;
+}
+
+.goodobsidian-ruler[data-kind="triangle"] .goodobsidian-ruler-handle.is-transform {
+  top: 24%;
+  right: 25%;
+}
+
+.goodobsidian-ruler[data-kind="protractor"] {
+  border-radius: 999px 999px 0 0;
+  -webkit-mask:
+    radial-gradient(circle at 50% 100%, transparent 0 51%, #000 51.5% 100%),
+    linear-gradient(#000 0 0) bottom / 100% 18% no-repeat;
+  mask:
+    radial-gradient(circle at 50% 100%, transparent 0 51%, #000 51.5% 100%),
+    linear-gradient(#000 0 0) bottom / 100% 18% no-repeat;
+}
+
+.goodobsidian-ruler[data-kind="protractor"] .goodobsidian-ruler-handle.is-move {
+  top: 14%;
+}
+
+.goodobsidian-ruler[data-kind="protractor"] .goodobsidian-ruler-handle.is-transform {
+  top: 68%;
+  right: 9%;
+}
+
+.goodobsidian-ruler.is-hidden {
+  display: none;
+}
+
+.goodobsidian-ruler-ticks {
+  position: relative;
+  height: 100%;
+  background-image:
+    repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px var(--gob-ruler-minor)),
+    repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px var(--gob-ruler-half)),
+    repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px var(--gob-ruler-major));
+  background-position: left top;
+  background-size:
+    100% 9px,
+    100% 15px,
+    100% 22px;
+  background-repeat: no-repeat;
+}
+
+.goodobsidian-ruler[data-kind="protractor"] .goodobsidian-ruler-ticks {
+  background: none;
+}
+
+.goodobsidian-ruler-number {
+  position: absolute;
+  top: 24px;
+  left: 3px;
+  color: currentColor;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.goodobsidian-degree {
+  position: absolute;
+  width: 1px;
+  height: 8px;
+  background: currentColor;
+  transform-origin: center;
+}
+
+.goodobsidian-degree.is-major {
+  height: 14px;
+}
+
+.goodobsidian-degree-number {
+  position: absolute;
+  translate: -50% -50%;
+  font-size: 8px;
+  line-height: 1;
+}
+
+.goodobsidian-protractor-linear-scale {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 18%;
+  background-image:
+    repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px var(--gob-ruler-minor)),
+    repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px var(--gob-ruler-half)),
+    repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px var(--gob-ruler-major));
+  background-position: left bottom;
+  background-size:
+    100% 7px,
+    100% 11px,
+    100% 16px;
+  background-repeat: no-repeat;
+}
+
+.goodobsidian-protractor-scale-number {
+  position: absolute;
+  bottom: 2px;
+  translate: -50% 0;
+  font-size: 8px;
+  line-height: 1;
+}
+
+.goodobsidian-triangle-degree-band {
+  position: absolute;
+  inset: 0;
+}
+
+.goodobsidian-triangle-degree-band::before {
+  position: absolute;
+  bottom: 2%;
+  left: 20%;
+  width: 60%;
+  height: 55%;
+  box-sizing: border-box;
+  content: "";
+  border: 8px solid color-mix(in srgb, var(--interactive-accent) 52%, transparent);
+  border-bottom: 0;
+  border-radius: 999px 999px 0 0;
+}
+
+.goodobsidian-ruler[data-theme="school"] .goodobsidian-triangle-degree-band::before {
+  border-color: rgb(246 218 32 / 92%);
+  border-bottom: 0;
+}
+
+.goodobsidian-triangle-degree,
+.goodobsidian-triangle-degree-number {
+  position: absolute;
+  z-index: 1;
+}
+
+.goodobsidian-triangle-degree {
+  width: 1px;
+  height: 8px;
+  background: currentColor;
+}
+
+.goodobsidian-triangle-degree-number {
+  translate: -50% -50%;
+  font-size: 7px;
+  line-height: 1;
+}
+
+.goodobsidian-ruler-handle {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  pointer-events: auto;
+  border: 2px solid var(--interactive-accent);
+  border-radius: 50%;
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+  translate: -50% -50%;
+}
+
+.goodobsidian-ruler-handle.is-move {
+  left: 50%;
+  cursor: move;
+}
+
+.goodobsidian-ruler-handle.is-move::after {
+  position: absolute;
+  inset: 6px;
+  content: "";
+  border-radius: 50%;
+  background: var(--interactive-accent);
+}
+
+.goodobsidian-ruler-handle.is-transform {
+  right: 1px;
+  cursor: grab;
+  translate: 50% -50%;
+}
+
+.goodobsidian-ruler-handle.is-transform::after {
+  position: absolute;
+  inset: 5px;
+  content: "";
+  border: 2px solid var(--interactive-accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+}
+
+.is-mobile .goodobsidian-ruler-handle {
+  display: none;
+}
+
+/* Floating pen companion: a movable centre button and shortcuts placed on a
+   true circle around it. Closed items stay in the DOM for a quick spring. */
+.goodobsidian-pen-companion {
+  position: absolute;
+  z-index: 12;
+  width: 0;
+  height: 0;
+  user-select: none;
+  touch-action: none;
+}
+
+.goodobsidian-pen-companion-button,
+.goodobsidian-pen-companion-item {
+  position: absolute;
+  width: var(--gob-touch);
+  height: var(--gob-touch);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 50%;
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+}
+
+.goodobsidian-pen-companion-button {
+  z-index: 2;
+  translate: -50% -50%;
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  cursor: grab;
+}
+
+.goodobsidian-pen-companion-button:active {
+  cursor: grabbing;
+}
+
+.goodobsidian-pen-companion-ring {
+  position: absolute;
+}
+
+.goodobsidian-pen-companion-item {
+  opacity: 0;
+  pointer-events: none;
+  scale: 0.55;
+  translate: -50% -50%;
+  transition:
+    opacity 120ms ease,
+    scale 180ms var(--gob-spring, ease);
+}
+
+.goodobsidian-pen-companion.is-open .goodobsidian-pen-companion-item {
+  opacity: 1;
+  pointer-events: auto;
+  scale: 1;
+}
+
+.goodobsidian-pen-companion-stickers {
+  position: absolute;
+  left: 54px;
+  top: -112px;
+  display: grid;
+  grid-template-columns: repeat(4, 50px);
+  gap: 6px;
+  max-height: 230px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--gob-radius-l);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-l);
+}
+
+.goodobsidian-pen-companion-stickers.is-hidden {
+  display: none;
+}
+
+.goodobsidian-pen-companion-sticker {
+  width: 50px;
+  height: 50px;
+  padding: 5px;
+}
+
+.goodobsidian-pen-companion-sticker svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.goodobsidian-pen-companion-stickers.is-sticky-notes {
+  grid-template-columns: repeat(3, 58px);
+  perspective: 500px;
+}
+
+.goodobsidian-sticky-choice {
+  --peel: 0;
+  position: relative;
+  border: 0;
+  background: transparent;
+  transform-style: preserve-3d;
+  transform-origin: 50% 8%;
+  transition:
+    transform 180ms ease,
+    filter 180ms ease;
+  filter: drop-shadow(1px 3px 2px rgb(0 0 0 / 18%));
+}
+
+.goodobsidian-sticky-choice:hover {
+  transform: translateY(-3px) rotateX(7deg) rotateZ(-1.5deg);
+  filter: drop-shadow(3px 7px 4px rgb(0 0 0 / 22%));
+}
+
+.goodobsidian-sticky-choice.is-peeling {
+  transform: perspective(260px) rotateX(42deg) translateY(-5px);
+  filter: drop-shadow(5px 11px 6px rgb(0 0 0 / 25%));
+}
+
+.goodobsidian-sticky-choice > svg {
+  transform-origin: 50% 8%;
+  transition:
+    clip-path 120ms linear,
+    transform 120ms linear;
+}
+
+.goodobsidian-sticky-choice.is-peeling-left > svg {
+  clip-path: polygon(
+    var(--peel-size, 0%) 100%,
+    0 calc(100% - var(--peel-size, 0%)),
+    0 0,
+    100% 0,
+    100% 100%
+  );
+}
+
+.goodobsidian-sticky-choice.is-peeling-right > svg {
+  clip-path: polygon(
+    0 100%,
+    0 0,
+    100% 0,
+    100% calc(100% - var(--peel-size, 0%)),
+    calc(100% - var(--peel-size, 0%)) 100%
+  );
+}
+
+/* The underside appears only while a bottom corner is lifted. It is a real
+   CSS 3-D fold, separate from the printable SVG paper. */
+.goodobsidian-sticky-peel {
+  position: absolute;
+  bottom: 5px;
+  width: calc(9px + var(--peel-lift, 0px));
+  height: calc(9px + var(--peel-lift, 0px));
+  pointer-events: none;
+  opacity: var(--peel);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--sticky-color) 62%, white), #fff 68%);
+  box-shadow: 2px 3px 4px rgb(0 0 0 / 24%);
+  transform-style: preserve-3d;
+}
+
+.goodobsidian-sticky-peel.is-left {
+  left: 5px;
+  transform-origin: bottom left;
+  transform: perspective(100px) rotateY(155deg) rotateZ(8deg);
+}
+
+.goodobsidian-sticky-peel.is-right {
+  right: 5px;
+  transform-origin: bottom right;
+  transform: perspective(100px) rotateY(-155deg) rotateZ(-8deg);
+}
+
+.goodobsidian-sticky-ghost {
+  position: absolute;
+  z-index: 30;
+  width: 74px;
+  height: 74px;
+  pointer-events: none;
+  translate: -50% -50%;
+  rotate: -4deg;
+  filter: drop-shadow(7px 12px 7px rgb(0 0 0 / 28%));
+  animation: goodobsidian-sticky-peel 220ms cubic-bezier(0.2, 0.85, 0.3, 1) both;
+}
+
+.goodobsidian-sticky-ghost svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes goodobsidian-sticky-peel {
+  from {
+    transform: perspective(300px) rotateX(58deg) translateY(-8px) scale(0.78);
+  }
+  62% {
+    transform: perspective(300px) rotateX(-7deg) scale(1.04);
+  }
+  to {
+    transform: perspective(300px) rotateX(0) scale(1);
+  }
+}
+
+.goodobsidian-companion-settings {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.goodobsidian-companion-setting {
+  min-height: 32px;
+  padding-inline: 10px;
+  border-radius: 999px;
+}
+
+.goodobsidian-companion-setting.is-active {
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+}
+
+.goodobsidian-ruler-setting {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) minmax(120px, 1.4fr);
+  align-items: center;
+  gap: 12px;
+  min-height: var(--gob-touch);
+}
+
+.goodobsidian-ruler-setting select,
+.goodobsidian-ruler-setting input {
+  width: 100%;
+}
+
+.goodobsidian-ruler-hide {
+  width: 100%;
+  min-height: var(--gob-touch);
+  margin-top: 10px;
+}
+
+/* Native paper generator: preview stays visible while the compact controls scroll. */
+.goodobsidian-paper-generator-modal {
+  width: min(860px, calc(100vw - 28px));
+  max-width: 860px;
+}
+
+.goodobsidian-paper-generator {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
+  gap: 20px;
+  max-height: min(68vh, 680px);
+}
+
+.goodobsidian-paper-generator-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  background: var(--background-secondary);
+}
+
+.goodobsidian-paper-generator-preview-tools {
+  z-index: 2;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  align-self: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+}
+
+.goodobsidian-paper-generator-preview-tools button {
+  width: 30px;
+  height: 30px;
+  padding: 5px;
+}
+
+.goodobsidian-paper-generator-zoom {
+  width: 44px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  text-align: center;
+}
+
+.goodobsidian-paper-generator-preview-stage {
+  position: relative;
+  display: grid;
+  flex: 1 1 auto;
+  place-items: center;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.goodobsidian-paper-generator-preview-stage.is-panning {
+  cursor: grabbing;
+}
+
+.goodobsidian-paper-generator-preview canvas {
+  width: min(260px, 100%);
+  max-height: 58vh;
+  border: 1px solid rgb(0 0 0 / 16%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 22%);
+  transform-origin: center;
+  will-change: transform;
+}
+
+.goodobsidian-paper-generator-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.goodobsidian-paper-generator-group {
+  padding: 7px 10px 9px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 9px;
+}
+
+.goodobsidian-paper-generator-group summary {
+  padding: 3px 0 7px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.goodobsidian-paper-generator-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(110px, 0.9fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+}
+
+.goodobsidian-paper-generator-row input,
+.goodobsidian-paper-generator-row select {
+  width: 100%;
+}
+
+.goodobsidian-paper-generator-row input[type="color"] {
+  height: 28px;
+  padding: 2px;
+}
+
+.goodobsidian-paper-generator-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+
+.goodobsidian-paper-generator-pair input {
+  min-width: 0;
+}
+
+.goodobsidian-paper-generator-footer {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  padding-right: 0;
+}
+
+@media (max-width: 620px) {
+  .goodobsidian-paper-generator {
+    display: flex;
+    flex-direction: column;
+    max-height: 72vh;
+    overflow: auto;
+  }
+
+  .goodobsidian-paper-generator-preview {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    min-height: 220px;
+    background: var(--background-primary);
+  }
+
+  .goodobsidian-paper-generator-preview canvas {
+    width: auto;
+    max-width: 100%;
+    height: 170px;
+  }
+
+  .goodobsidian-paper-generator-controls {
+    overflow: visible;
+  }
+}
+
+.goodobsidian-ruler-types {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.goodobsidian-popover button.goodobsidian-ruler-type {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 72px;
+  padding: 8px 4px;
+  border: 0;
+  border-radius: var(--gob-radius-m);
+  background: transparent;
+  color: var(--text-normal);
+  font-size: var(--font-ui-smaller);
+}
+
+.goodobsidian-popover button.goodobsidian-ruler-type.is-active {
+  color: var(--interactive-accent);
+  background: var(--background-modifier-hover);
+  box-shadow: inset 0 0 0 1px var(--background-modifier-border);
+}
+
 /* The row under the tool bar: page sidebar (when open) beside the surface. */
 .goodobsidian-body {
   position: relative;
@@ -4667,6 +5345,37 @@ button.goodobsidian-import-help-toggle.clickable-icon {
   -webkit-user-select: none;
 }
 
+/* A selected sticky can be picked up from either bottom corner. The canvas
+   remains the printable note; this chrome supplies the live physical fold. */
+.goodobsidian-image-frame.is-sticky-note::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(135deg, rgb(255 255 255 / 25%), rgb(255 255 255 / 92%));
+  box-shadow: 3px 5px 5px rgb(0 0 0 / 22%);
+  transition:
+    opacity 100ms ease,
+    transform 160ms ease;
+}
+
+.goodobsidian-image-frame.is-sticky-note.is-peeling-left::after {
+  left: 0;
+  opacity: 1;
+  transform-origin: bottom left;
+  transform: perspective(100px) rotateY(145deg) rotateZ(8deg);
+}
+
+.goodobsidian-image-frame.is-sticky-note.is-peeling-right::after {
+  right: 0;
+  opacity: 1;
+  transform-origin: bottom right;
+  transform: perspective(100px) rotateY(-145deg) rotateZ(-8deg);
+}
+
 /* Explore: a live canvas over one graph, its bar just above it. The graph
    itself is left out of the tiles while this is open. */
 
@@ -5923,6 +6632,16 @@ textarea.goodobsidian-chat-input:focus-visible {
 .goodobsidian-toolbar button.has-caret.is-active {
   min-width: 58px;
   padding-right: 18px;
+}
+
+.goodobsidian-toolbar button.goodobsidian-ruler-button.has-caret {
+  min-width: 58px;
+  padding-right: 18px;
+}
+
+.goodobsidian-toolbar button.goodobsidian-ruler-button .goodobsidian-ruler-caret {
+  opacity: 0.85;
+  pointer-events: auto;
 }
 
 .goodobsidian-tool-caret {
@@ -11405,7 +12124,8 @@ button.clickable-icon.goodobsidian-calc-apply.is-error {
 /* The calculator's graph popped out over the notebook (view/graph-window.ts):
    above the page, below pop-ups; moved by its bar, sized by its corner. */
 .goodobsidian-graph-window,
-.goodobsidian-calc-window {
+.goodobsidian-calc-window,
+.goodobsidian-math-window {
   position: absolute;
   z-index: 20;
   display: flex;
@@ -11423,12 +12143,14 @@ button.clickable-icon.goodobsidian-calc-apply.is-error {
 }
 
 .goodobsidian-graph-window.is-raised,
-.goodobsidian-calc-window.is-raised {
+.goodobsidian-calc-window.is-raised,
+.goodobsidian-math-window.is-raised {
   transform: scale(1.02);
 }
 
 .goodobsidian-graph-window-bar,
-.goodobsidian-calc-window-bar {
+.goodobsidian-calc-window-bar,
+.goodobsidian-math-window-bar {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -11440,7 +12162,8 @@ button.clickable-icon.goodobsidian-calc-apply.is-error {
 }
 
 .goodobsidian-graph-window-title,
-.goodobsidian-calc-window-title {
+.goodobsidian-calc-window-title,
+.goodobsidian-math-window-title {
   flex: 1 1 auto;
   color: var(--text-muted);
   font-size: var(--font-ui-small);
@@ -11448,7 +12171,8 @@ button.clickable-icon.goodobsidian-calc-apply.is-error {
 }
 
 button.clickable-icon.goodobsidian-graph-window-button,
-button.clickable-icon.goodobsidian-calc-window-button {
+button.clickable-icon.goodobsidian-calc-window-button,
+button.clickable-icon.goodobsidian-math-window-button {
   flex: 0 0 auto;
   width: 36px;
   height: 36px;
@@ -11458,7 +12182,8 @@ button.clickable-icon.goodobsidian-calc-window-button {
 }
 
 .goodobsidian-graph-window-body,
-.goodobsidian-calc-window-body {
+.goodobsidian-calc-window-body,
+.goodobsidian-math-window-body {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -11489,7 +12214,8 @@ button.clickable-icon.goodobsidian-calc-window-button {
 
 /* The corner to resize from: a 28 px target over the graph's corner. */
 .goodobsidian-graph-window-grip,
-.goodobsidian-calc-window-grip {
+.goodobsidian-calc-window-grip,
+.goodobsidian-math-window-grip {
   position: absolute;
   right: 0;
   bottom: 0;
@@ -11504,13 +12230,15 @@ button.clickable-icon.goodobsidian-calc-window-button {
 }
 
 .goodobsidian-graph-window-grip svg,
-.goodobsidian-calc-window-grip svg {
+.goodobsidian-calc-window-grip svg,
+.goodobsidian-math-window-grip svg {
   width: 14px;
   height: 14px;
 }
 
 /* Minimised: only the bar, as a pill. */
-.goodobsidian-graph-window.is-minimised {
+.goodobsidian-graph-window.is-minimised,
+.goodobsidian-math-window.is-minimised {
   border-radius: var(--gob-radius-pill);
 }
 
@@ -11518,7 +12246,11 @@ button.clickable-icon.goodobsidian-calc-window-button {
 .goodobsidian-graph-window.is-minimised .goodobsidian-graph-window-body,
 .goodobsidian-graph-window.is-minimised .goodobsidian-graph-window-grip,
 .goodobsidian-graph-window.is-minimised
-  button.clickable-icon.goodobsidian-graph-window-button:not(.is-close) {
+  button.clickable-icon.goodobsidian-graph-window-button:not(.is-close),
+.goodobsidian-math-window.is-minimised .goodobsidian-math-window-body,
+.goodobsidian-math-window.is-minimised .goodobsidian-math-window-grip,
+.goodobsidian-math-window.is-minimised
+  button.clickable-icon.goodobsidian-math-window-button:not(.is-close) {
   display: none;
 }
 
@@ -11599,8 +12331,102 @@ button.clickable-icon.goodobsidian-calc-window-button {
 
 /* The window last touched sits over the other one. */
 .goodobsidian-graph-window.is-front,
-.goodobsidian-calc-window.is-front {
+.goodobsidian-calc-window.is-front,
+.goodobsidian-math-window.is-front {
   z-index: 21;
+}
+
+/* ------------------------------------------------ handwritten math symbols */
+
+.goodobsidian-math-window-body {
+  gap: 8px;
+  overflow: hidden;
+}
+
+.goodobsidian-math-symbols {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 2px 4px 8px;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.goodobsidian-math-symbol-heading {
+  margin: 8px 2px 5px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold, 600);
+}
+
+.goodobsidian-math-symbol-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+  gap: 5px;
+}
+
+button.clickable-icon.goodobsidian-math-symbol {
+  justify-content: center;
+  min-width: 42px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--gob-radius-m);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  font-family: "Bradley Hand", "Segoe Print", cursive;
+  font-size: 25px;
+  touch-action: none;
+}
+
+button.clickable-icon.goodobsidian-math-symbol:hover {
+  border-color: var(--interactive-accent);
+  background: var(--background-modifier-hover);
+  transform: translateY(-1px);
+}
+
+.goodobsidian-math-symbol-ghost {
+  position: absolute;
+  z-index: 31;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: 1px solid var(--interactive-accent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--background-primary) 88%, transparent);
+  box-shadow: var(--gob-shadow-sheet);
+  color: var(--text-normal);
+  font-family: "Bradley Hand", "Segoe Print", cursive;
+  font-size: 34px;
+  pointer-events: none;
+  translate: -50% -50%;
+  animation: goodobsidian-symbol-lift 140ms ease-out both;
+}
+
+@keyframes goodobsidian-symbol-lift {
+  from {
+    opacity: 0.5;
+    transform: scale(0.75) rotate(-6deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+button.clickable-icon.goodobsidian-math-practice {
+  flex: 0 0 auto;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  margin: 0 4px 4px;
+  border-radius: var(--gob-radius-m);
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.goodobsidian-math-practice-icon {
+  display: inline-flex;
 }
 
 /* Select mode in the docked page sidebar (not only the overview): the bar

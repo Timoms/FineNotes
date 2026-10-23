@@ -324,6 +324,8 @@ import {
 } from "../model/image-commands";
 import { InkClipboard, pasteCopies, pastePlacement, sameSpotTaken } from "../model/clipboard";
 import {
+  AddStrokeToPage,
+  AddStrokeToSticky,
   AddTextBoxToPage,
   ClearPage,
   CompositeCommand,
@@ -332,6 +334,7 @@ import {
   SetTextBoxFrame,
   type TextBoxFrame,
 } from "../model/page-commands";
+import { stickyAt, strokeOnSticky } from "../model/sticky-notes";
 import { isLinked, linkStrokes, linksOf, withLinkedStrokes } from "../model/links";
 import { SetTask, inkBounds, taskBoxRect, tasksOf, tickTask } from "../model/tasks";
 import { fadeChanges } from "../audio/replay";
@@ -434,6 +437,8 @@ import { REST_MS, ViewRest } from "./view-rest";
 import { IdSequence, strokeIdsOf, textBoxIdsOf } from "./id-sequence";
 import { type PenCursorStyle, cursorCss, cursorFor, cursorSize, cursorToolOf } from "./pen-cursor";
 import { type Span, toastSide } from "./toast-side";
+import type { InkStrokeDraft } from "../ink/math-glyphs";
+import { type RulerGuide, RulerOverlay, type RulerSettings, projectToGuide } from "./ruler";
 
 /** Zoom in multiplies the zoom by this, and Zoom out divides by it. */
 const ZOOM_STEP = 1.25;
@@ -667,6 +672,14 @@ export interface InkSurfaceCallbacks {
    * it says, and applies `makeTask` for these stroke ids on page `index`.
    */
   onMakeTask?: (index: number, strokeIds: string[]) => void;
+  /** Evaluate selected handwriting and place its result as ink beside it. */
+  onQuickMath?: (index: number, strokeIds: string[], bounds: Bounds) => void;
+  /** Read selected ink and copy its recognised text. */
+  onCopyInkText?: (index: number, strokeIds: string[]) => void;
+  /** A freehand stroke finished; used by Calculation Notes. */
+  onStrokeCommitted?: (index: number, stroke: Stroke) => void;
+  /** Optional gentle freehand cleanup from Pens and shortcuts. */
+  handwritingCleanup?: () => boolean;
   /** Open a link's target: a finger tap on linked ink, or Open link on its selection. */
   onOpenLink?: (target: string) => void;
   /** A comment's marker was tapped (`anchor` is the marker). */
@@ -1155,6 +1168,10 @@ export class InkSurface {
   private readonly textBoxInputs = new Map<string, TextBoxView>();
   /** Dashed rectangle shown while dragging out a new text box. */
   private readonly textDraftEl: HTMLElement;
+  private readonly ruler: RulerOverlay;
+  private rulerDrag: { x: number; y: number } | null = null;
+  private rulerPinch = false;
+  private rulerGuide: RulerGuide | null = null;
   /** Page-local start of a text-tool drag, and where it currently is. */
   private textDrag: { origin: { x: number; y: number }; to: { x: number; y: number } } | null =
     null;
@@ -1681,6 +1698,7 @@ export class InkSurface {
     this.drawingTool = drawingToolOf("pen", toolState.tool);
 
     this.surfaceEl = host.createDiv({ cls: "goodobsidian-surface" });
+    this.ruler = new RulerOverlay(this.surfaceEl);
     // The three layers, bottom to top: paper, committed ink, the stroke being drawn.
     const [backdropCanvas, dryCanvas, wetCanvas] = (["backdrop", "dry", "wet"] as const).map(
       (layer) =>
@@ -2327,6 +2345,18 @@ export class InkSurface {
     return { x: left - box.x, y: top - box.y, w: right - left, h: bottom - top };
   }
 
+  /** Client coordinates over the paper as a page-local drop point. */
+  pagePointAtClient(
+    clientX: number,
+    clientY: number,
+  ): { pageIndex: number; x: number; y: number } | null {
+    const at = this.toLayout(clientX, clientY);
+    const box = boxAtPoint(this.pageLayout, at.x, at.y);
+    if (!box) return null;
+    const point = this.toPage(box, at);
+    return { pageIndex: box.index, x: point.x, y: point.y };
+  }
+
   /**
    * Where the page being read is drawn, in client px, measured with the pane
    * at rest: a running {@link glideFrom} is finished first. For a host that
@@ -2625,6 +2655,32 @@ export class InkSurface {
       // tool is no longer Text, finishing it switches nothing back.
       this.blurTextBox(`tool:${tool}`);
     }
+  }
+
+  /** Toggle the screen-space ruler without changing the writing tool. */
+  toggleRuler(): boolean {
+    this.ruler.setVisible(!this.ruler.visible);
+    this.rulerGuide = null;
+    return this.ruler.visible;
+  }
+
+  setRulerSettings(settings: RulerSettings): void {
+    this.ruler.setSettings(settings);
+  }
+
+  /** Add generated ink as one undo step, assigning collision-free stroke ids. */
+  insertGeneratedInk(pageId: string, drafts: readonly InkStrokeDraft[]): boolean {
+    const page = this.doc.pages.find((candidate) => candidate.id === pageId);
+    if (!page || drafts.length === 0 || this.callbacks.isLocked?.()) return false;
+    const commands = drafts.map(
+      (draft) => new AddStrokeToPage(page.id, { ...draft, id: this.strokeIds.next() }),
+    );
+    this.applyCommand(new CompositeCommand("Calculate handwriting", commands));
+    return true;
+  }
+
+  get rulerSettings(): RulerSettings {
+    return this.ruler.configuration;
   }
 
   /** Called only after a complete tool operation, never during pointer movement. */
@@ -3170,6 +3226,7 @@ export class InkSurface {
         : -x;
     this.paperEl.setCssStyles({ transform: `translate(${this.offsetX}px, ${-y}px)` });
     this.viewport = { scrollY: y / scale, scale, width: this.pageLayout.width };
+    this.ruler.setPageScale(scale);
     this.renderer.setViewport(this.viewport, this.offsetX, this.userZoom);
     this.updatePageIndicator();
   }
@@ -4689,7 +4746,8 @@ export class InkSurface {
     // A pen whose positions arrive as whole screen px (WebKit before iPadOS
     // 26.2) is smoothed; one that reports fractions is kept exact.
     const rounded = this.pointerInput?.strokeRounded ?? false;
-    const smoothing: Smoothing = rounded ? "centred" : "off";
+    const cleanup = this.callbacks?.handwritingCleanup?.() === true;
+    const smoothing: Smoothing = rounded || cleanup ? "centred" : "off";
     // The pen in hand's stroke stabilization, on screen like the spacing.
     // Not for the Shape tool, whose strokes become clean shapes, nor for a
     // practice file's training data.
@@ -4717,7 +4775,7 @@ export class InkSurface {
       // them. Where every sample arrives, the stroke is stored as it is.
       densify: !this.coalescedInput,
       smoothing,
-      stabilize: this.atFitZoom(stabilizationReach(percent / 100)),
+      stabilize: this.atFitZoom(stabilizationReach(Math.max(percent / 100, cleanup ? 0.04 : 0))),
       // A practice file is training data: keep the pen's samples as they came.
       record: this.practice !== null,
     };
@@ -4735,6 +4793,13 @@ export class InkSurface {
     };
   }
 
+  private ruledSample(sample: PointerSample): PointerSample {
+    const guide = this.rulerGuide;
+    if (!guide) return sample;
+    const projected = projectToGuide(this.toClient(sample), guide);
+    return { ...sample, ...this.toLayout(projected.x, projected.y) };
+  }
+
   /** Layout-space sample -> page-local sample, for the gesture's page. */
   private toPage(box: PageBox, sample: { x: number; y: number }): { x: number; y: number } {
     return { x: sample.x - box.x, y: sample.y - box.y };
@@ -4748,10 +4813,16 @@ export class InkSurface {
         this.startZoomDrag(sample);
         return;
       }
+      const client = this.toClient(sample);
+      this.rulerGuide =
+        this.toolState.tool === "pen" || this.toolState.tool === "highlighter"
+          ? this.ruler.guideAt(client.x, client.y)
+          : null;
       this.markDrawing(true);
-      this.penDown(sample);
+      this.penDown(this.ruledSample(sample));
     },
     onMove: (coalesced) => {
+      coalesced = coalesced.map((sample) => this.ruledSample(sample));
       this.penAt = coalesced[coalesced.length - 1] ?? this.penAt;
       if (this.zoomDrag) {
         this.moveZoomDrag(this.penAt);
@@ -4763,15 +4834,18 @@ export class InkSurface {
     onEnd: (sample) => {
       this.callbacks.onPen?.(false);
       this.markDrawing(false);
+      const ruled = this.ruledSample(sample);
+      this.rulerGuide = null;
       if (this.endZoomDrag()) return;
       if (this.finishCellTap(sample)) return;
       if (this.finishTextDismiss()) return;
       const box = this.activePage;
-      this.finishToolGesture(box, sample);
+      this.finishToolGesture(box, ruled);
     },
     onCancel: () => {
       this.callbacks.onPen?.(false);
       this.markDrawing(false);
+      this.rulerGuide = null;
       if (this.endZoomDrag()) return;
       if (this.finishCellTap(null)) return;
       if (this.finishTextDismiss()) return;
@@ -4780,6 +4854,10 @@ export class InkSurface {
     // Fingers. Native touch-scroll is off (touch-action: none), so the
     // scroller gets the raw gesture and the frame loop moves the page.
     onPanStart: (x, y, t) => {
+      if (this.ruler.hit(x, y)) {
+        this.rulerDrag = { x, y };
+        return;
+      }
       // A resting palm must not scroll the page out from under an image or a
       // selection being dragged; without a dragStart the moves and the end
       // are no-ops.
@@ -4816,6 +4894,11 @@ export class InkSurface {
       this.requestFrame();
     },
     onPanMove: (x, y, t) => {
+      if (this.rulerDrag) {
+        this.ruler.moveBy(x - this.rulerDrag.x, y - this.rulerDrag.y);
+        this.rulerDrag = { x, y };
+        return;
+      }
       const tap = this.fingerTap;
       if (tap && Math.hypot(x - tap.x, y - tap.y) > TAP_SLOP_PX) {
         this.fingerTap = null;
@@ -4830,6 +4913,10 @@ export class InkSurface {
       this.requestFrame();
     },
     onPanEnd: (t) => {
+      if (this.rulerDrag) {
+        this.rulerDrag = null;
+        return;
+      }
       const tap = this.fingerTap;
       this.fingerTap = null;
       this.stopPress();
@@ -4901,6 +4988,12 @@ export class InkSurface {
       this.requestFrame();
     },
     onPinchStart: (centerX, centerY) => {
+      if (this.rulerDrag || this.ruler.hit(centerX, centerY)) {
+        this.rulerPinch = true;
+        this.rulerDrag = { x: centerX, y: centerY };
+        this.pinch = null;
+        return;
+      }
       // A pinch is never a pull: the ring goes, and stays gone for this gesture.
       if (this.pullGesture) this.pullGesture.pinched = true;
       this.pullAdd.hide();
@@ -4913,6 +5006,10 @@ export class InkSurface {
       this.pinch = { raw: this.userZoom, centerX, centerY };
     },
     onPinch: (info) => {
+      if (this.rulerPinch) {
+        this.ruler.transformBy(info.scaleFactor, info.rotation);
+        return;
+      }
       const pinch = this.pinch;
       if (!pinch) return;
       pinch.raw *= info.scaleFactor;
@@ -4922,6 +5019,10 @@ export class InkSurface {
       this.applyZoom(softZoom(pinch.raw, this.minZoom, MAX_SCALE), info.centerX, info.centerY);
     },
     onPinchEnd: () => {
+      if (this.rulerPinch) {
+        this.rulerPinch = false;
+        return;
+      }
       const pinch = this.pinch;
       const overview = this.pinchOverviewArmed;
       this.pinch = null;
@@ -6085,12 +6186,18 @@ export class InkSurface {
     };
     if (shape) this.styleShape(stroke);
     this.notePracticeInput();
+    const nested = Boolean(stickyAt(page.images, { x: stroke.pts[0], y: stroke.pts[1] }));
     const command = this.commitStroke(box, page, stroke);
-    this.noteCircleLoop(page, stroke, command);
-    this.noteOffPage(box, stroke, command);
+    if (!nested && !shape && (tool === "pen" || tool === "highlighter")) {
+      this.callbacks.onStrokeCommitted?.(box.index, stroke);
+    }
+    if (!nested) {
+      this.noteCircleLoop(page, stroke, command);
+      this.noteOffPage(box, stroke, command);
+    }
     // A stroke the pen was held on ended on purpose; any other may be a
     // flicker of the Pencil's contact, which the next pen-down carries on.
-    if (!snap && !heldLongEnough) {
+    if (!nested && !snap && !heldLongEnough) {
       const end = builder.length - 1;
       const raw = builder.view;
       this.lastLift = {
@@ -6155,6 +6262,14 @@ export class InkSurface {
    * starts the page's clock in the same undo step.
    */
   private commitStroke(box: PageBox, page: Page, stroke: Stroke): Command {
+    const sticky = stickyAt(page.images, { x: stroke.pts[0], y: stroke.pts[1] });
+    if (sticky) {
+      const command = new AddStrokeToSticky(page.id, sticky.id, strokeOnSticky(sticky, stroke));
+      this.history.push(this.doc, command);
+      this.renderer?.invalidateRegion(box.index, imageBounds(sticky));
+      this.inkChanged([page.id]);
+      return command;
+    }
     const command = addStrokesTimed(page, [stroke], this.penDownAt);
     this.history.push(this.doc, command);
     this.strokeIndex.add(page.id, stroke);
@@ -6942,6 +7057,7 @@ export class InkSurface {
     if (moved > TAP_SLOP_PX) this.stopPress();
     if (lasso.mode === "freehand") for (const sample of samples) lasso.path.add(sample);
     lasso.to = { x: last.x, y: last.y };
+    if (lasso.mode === "single") return;
     if (lasso.space) {
       this.dragSpace(lasso, lasso.space);
       return;
@@ -7023,6 +7139,7 @@ export class InkSurface {
   }
 
   private lassoLoop(lasso: LassoDraft): readonly number[] {
+    if (lasso.mode === "single") return [];
     if (lasso.mode === "lines") {
       const span = this.lassoSpan(lasso);
       return span ? spanOutline(lasso.lines[span.block], span) : [];
@@ -7096,6 +7213,11 @@ export class InkSurface {
     this.renderer?.clearWet();
     // A held press has opened its bar already; the lift only lets go.
     if (!lasso || lasso.held) return;
+    if (lasso.mode === "single") {
+      if (this.offerStrokeTap(lasso.box, lasso.to, PEN_TAP_TOLERANCE_PX)) this.dropSelection();
+      else this.tapSelect(lasso.box, lasso.to, PEN_TAP_TOLERANCE_PX);
+      return;
+    }
     if (lasso.space) {
       // Planned against the document as it is now: nothing else can have
       // changed it while the pen was down, but plan again to be sure.
@@ -7872,6 +7994,38 @@ export class InkSurface {
             }),
         },
       });
+      const quickMath = this.callbacks.onQuickMath;
+      const bounds = this.groupBounds(sel);
+      const index = this.doc.pages.findIndex((page) => page.id === sel.pageId);
+      if (quickMath && bounds && index >= 0) {
+        actions.unshift({
+          id: "quick-math",
+          icon: "sigma",
+          label: "Quick math",
+          group: "math",
+          bar: true,
+          run: () => {
+            const ids = sel.strokes.map((stroke) => stroke.id);
+            this.clearSelection();
+            quickMath(index, ids, bounds);
+          },
+        });
+      }
+      const copyInkText = this.callbacks.onCopyInkText;
+      if (copyInkText && index >= 0) {
+        actions.unshift({
+          id: "copy-ink-text",
+          icon: "scan-text",
+          label: "Copy as text",
+          group: "edit",
+          bar: true,
+          run: () =>
+            copyInkText(
+              index,
+              sel.strokes.map((stroke) => stroke.id),
+            ),
+        });
+      }
     }
     actions.push(...this.shapeStyleActions(sel.strokes));
     const heading = this.groupBounds(sel);
@@ -10284,6 +10438,7 @@ export class InkSurface {
     const fit = edgeHandlesFit(t, HANDLE_HIT_RADIUS_PX / scale);
     this.imageFrameEl.toggleClass("no-ns", !fit.ns);
     this.imageFrameEl.toggleClass("no-ew", !fit.ew);
+    this.imageFrameEl.toggleClass("is-sticky-note", Boolean(sel.image.sticky));
   }
 
   /**
@@ -10304,9 +10459,15 @@ export class InkSurface {
     const from = this.pagePoint(box, event.clientX, event.clientY);
     const scale = this.unitScale;
     const start = transformOf(sel.image);
-    const part =
+    let part =
       hitImagePart(start, from, HANDLE_HIT_RADIUS_PX / scale, ROTATE_HANDLE_OFFSET_PX / scale) ??
       "body";
+    // A sticky is picked up by peeling either bottom corner. The remaining
+    // handles retain ordinary resize/rotate behaviour.
+    if (sel.image.sticky && (part === "sw" || part === "se")) {
+      this.imageFrameEl.addClass(part === "sw" ? "is-peeling-left" : "is-peeling-right");
+      part = "body";
+    }
     const grabbed = part === "body" || part === "rotate" ? from : imageHandlePoint(start, part);
     try {
       this.imageFrameEl.setPointerCapture(event.pointerId);
@@ -10403,6 +10564,8 @@ export class InkSurface {
       this.imageFrameEl.releasePointerCapture(drag.pointerId);
     }
     this.imageUiEl.removeClass("is-dragging");
+    this.imageFrameEl.removeClass("is-peeling-left");
+    this.imageFrameEl.removeClass("is-peeling-right");
     if (!drag.lifted) {
       this.syncImageOverlay();
       return;

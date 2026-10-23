@@ -180,6 +180,15 @@ import {
   type ShapeToolStyle,
   readShapeToolStyle,
 } from "../model/shape-style";
+import {
+  DEFAULT_RULER_SETTINGS,
+  type RulerSettings,
+  type RulerDegreeSnap,
+  type RulerKind,
+  type RulerTheme,
+  type RulerUnit,
+  parseRulerSettings,
+} from "./ruler";
 
 /**
  * Tools selectable in the toolbar. Pen, highlighter and shape produce
@@ -317,6 +326,13 @@ const LASSO_MODE_LABELS: Record<LassoMode, string> = {
   rect: "Rectangular",
   freehand: "Freehand",
   lines: "By line",
+  single: "Select",
+};
+
+const RULER_KIND_LABELS: Record<RulerKind, string> = {
+  ruler: "Straight",
+  triangle: "Triangle",
+  protractor: "Degrees",
 };
 
 /** GoodNotes' "What to include in the selection", less what this plugin does not have. */
@@ -476,6 +492,12 @@ export interface ToolbarCallbacks {
   onAi?: (anchor: HTMLElement) => void;
   /** Open the calculator; `anchor` is the button. */
   onCalculator?: (anchor: HTMLElement) => void;
+  /** Open the draggable handwritten math-symbol table. */
+  onMathSymbols?: (anchor: HTMLElement) => void;
+  /** Show or hide the movable drawing ruler. */
+  onRuler?: () => boolean;
+  /** Apply the ruler's appearance and measurement settings. */
+  onRulerSettings?: (settings: RulerSettings) => void;
   /** Start or stop an audio recording, or open its controls; `anchor` is the button. */
   onRecord?: (anchor: HTMLElement) => void;
   /** Open this note's settings (where its pictures and recordings go); `anchor` is the gear. */
@@ -601,6 +623,8 @@ export interface FoldedBarItem {
  */
 const FOLD_RANK = {
   calculator: 0,
+  mathSymbols: 0,
+  ruler: 0,
   pdf: 1,
   record: 2,
   image: 3,
@@ -675,6 +699,8 @@ export class Toolbar {
   > = [];
   private moreButton: HTMLButtonElement | null = null;
   private settingsButton: HTMLButtonElement | null = null;
+  private rulerButton: HTMLButtonElement | null = null;
+  private rulerSettings: RulerSettings = { ...DEFAULT_RULER_SETTINGS };
   /** "Update available" under the gear while it shows (`showUpdateTip`). */
   private updateTip: HTMLElement | null = null;
   /** Sets `is-crowded` from the groups' widths (`watchCrowding`). */
@@ -864,6 +890,26 @@ export class Toolbar {
     keep(this.foldButton(left, FOLD_RANK.search, "search", "Search this notebook", cb.onSearch));
     keep(this.foldButton(left, FOLD_RANK.ai, "sparkles", "AI", cb.onAi));
     keep(this.foldButton(left, FOLD_RANK.calculator, "calculator", "Calculator", cb.onCalculator));
+    keep(this.foldButton(left, FOLD_RANK.mathSymbols, "sigma", "Math symbols", cb.onMathSymbols));
+    this.rulerButton = this.foldButton(left, FOLD_RANK.ruler, "ruler", "Ruler", (button) =>
+      this.tapRuler(button),
+    );
+    this.rulerButton.addClass("has-caret");
+    this.rulerButton.addClass("goodobsidian-ruler-button");
+    const rulerCaret = this.rulerButton.createSpan?.({
+      cls: "goodobsidian-tool-caret goodobsidian-ruler-caret",
+    });
+    if (rulerCaret) {
+      iconOrText(rulerCaret, "chevron-down", "");
+      rulerCaret.setAttribute("role", "button");
+      rulerCaret.setAttribute("aria-label", "Ruler settings");
+      rulerCaret.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (this.rulerButton) this.toggleRulerPopover(this.rulerButton);
+      });
+    }
+    keep(this.rulerButton);
 
     const history = this.barEl.createDiv({ cls: "goodobsidian-bar-group is-centre" });
     this.undoButton = this.barButton(history, "undo-2", "Undo (Cmd/Ctrl+Z)", () =>
@@ -916,6 +962,140 @@ export class Toolbar {
       cb.onSettings,
     );
     this.watchCrowding();
+  }
+
+  /** The main ruler button toggles it; its separate caret opens settings. */
+  private tapRuler(anchor: HTMLElement): void {
+    const button = this.rulerButton;
+    if (!button) return;
+    void anchor;
+    const active = this.callbacks.onRuler?.() ?? false;
+    button.toggleClass("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+    if (!active && this.popoverKind === "ruler") this.closePopover();
+  }
+
+  private toggleRulerPopover(anchor: HTMLElement): void {
+    if (this.popoverKind === "ruler") {
+      this.closePopover();
+      return;
+    }
+    const body = this.openPopover("ruler", anchor);
+    body.createEl("h3", { cls: "goodobsidian-ruler-settings-title", text: "Ruler" });
+
+    const choice = <T extends string>(
+      label: string,
+      values: readonly T[],
+      current: T,
+      name: (value: T) => string,
+      change: (value: T) => void,
+    ): void => {
+      const row = body.createDiv({ cls: "goodobsidian-ruler-setting" });
+      row.createSpan({ text: label });
+      const select = row.createEl("select", { attr: { "aria-label": label } });
+      for (const value of values) {
+        const option = select.createEl("option", { text: name(value), value });
+        option.selected = value === current;
+      }
+      select.addEventListener("change", () => change(select.value as T));
+    };
+    const apply = (patch: Partial<RulerSettings>): void => {
+      this.rulerSettings = parseRulerSettings({ ...this.rulerSettings, ...patch });
+      this.callbacks.onRulerSettings?.(this.rulerSettings);
+    };
+    body.createDiv({ cls: "goodobsidian-popover-label", text: "Ruler type" });
+    const types = body.createDiv({ cls: "goodobsidian-ruler-types" });
+    for (const kind of ["ruler", "triangle", "protractor"] as const) {
+      const card = types.createEl("button", {
+        cls: "goodobsidian-ruler-type clickable-icon",
+        attr: { "aria-label": RULER_KIND_LABELS[kind] },
+      });
+      card.append(rulerGlyph(kind));
+      card.createSpan({ cls: "goodobsidian-ruler-type-label", text: RULER_KIND_LABELS[kind] });
+      card.toggleClass("is-active", kind === this.rulerSettings.kind);
+      card.setAttribute("aria-pressed", String(kind === this.rulerSettings.kind));
+      card.addEventListener("click", () => {
+        apply({ kind });
+        for (const button of Array.from(types.querySelectorAll("button"))) {
+          button.toggleClass("is-active", button === card);
+          button.setAttribute("aria-pressed", String(button === card));
+        }
+      });
+    }
+    choice<RulerTheme>(
+      "Theme",
+      ["clear", "light", "dark", "school"],
+      this.rulerSettings.theme,
+      (theme) => theme[0].toUpperCase() + theme.slice(1),
+      (theme) => apply({ theme }),
+    );
+    const lengthControl: { label?: HTMLElement; input?: HTMLInputElement } = {};
+    choice<RulerUnit>(
+      "Units",
+      ["cm", "inch"],
+      this.rulerSettings.unit,
+      (unit) => (unit === "cm" ? "Centimetres" : "Inches"),
+      (unit) => {
+        const mm = this.rulerSettings.baseLength * (this.rulerSettings.unit === "inch" ? 25.4 : 10);
+        const baseLength = mm / (unit === "inch" ? 25.4 : 10);
+        apply({ unit, baseLength });
+        lengthControl.label?.setText(`Base length (${unit})`);
+        const input = lengthControl.input;
+        if (input) {
+          input.min = unit === "inch" ? "2" : "5";
+          input.max = unit === "inch" ? "20" : "50";
+          input.step = unit === "inch" ? "0.25" : "0.5";
+          input.value = String(Number(this.rulerSettings.baseLength.toFixed(2)));
+        }
+      },
+    );
+
+    const lengthRow = body.createDiv({ cls: "goodobsidian-ruler-setting" });
+    lengthControl.label = lengthRow.createSpan({
+      text: `Base length (${this.rulerSettings.unit})`,
+    });
+    const length = lengthRow.createEl("input", {
+      type: "number",
+      attr: {
+        min: this.rulerSettings.unit === "inch" ? "2" : "5",
+        max: this.rulerSettings.unit === "inch" ? "20" : "50",
+        step: this.rulerSettings.unit === "inch" ? "0.25" : "0.5",
+        value: String(Number(this.rulerSettings.baseLength.toFixed(2))),
+        "aria-label": "Ruler base length",
+      },
+    });
+    lengthControl.input = length;
+    length.addEventListener("change", () => apply({ baseLength: Number(length.value) }));
+
+    const snapRow = body.createDiv({ cls: "goodobsidian-ruler-setting" });
+    snapRow.createSpan({ text: "Degree snapping" });
+    const snap = snapRow.createEl("select", { attr: { "aria-label": "Degree snapping" } });
+    const snapOptions: ReadonlyArray<[RulerDegreeSnap, string]> = [
+      ["off", "Off"],
+      [5, "Every 5°"],
+      [15, "Every 15°"],
+      [30, "Every 30°"],
+      [45, "Every 45°"],
+    ];
+    for (const [value, label] of snapOptions) {
+      const option = snap.createEl("option", { text: label, value: String(value) });
+      option.selected = value === this.rulerSettings.degreeSnap;
+    }
+    snap.addEventListener("change", () => {
+      const value = snap.value === "off" ? "off" : Number(snap.value);
+      apply({ degreeSnap: value as RulerDegreeSnap });
+    });
+
+    this.keepPopoverInside(anchor);
+  }
+
+  setRulerSettings(settings: RulerSettings): void {
+    this.rulerSettings = parseRulerSettings(settings);
+  }
+
+  setRulerActive(active: boolean): void {
+    this.rulerButton?.toggleClass("is-active", active);
+    this.rulerButton?.setAttribute("aria-pressed", String(active));
   }
 
   /**
@@ -3796,6 +3976,26 @@ function shapeGlyph(mode: ShapeMode): SVGElement {
  * rectangular lasso, a dashed freehand blob for the freehand one. The lasso
  * tool's own button draws the same picture for the type in use.
  */
+function rulerGlyph(kind: RulerKind, size = 44): SVGElement {
+  const svg = activeDocument.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 48 32");
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(Math.round((size * 2) / 3)));
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("fill", "currentColor");
+  svg.setAttribute("fill-opacity", "0.13");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.6");
+  svg.setAttribute("stroke-linejoin", "round");
+  const outline = activeDocument.createElementNS(SVG_NS, "path");
+  if (kind === "triangle") outline.setAttribute("d", "M3 28h42L45 4zM15 24h22L37 11z");
+  else if (kind === "protractor") {
+    outline.setAttribute("d", "M3 28a21 21 0 0 1 42 0H3zm10 0a11 11 0 0 1 22 0");
+  } else outline.setAttribute("d", "M3 10h42v13H3zM9 10v6m6-6v4m6-4v6m6-6v4m6-4v6m6-6v4");
+  svg.append(outline);
+  return svg;
+}
+
 function lassoGlyph(mode: LassoMode, size = 30): SVGElement {
   const svg = activeDocument.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 32 32");
@@ -3807,9 +4007,13 @@ function lassoGlyph(mode: LassoMode, size = 30): SVGElement {
   svg.setAttribute("stroke-width", "2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
-  svg.setAttribute("stroke-dasharray", "4 3.2");
+  if (mode !== "single") svg.setAttribute("stroke-dasharray", "4 3.2");
   const shape = activeDocument.createElementNS(SVG_NS, mode === "rect" ? "rect" : "path");
-  if (mode === "lines") {
+  if (mode === "single") {
+    shape.setAttribute("d", "M8 4 24 18l-7 1 4 7-4 2-4-7-5 5z");
+    shape.setAttribute("fill", "currentColor");
+    shape.setAttribute("fill-opacity", "0.18");
+  } else if (mode === "lines") {
     // The staircase a text selection makes over three lines.
     shape.setAttribute("d", "M14 7h13v12h-9v6H5V13h9z");
     shape.setAttribute("fill", "currentColor");

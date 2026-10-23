@@ -42,6 +42,7 @@ import { readTabColor } from "./page-tabs";
 import { normalizeTable } from "./table";
 import { normalizeGraph } from "./graph-element";
 import { normalizeComment } from "./comments";
+import { parseGeneratedPaper } from "./generated-paper";
 import {
   type AttachmentFolders,
   type Backdrop,
@@ -58,6 +59,7 @@ import {
   type Ruling,
   type ShapeKind,
   type Stroke,
+  type SyntheticBackdrop,
   type TextAlign,
   type GraphElement,
   type TableElement,
@@ -160,6 +162,10 @@ interface StoredStroke {
   samples?: number[];
 }
 
+type StoredImage = Omit<ImageElement, "sticky"> & {
+  sticky?: { color: string; strokes: StoredStroke[] };
+};
+
 interface StoredPage {
   id: string;
   kind: string;
@@ -172,7 +178,7 @@ interface StoredPage {
   sections?: PageSection[];
   links?: InkLink[];
   tasks?: InkTask[];
-  images: ImageElement[];
+  images: StoredImage[];
   textBoxes: TextBoxElement[];
   tables?: TableElement[];
   graphs?: GraphElement[];
@@ -283,7 +289,11 @@ function storePage(page: Page): StoredPage {
     sections: page.sections && page.sections.length > 0 ? page.sections : undefined,
     links: page.links && page.links.length > 0 ? page.links : undefined,
     tasks: page.tasks && page.tasks.length > 0 ? page.tasks : undefined,
-    images: page.images,
+    images: page.images.map((image) =>
+      image.sticky
+        ? { ...image, sticky: { ...image.sticky, strokes: image.sticky.strokes.map(storeStroke) } }
+        : image,
+    ),
     textBoxes: page.textBoxes,
     tables: page.tables && page.tables.length > 0 ? page.tables : undefined,
     graphs: page.graphs && page.graphs.length > 0 ? page.graphs : undefined,
@@ -756,11 +766,28 @@ function normalizeBackdrop(raw: unknown): Backdrop {
       ...(typeof b.spacing === "number" && b.spacing > 0 ? { spacing: b.spacing } : {}),
       ...(typeof b.color === "string" ? { color: b.color } : {}),
       ...(typeof b.paperColor === "string" ? { paperColor: b.paperColor } : {}),
+      ...(b.texture === "fine" || b.texture === "heavy" ? { texture: b.texture } : {}),
+      ...normalizeGeneratedLayout(b),
       ...(printed.length > 0 ? { printed } : {}),
     };
   }
   // Unknown ruling from a newer build: keep the page, lose only the paper.
   return { kind: "blank" };
+}
+
+function normalizeGeneratedLayout(b: Record<string, unknown>): Partial<SyntheticBackdrop> {
+  const parsed = parseGeneratedPaper({
+    format: 1,
+    geometry: { width: DEFAULT_PAPER_WIDTH, height: DEFAULT_PAGE_HEIGHT },
+    backdrop: { kind: "blank", margins: b.margins, blankZones: b.blankZones, dividers: b.dividers },
+  });
+  if (!parsed) return {};
+  const { margins, blankZones, dividers } = parsed.backdrop;
+  return {
+    ...(margins ? { margins } : {}),
+    ...(blankZones ? { blankZones } : {}),
+    ...(dividers ? { dividers } : {}),
+  };
 }
 
 function normalizeImage(raw: unknown, mintId: () => string): ImageElement | null {
@@ -783,6 +810,9 @@ function normalizeImage(raw: unknown, mintId: () => string): ImageElement | null
     ...(raw.front === true ? { front: true as const } : {}),
     ...(readImageOpacity(raw.opacity) !== undefined
       ? { opacity: readImageOpacity(raw.opacity) }
+      : {}),
+    ...(isRecord(raw.sticky) && typeof raw.sticky.color === "string"
+      ? { sticky: { color: raw.sticky.color, strokes: readStrokes(raw.sticky.strokes) } }
       : {}),
   };
 }

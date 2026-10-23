@@ -387,6 +387,8 @@ describe("the rows", () => {
       ...DEFAULT_PEN_NAMES.map((name) => [PENS, name, "render"]),
       [PENS, "Stylus side button", "dropdown:barrelButton"],
       [PENS, "Cursor over the page", "dropdown:penCursor"],
+      [PENS, "Floating pen menu", "render"],
+      [PENS, "Clean up handwriting", "toggle:handwritingCleanup"],
       [PENS, "Keyboard shortcuts", "render"],
       [PAGES, "Page appearance", "render"],
       [PAGES, "Paper width", "render"],
@@ -558,6 +560,8 @@ const PEN_ROWS = [
   ...DEFAULT_PEN_NAMES,
   "Stylus side button",
   "Cursor over the page",
+  "Floating pen menu",
+  "Clean up handwriting",
   "Keyboard shortcuts",
 ];
 
@@ -612,7 +616,7 @@ describe("which rows show", () => {
       "New notebook button in the file explorer",
       "Show notebook folders as notebooks",
       // The models' introduction.
-      "(block 33)",
+      "(block 35)",
       ...DEFAULT_MODEL_ROWS,
       "Set up an AI service",
       "Pressure-sensitive pens",
@@ -643,7 +647,7 @@ describe("which rows show", () => {
       "More",
       "Image generation",
       // Claude makes no pictures: the callout saying so.
-      "(block 55)",
+      "(block 57)",
     ]);
   });
 
@@ -1508,7 +1512,7 @@ describe("folding sections", () => {
     const plugin = makePlugin({ settingsOpen: ["pens", "advanced"] });
     const headings = unfoldedRows(makeTab(plugin, false).tab).map((r) => r.heading);
     expect([...new Set(headings)]).toEqual([PENS, ADVANCED, ""]);
-    expect(headings.filter((h) => h === PENS)).toHaveLength(12);
+    expect(headings.filter((h) => h === PENS)).toHaveLength(14);
   });
 
   it("keeps a folded section's rows, so search still finds them", () => {
@@ -1787,7 +1791,7 @@ describe("the learned handwriting model", () => {
     expect(head.descEl.textContent).toBe("Not learned yet");
     expect(await learnedMenu(tab)).toBeUndefined();
     const learn = renderRow(named(rows(tab), LEARN));
-    expect(learn.descEl.text).toBe("0 of 3 sheets · 0 lines");
+    expect(learn.descEl.text).toBe("0 of 4 sheets · 0 lines");
     expect(learn.buttons.map((b) => [b.text, b.cta])).toEqual([
       ["Write sheet 1", true],
       ["Learn now", false],

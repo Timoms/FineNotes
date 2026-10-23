@@ -81,6 +81,18 @@ describe("v2 pages, backdrops, images and shapes", () => {
     });
   });
 
+  it("round-trips a generated paper's texture, margins, blank zone and dividers", () => {
+    const backdrop = {
+      kind: "squared" as const,
+      texture: "fine" as const,
+      margins: { top: 20, right: 20, bottom: 20, left: 20 },
+      blankZones: [{ side: "right" as const, size: 160 }],
+      dividers: [{ side: "right" as const, inset: 160, color: "#dd7777", width: 1 }],
+    };
+    const doc = pageDoc({ backdrop });
+    expect(decodeDocument(encodeDocument(doc)).pages[0].backdrop).toEqual(backdrop);
+  });
+
   it("round-trips a PDF backdrop by path and page index", () => {
     const doc = pageDoc({ backdrop: { kind: "pdf", path: "Lectures/w3.pdf", page: 4 } });
     expect(decodeDocument(encodeDocument(doc)).pages[0].backdrop).toEqual({
@@ -116,6 +128,34 @@ describe("v2 pages, backdrops, images and shapes", () => {
     expect(out).toHaveLength(2);
     expect(out[0].rotation).toBeCloseTo(0.25, 5);
     expect(out[1].rotation).toBeUndefined();
+  });
+
+  it("round-trips sticky-note ink in the paper's local coordinate space", () => {
+    const doc = pageDoc({
+      images: [
+        {
+          id: "i1",
+          path: "Attachments/sticky.svg",
+          x: 20,
+          y: 30,
+          w: 180,
+          h: 180,
+          sticky: {
+            color: "#ffd95a",
+            strokes: [
+              { id: "s9", color: "#123456", size: 2, tool: "pen", pts: [12.34, 56.78, 0.5] },
+            ],
+          },
+        },
+      ],
+    });
+    const sticky = decodeDocument(encodeDocument(doc)).pages[0].images[0].sticky;
+    expect(sticky).toMatchObject({
+      color: "#ffd95a",
+      strokes: [{ id: "s9", color: "#123456", size: 2, tool: "pen" }],
+    });
+    expect(sticky?.strokes[0].pts.slice(0, 2)).toEqual([12.34, 56.78]);
+    expect(sticky?.strokes[0].pts[2]).toBeCloseTo(0.5, 2);
   });
 
   it("round-trips page text boxes and drops malformed entries", () => {

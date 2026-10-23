@@ -14,6 +14,8 @@ import { mimeForExtension } from "./canvas/image-raster";
 import { StickerModal } from "./view/sticker-modal";
 import { stickerFileName, stickerFolderOf, stickerSvg } from "./model/stickers";
 import { type ShapeToolStyle, readShapeToolStyle } from "./model/shape-style";
+import { type RulerSettings, parseRulerSettings } from "./view/ruler";
+import { type CompanionAction, companionActionsOf } from "./model/companion-menu";
 import { FileExplorerNotebookButton } from "./view/file-explorer-notebook-button";
 import { ExplorerFolderNotebooks } from "./view/explorer-folder-notebooks";
 import { WordCheck } from "./view/word-check";
@@ -128,6 +130,7 @@ import { VaultBackdropRenderer } from "./view/backdrop-renderer";
 import { thumbnailRasterScale } from "./view/page-sidebar";
 import { renderPageThumbnail } from "./canvas/renderer";
 import { PAPER_COPY_PREFIX, type PaperEntry, paperName } from "./model/paper-library";
+import { cloneGeneratedBackdrop } from "./model/generated-paper";
 
 /** Where the name a user shares templates under is remembered, on this device. */
 const SHARE_AUTHOR_KEY = "finenotes:share-author";
@@ -159,7 +162,7 @@ import {
   learnedModelPath,
   writePracticePage,
 } from "./view/handwriting-learning";
-import { buildPracticeFile } from "./recognition/practice";
+import { SYMBOL_PRACTICE_SET, buildPracticeFile } from "./recognition/practice";
 import { NOTEBOOK_FILE_SUFFIX, PRACTICE_FILE_SUFFIX, SINGLE_PAGE_FILE_SUFFIX } from "./constants";
 import { DEFAULT_PAGE_GEOMETRY } from "./model/document";
 import type { TextStyle } from "./model/text-style";
@@ -666,6 +669,11 @@ export default class GoodObsidianPlugin extends Plugin {
       callback: () => void writePracticePage(this.learningHost()),
     });
     this.addCommand({
+      id: "write-handwriting-symbol-practice",
+      name: "Write a handwriting symbol sheet",
+      callback: () => void this.createPracticeFile(SYMBOL_PRACTICE_SET),
+    });
+    this.addCommand({
       id: "learn-handwriting",
       name: "Learn my handwriting from the practice files",
       callback: () => void this.learner.start(),
@@ -1096,6 +1104,19 @@ export default class GoodObsidianPlugin extends Plugin {
   saveShapeStyle(style: ShapeToolStyle): void {
     this.settings.shapeStyle = readShapeToolStyle(style);
     void this.saveSettings();
+  }
+
+  /** Remember the ruler's theme, units and display scale. */
+  saveRulerSettings(settings: RulerSettings): void {
+    this.settings.ruler = parseRulerSettings(settings);
+    void this.saveSettings();
+  }
+
+  /** Remember and immediately apply the floating companion's pinned shortcuts. */
+  saveCompanionActions(actions: readonly CompanionAction[]): void {
+    this.settings.companionActions = companionActionsOf(actions);
+    void this.saveSettings();
+    for (const view of this.openNotebooks()) view.setCompanionActions(actions);
   }
 
   /** Remember the custom colours picked lately, for every colour picker. */
@@ -1694,7 +1715,9 @@ export default class GoodObsidianPlugin extends Plugin {
   async openShareTemplate(initial?: string): Promise<void> {
     const entries = await this.paperLibrary().list();
     const counts = new Map<string, number>();
-    for (const entry of entries) counts.set(entry.path, (counts.get(entry.path) ?? 0) + 1);
+    for (const entry of entries) {
+      if (!entry.generated) counts.set(entry.path, (counts.get(entry.path) ?? 0) + 1);
+    }
     const templates = [...counts].map(([path, pages]) => ({ path, name: paperName(path), pages }));
     const saved: unknown = this.app.loadLocalStorage(SHARE_AUTHOR_KEY);
     new ShareTemplateModal(
@@ -1728,6 +1751,26 @@ export default class GoodObsidianPlugin extends Plugin {
     template: PaperEntry,
     library: VaultPaperLibrary,
   ): Promise<void> {
+    if (template.generated) {
+      const generated = template.generated;
+      await this.createNotebook(title, choices, folder, (heading, attachments) => {
+        const doc = buildNewDocument({ ...choices, type: "notebook" }, heading, attachments);
+        doc.pages = [
+          {
+            id: "p1",
+            kind: "ink",
+            geometry: { ...generated.geometry },
+            backdrop: cloneGeneratedBackdrop(generated.backdrop),
+            strokes: [],
+            images: [],
+            textBoxes: [],
+          },
+        ];
+        doc.view.width = generated.geometry.width;
+        return doc;
+      });
+      return;
+    }
     const source = this.app.vault.getFileByPath(template.path);
     if (!source) {
       new Notice("FineNotes: that template's file is gone from the vault.");
