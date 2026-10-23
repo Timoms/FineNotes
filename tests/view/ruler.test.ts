@@ -70,10 +70,7 @@ describe("ruler geometry", () => {
 
   it("projects ink onto a protractor arc", () => {
     expect(
-      projectToGuide(
-        { x: 6, y: 8 },
-        { kind: "arc", center: { x: 0, y: 0 }, radius: 5 },
-      ),
+      projectToGuide({ x: 6, y: 8 }, { kind: "arc", center: { x: 0, y: 0 }, radius: 5 }),
     ).toEqual({ x: 3, y: 4 });
   });
 

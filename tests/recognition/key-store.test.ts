@@ -42,7 +42,7 @@ describe("secretIdFor", () => {
     const slots: LlmVendor[] = ["anthropic", "openai", "google", "openrouter", "custom"];
     const secrets = new FakeSecrets();
     for (const slot of slots) {
-      expect(secretIdFor(slot)).toBe(`goodobsidian-${slot}-api-key`);
+      expect(secretIdFor(slot)).toBe(`finenotes-x-${slot}-api-key`);
       expect(() => secrets.setSecret(secretIdFor(slot), "x")).not.toThrow();
     }
   });
@@ -157,9 +157,9 @@ describe("migrateKeys", () => {
     expect(fields.llmApiKey).toBe("");
     expect(fields.llmCustomApiKey).toBe("");
     expect(fields.apiKeys).toEqual({});
-    expect(secrets.getSecret("goodobsidian-openai-api-key")).toBe("sk-1");
-    expect(secrets.getSecret("goodobsidian-custom-api-key")).toBe("local");
-    expect(secrets.getSecret("goodobsidian-google-api-key")).toBe("AIza1");
+    expect(secrets.getSecret("finenotes-x-openai-api-key")).toBe("sk-1");
+    expect(secrets.getSecret("finenotes-x-custom-api-key")).toBe("local");
+    expect(secrets.getSecret("finenotes-x-google-api-key")).toBe("AIza1");
   });
 
   it("keeps the plaintext key when the keychain fails, so nothing is lost", () => {
@@ -172,10 +172,10 @@ describe("migrateKeys", () => {
 
   it("does not overwrite a newer key already in the slot, but clears the stale copy", () => {
     const secrets = new FakeSecrets();
-    secrets.setSecret("goodobsidian-openai-api-key", "sk-new");
+    secrets.setSecret("finenotes-x-openai-api-key", "sk-new");
     const fields = legacy({ llmVendor: "openai", llmApiKey: "sk-old" });
     expect(migrateKeys(fields, new SecretKeyStore(secrets))).toBe(1);
-    expect(secrets.getSecret("goodobsidian-openai-api-key")).toBe("sk-new");
+    expect(secrets.getSecret("finenotes-x-openai-api-key")).toBe("sk-new");
     expect(fields.llmApiKey).toBe("");
   });
 

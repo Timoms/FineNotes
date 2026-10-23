@@ -113,7 +113,7 @@ function setup(): { renderer: Renderer; wet: FakeCanvas; wetLog: Call[] } {
 describe("renderLasso", () => {
   it("draws the loop closed, filled even–odd, dashed, and shows the wet layer", () => {
     const { renderer, wet, wetLog } = setup();
-    expect(wet.classes.has("goodobsidian-wet-hidden")).toBe(true);
+    expect(wet.classes.has("finenotes-x-wet-hidden")).toBe(true);
     renderer.renderLasso(0, [10, 10, 100, 10, 60, 80]);
     const names = wetLog.map(([name]) => name);
     expect(names).toContain("closePath");
@@ -124,7 +124,7 @@ describe("renderLasso", () => {
     expect(wetLog.find(([name]) => name === "fill")).toEqual(["fill", "evenodd"]);
     expect(names).toContain("setLineDash");
     expect(names.indexOf("stroke")).toBeGreaterThan(names.indexOf("fill"));
-    expect(wet.classes.has("goodobsidian-wet-hidden")).toBe(false);
+    expect(wet.classes.has("finenotes-x-wet-hidden")).toBe(false);
   });
 
   it("draws nothing for a loop of one point, or an unknown page", () => {
@@ -214,7 +214,7 @@ describe("renderImageCropDraft", () => {
       ["rect", 50, 0, 100, 100],
     ]);
     expect(wetLog.at(-2)).toEqual(["fill", "evenodd"]);
-    expect(wet.classes.has("goodobsidian-wet-hidden")).toBe(false);
+    expect(wet.classes.has("finenotes-x-wet-hidden")).toBe(false);
   });
 
   it("draws nothing without a painter, an unknown page or an empty picture", () => {

@@ -23,13 +23,13 @@ export class ApiKeyModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-dialog");
+    this.modalEl.addClass("finenotes-x-dialog");
     this.titleEl.setText(this.options.title);
-    this.contentEl.addClass("goodobsidian-key-modal");
-    this.contentEl.createEl("p", { cls: "goodobsidian-key-where", text: this.options.where });
+    this.contentEl.addClass("finenotes-x-key-modal");
+    this.contentEl.createEl("p", { cls: "finenotes-x-key-where", text: this.options.where });
 
     const input = this.contentEl.createEl("input", {
-      cls: "goodobsidian-key-input",
+      cls: "finenotes-x-key-input",
       type: "password",
       placeholder: this.options.placeholder,
     });

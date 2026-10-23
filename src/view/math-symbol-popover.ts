@@ -23,7 +23,7 @@ export class MathSymbolPopover {
   ) {
     this.frame = new FloatingWindow({
       container,
-      cls: "goodobsidian-math-window",
+      cls: "finenotes-x-math-window",
       title: "Math symbols",
       label: "Math symbols",
       closeLabel: "Close math symbols",
@@ -39,18 +39,18 @@ export class MathSymbolPopover {
       savePlace: (place) => host.savePlace(place),
       onClose: () => this.close(),
     });
-    const table = this.frame.body.createDiv({ cls: "goodobsidian-math-symbols" });
+    const table = this.frame.body.createDiv({ cls: "finenotes-x-math-symbols" });
     for (const group of MATH_SYMBOL_GROUPS) {
-      const section = table.createDiv({ cls: "goodobsidian-math-symbol-group" });
-      section.createDiv({ cls: "goodobsidian-math-symbol-heading", text: group.label });
-      const grid = section.createDiv({ cls: "goodobsidian-math-symbol-grid" });
+      const section = table.createDiv({ cls: "finenotes-x-math-symbol-group" });
+      section.createDiv({ cls: "finenotes-x-math-symbol-heading", text: group.label });
+      const grid = section.createDiv({ cls: "finenotes-x-math-symbol-grid" });
       for (const symbol of group.symbols) this.symbolButton(grid, symbol, container);
     }
     const practice = this.frame.body.createEl("button", {
-      cls: "goodobsidian-math-practice clickable-icon",
+      cls: "finenotes-x-math-practice clickable-icon",
       text: "Teach FineNotes my symbols",
     });
-    setIcon(practice.createSpan({ cls: "goodobsidian-math-practice-icon" }), "pen-line");
+    setIcon(practice.createSpan({ cls: "finenotes-x-math-practice-icon" }), "pen-line");
     practice.addEventListener("click", () => host.practice());
   }
 
@@ -66,7 +66,7 @@ export class MathSymbolPopover {
 
   private symbolButton(grid: HTMLElement, symbol: string, container: HTMLElement): void {
     const button = grid.createEl("button", {
-      cls: "goodobsidian-math-symbol clickable-icon",
+      cls: "finenotes-x-math-symbol clickable-icon",
       text: symbol,
       attr: { "aria-label": `Insert ${symbol}`, title: "Tap to insert or drag onto the page" },
     });
@@ -74,7 +74,7 @@ export class MathSymbolPopover {
       null;
     button.addEventListener("pointerdown", (event) => {
       event.preventDefault();
-      const ghost = container.createDiv({ cls: "goodobsidian-math-symbol-ghost", text: symbol });
+      const ghost = container.createDiv({ cls: "finenotes-x-math-symbol-ghost", text: symbol });
       drag = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false, ghost };
       button.setPointerCapture(event.pointerId);
       this.placeGhost(ghost, container, event.clientX, event.clientY);

@@ -35,7 +35,7 @@ export class ConfirmModal extends Modal {
 
   override onOpen(): void {
     const { title, message, cta, warning } = this.options;
-    this.modalEl.addClass("goodobsidian-dialog");
+    this.modalEl.addClass("finenotes-x-dialog");
     this.titleEl.setText(title);
     this.contentEl.createEl("p", { text: message });
     new Setting(this.contentEl)

@@ -788,11 +788,11 @@ export class Toolbar {
     this.palette = [...palette];
     this.optionsTool = state.tool;
     this.optionsVisible = !STARTS_TUCKED.has(optionsKey(state.tool));
-    this.barEl = host.createDiv({ cls: "goodobsidian-toolbar" });
+    this.barEl = host.createDiv({ cls: "finenotes-x-toolbar" });
     this.barEl.setAttribute("role", "toolbar");
     this.barEl.setAttribute("aria-label", "Handwriting tools");
     // The pill always floats over the page (styles.css, `.is-floating`).
-    this.optionsEl = host.createDiv({ cls: "goodobsidian-options is-floating" });
+    this.optionsEl = host.createDiv({ cls: "finenotes-x-options is-floating" });
     this.optionsEl.setAttribute("role", "toolbar");
     this.optionsEl.setAttribute("aria-label", "Tool options");
 
@@ -868,7 +868,7 @@ export class Toolbar {
     // `undefined` is load-bearing — barButton disables a button that has no
     // handler, which is how the not-yet-implemented tools render greyed out.
     const cb = this.callbacks;
-    const left = this.barEl.createDiv({ cls: "goodobsidian-bar-group" });
+    const left = this.barEl.createDiv({ cls: "finenotes-x-bar-group" });
     this.thumbnailsButton = this.barButton(
       left,
       "panel-left",
@@ -895,9 +895,9 @@ export class Toolbar {
       this.tapRuler(button),
     );
     this.rulerButton.addClass("has-caret");
-    this.rulerButton.addClass("goodobsidian-ruler-button");
+    this.rulerButton.addClass("finenotes-x-ruler-button");
     const rulerCaret = this.rulerButton.createSpan?.({
-      cls: "goodobsidian-tool-caret goodobsidian-ruler-caret",
+      cls: "finenotes-x-tool-caret finenotes-x-ruler-caret",
     });
     if (rulerCaret) {
       iconOrText(rulerCaret, "chevron-down", "");
@@ -911,7 +911,7 @@ export class Toolbar {
     }
     keep(this.rulerButton);
 
-    const history = this.barEl.createDiv({ cls: "goodobsidian-bar-group is-centre" });
+    const history = this.barEl.createDiv({ cls: "finenotes-x-bar-group is-centre" });
     this.undoButton = this.barButton(history, "undo-2", "Undo (Cmd/Ctrl+Z)", () =>
       this.callbacks.onUndo(),
     );
@@ -924,10 +924,10 @@ export class Toolbar {
     );
 
     // The writing tools, centred on the bar (styles.css), as GoodNotes has them.
-    const tools = this.barEl.createDiv({ cls: "goodobsidian-bar-group is-tools" });
+    const tools = this.barEl.createDiv({ cls: "finenotes-x-bar-group is-tools" });
     this.toolsGroup = tools;
     // First, so every button paints over it.
-    this.toolIndicator = tools.createDiv({ cls: "goodobsidian-tool-indicator is-hidden" });
+    this.toolIndicator = tools.createDiv({ cls: "finenotes-x-tool-indicator is-hidden" });
     keep(this.addToolButton(tools, "select", "lasso", "Lasso select (V)"));
     this.addToolButton(tools, "pen", "pen-tool", "Pen (P or W)");
     this.addToolButton(tools, "eraser", "eraser", "Eraser (E)");
@@ -950,7 +950,7 @@ export class Toolbar {
     // button (export as PDF), its ⋯ sheet for the page being read
     // (bookmark, duplicate, go to page, clear, delete), then, rightmost,
     // the note's own settings.
-    const doc = this.barEl.createDiv({ cls: "goodobsidian-bar-group goodobsidian-bar-doc" });
+    const doc = this.barEl.createDiv({ cls: "finenotes-x-bar-group finenotes-x-bar-doc" });
     this.addPageButton = this.foldButton(doc, FOLD_RANK.addPage, "plus", "Add page", cb.onAddPage);
     keep(this.foldButton(doc, FOLD_RANK.share, "share", "Export as PDF", cb.onShare));
     this.moreButton = this.barButton(doc, "more-horizontal", "More", cb.onMore);
@@ -981,7 +981,7 @@ export class Toolbar {
       return;
     }
     const body = this.openPopover("ruler", anchor);
-    body.createEl("h3", { cls: "goodobsidian-ruler-settings-title", text: "Ruler" });
+    body.createEl("h3", { cls: "finenotes-x-ruler-settings-title", text: "Ruler" });
 
     const choice = <T extends string>(
       label: string,
@@ -990,7 +990,7 @@ export class Toolbar {
       name: (value: T) => string,
       change: (value: T) => void,
     ): void => {
-      const row = body.createDiv({ cls: "goodobsidian-ruler-setting" });
+      const row = body.createDiv({ cls: "finenotes-x-ruler-setting" });
       row.createSpan({ text: label });
       const select = row.createEl("select", { attr: { "aria-label": label } });
       for (const value of values) {
@@ -1003,15 +1003,15 @@ export class Toolbar {
       this.rulerSettings = parseRulerSettings({ ...this.rulerSettings, ...patch });
       this.callbacks.onRulerSettings?.(this.rulerSettings);
     };
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Ruler type" });
-    const types = body.createDiv({ cls: "goodobsidian-ruler-types" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Ruler type" });
+    const types = body.createDiv({ cls: "finenotes-x-ruler-types" });
     for (const kind of ["ruler", "triangle", "protractor"] as const) {
       const card = types.createEl("button", {
-        cls: "goodobsidian-ruler-type clickable-icon",
+        cls: "finenotes-x-ruler-type clickable-icon",
         attr: { "aria-label": RULER_KIND_LABELS[kind] },
       });
       card.append(rulerGlyph(kind));
-      card.createSpan({ cls: "goodobsidian-ruler-type-label", text: RULER_KIND_LABELS[kind] });
+      card.createSpan({ cls: "finenotes-x-ruler-type-label", text: RULER_KIND_LABELS[kind] });
       card.toggleClass("is-active", kind === this.rulerSettings.kind);
       card.setAttribute("aria-pressed", String(kind === this.rulerSettings.kind));
       card.addEventListener("click", () => {
@@ -1050,7 +1050,7 @@ export class Toolbar {
       },
     );
 
-    const lengthRow = body.createDiv({ cls: "goodobsidian-ruler-setting" });
+    const lengthRow = body.createDiv({ cls: "finenotes-x-ruler-setting" });
     lengthControl.label = lengthRow.createSpan({
       text: `Base length (${this.rulerSettings.unit})`,
     });
@@ -1067,7 +1067,7 @@ export class Toolbar {
     lengthControl.input = length;
     length.addEventListener("change", () => apply({ baseLength: Number(length.value) }));
 
-    const snapRow = body.createDiv({ cls: "goodobsidian-ruler-setting" });
+    const snapRow = body.createDiv({ cls: "finenotes-x-ruler-setting" });
     snapRow.createSpan({ text: "Degree snapping" });
     const snap = snapRow.createEl("select", { attr: { "aria-label": "Degree snapping" } });
     const snapOptions: ReadonlyArray<[RulerDegreeSnap, string]> = [
@@ -1118,7 +1118,7 @@ export class Toolbar {
         const box = group.getBoundingClientRect();
         if (box.width === 0) continue;
         // Where each side's groups sit while the tools are centred.
-        if (group.hasClass("goodobsidian-bar-doc")) rightEdge = Math.min(rightEdge, box.left);
+        if (group.hasClass("finenotes-x-bar-doc")) rightEdge = Math.min(rightEdge, box.left);
         else leftEdge = Math.max(leftEdge, box.right);
       }
       const centre = bar.left + bar.width / 2;
@@ -1192,15 +1192,15 @@ export class Toolbar {
     if (!anchor || anchor.getBoundingClientRect().width === 0) return false;
     this.hideUpdateTip();
     // On the body: the bar clips what leaves it (overflow: hidden).
-    const tip = anchor.ownerDocument.body.createDiv({ cls: "goodobsidian-update-tip" });
-    const text = tip.createSpan({ cls: "goodobsidian-update-tip-text", text: "Update available" });
+    const tip = anchor.ownerDocument.body.createDiv({ cls: "finenotes-x-update-tip" });
+    const text = tip.createSpan({ cls: "finenotes-x-update-tip-text", text: "Update available" });
     text.setAttribute("role", "button");
     text.setAttribute("aria-label", "Update available: open FineNotes' settings");
     text.addEventListener("click", () => {
       this.hideUpdateTip();
       open();
     });
-    const close = tip.createSpan({ cls: "goodobsidian-update-tip-close" });
+    const close = tip.createSpan({ cls: "finenotes-x-update-tip-close" });
     setIcon(close, "x");
     close.setAttribute("role", "button");
     close.setAttribute("aria-label", "Dismiss");
@@ -1318,7 +1318,7 @@ export class Toolbar {
     label: string,
     handler: ((button: HTMLButtonElement) => void) | undefined,
   ): HTMLButtonElement {
-    const button = parent.createEl("button", { cls: "goodobsidian-tool" });
+    const button = parent.createEl("button", { cls: "finenotes-x-tool" });
     iconOrText(button, icon, label);
     button.setAttr("aria-label", label);
     if (!handler) {
@@ -1352,11 +1352,11 @@ export class Toolbar {
     }
     if (tool === "select") {
       button.addClass("has-caret");
-      iconOrText(button.createSpan({ cls: "goodobsidian-tool-caret" }), "chevron-down", "");
+      iconOrText(button.createSpan({ cls: "finenotes-x-tool-caret" }), "chevron-down", "");
       button.setAttribute("aria-haspopup", "dialog");
     }
     if (tool === "pen") {
-      button.addClass("goodobsidian-tool-pen");
+      button.addClass("finenotes-x-tool-pen");
       this.penToolButton = button;
       this.drawPenPreview();
     }
@@ -1382,9 +1382,9 @@ export class Toolbar {
     this.penPreviewKey = key;
     button.empty();
     const glyph = penGlyph(spec.id, color);
-    glyph.classList.add("goodobsidian-tool-pen-glyph");
+    glyph.classList.add("finenotes-x-tool-pen-glyph");
     button.append(glyph);
-    const mark = button.createSpan({ cls: "goodobsidian-tool-pen-width" });
+    const mark = button.createSpan({ cls: "finenotes-x-tool-pen-width" });
     mark.toggleClass("is-highlighter", spec.tool === "highlighter");
     mark.toggleClass("is-rimmed", inkNeedsRim(color, dark));
     mark.setCssProps({
@@ -1406,10 +1406,10 @@ export class Toolbar {
     this.lassoIconMode = mode;
     // Whatever `iconOrText` put there: Lucide's lasso, or its text fallback.
     for (const child of Array.from(button.childNodes)) {
-      if (!(child.instanceOf(HTMLElement) && child.hasClass("goodobsidian-tool-caret")))
+      if (!(child.instanceOf(HTMLElement) && child.hasClass("finenotes-x-tool-caret")))
         child.remove();
     }
-    button.removeClass("goodobsidian-icon-fallback");
+    button.removeClass("finenotes-x-icon-fallback");
     const glyph = lassoGlyph(mode, 22);
     // Less margin than the card's, so it is as large as the icons beside it.
     glyph.setAttribute("viewBox", "2.5 2.5 27 27");
@@ -1429,7 +1429,7 @@ export class Toolbar {
     if (mode === this.eraserIconMode) return;
     this.eraserIconMode = mode;
     button.empty();
-    button.removeClass("goodobsidian-icon-fallback");
+    button.removeClass("finenotes-x-icon-fallback");
     eraserModeIcon(button, mode, "Eraser");
     const label = ERASER_MODES.find((m) => m.id === mode)?.label ?? "Standard";
     button.setAttribute(
@@ -1558,7 +1558,7 @@ export class Toolbar {
     // One live pen button, not four permanent swatches. The three pen styles
     // remain one tap away in its menu, keeping the writing area clear.
     const active = this.activePenType();
-    const pen = this.optionsEl.createEl("button", { cls: "goodobsidian-pentype" });
+    const pen = this.optionsEl.createEl("button", { cls: "finenotes-x-pentype" });
     pen.append(penGlyph(active.id, this.state.color));
     pen.setAttribute("aria-label", `${active.label} options`);
     pen.setAttribute("title", `${active.label} options`);
@@ -1566,7 +1566,7 @@ export class Toolbar {
     this.penTypeButtons.set(active.id, pen);
     this.chevron("Pen options", () => this.togglePenTypeList());
 
-    this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
 
     // Stroke widths, drawn as literal strokes of increasing weight.
     for (const width of this.quickWidths()) {
@@ -1578,7 +1578,7 @@ export class Toolbar {
     }
     this.chevron("More widths", (button) => this.toggleWidthList(button));
 
-    this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
 
     // Five colours, then every colour in the picker.
     for (const color of this.quickColors()) {
@@ -1596,7 +1596,7 @@ export class Toolbar {
     }
     // A dashed ring holding a "+", as GoodNotes' "add colour" (styles.css).
     const more = this.optionsEl.createEl("button", {
-      cls: "goodobsidian-color-more clickable-icon",
+      cls: "finenotes-x-color-more clickable-icon",
     });
     iconOrText(more, "plus", "+");
     more.setAttribute("aria-label", "More colours");
@@ -1609,9 +1609,9 @@ export class Toolbar {
 
     // Auto-shape: a stroke that is plainly a shape snaps to it on lift.
     if (this.practice) return;
-    this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
     const auto = this.optionsEl.createEl("button", {
-      cls: "goodobsidian-shape goodobsidian-pen-autoshape clickable-icon",
+      cls: "finenotes-x-shape finenotes-x-pen-autoshape clickable-icon",
     });
     auto.append(shapeGlyph("auto"));
     const on = this.state.penAutoShape === true;
@@ -1630,9 +1630,9 @@ export class Toolbar {
     // at the far end: used less than the pen, widths and colours. (A
     // practice file has returned above.)
     if (this.callbacks.savedPens) {
-      this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+      this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
       const saved = this.optionsEl.createEl("button", {
-        cls: "goodobsidian-saved-pens clickable-icon",
+        cls: "finenotes-x-saved-pens clickable-icon",
       });
       iconOrText(saved, "star", "Saved pens");
       saved.setAttribute("aria-label", "Saved pens (1–8)");
@@ -1751,7 +1751,7 @@ export class Toolbar {
 
   /** A colour swatch, shared by the pen pill and the text colour popover. */
   private swatchButton(parent: HTMLElement, color: string, onPick: () => void): HTMLButtonElement {
-    const swatch = parent.createEl("button", { cls: "goodobsidian-swatch" });
+    const swatch = parent.createEl("button", { cls: "finenotes-x-swatch" });
     // The swatch *is* the ink colour, so this one inline style is the value
     // itself rather than chrome; everything else comes from Obsidian's vars.
     // The colour only: the `background` shorthand would reset the stylesheet's
@@ -1759,7 +1759,7 @@ export class Toolbar {
     swatch.setCssStyles({ backgroundColor: color });
     // The chosen swatch wears a ▾ in whichever of dark or white reads on it.
     swatch.setCssProps({ "--gob-swatch-mark": contrastMark(color) });
-    iconOrText(swatch.createSpan({ cls: "goodobsidian-swatch-mark" }), "chevron-down", "▾");
+    iconOrText(swatch.createSpan({ cls: "finenotes-x-swatch-mark" }), "chevron-down", "▾");
     swatch.setAttr("aria-label", color);
     swatch.addEventListener("click", onPick);
     return swatch;
@@ -1767,8 +1767,8 @@ export class Toolbar {
 
   /** The laser has nothing to set: the pill says what it is and that nothing it draws stays. */
   private buildLaserOptions(): void {
-    const note = this.optionsEl.createDiv({ cls: "goodobsidian-laser-note" });
-    iconOrText(note.createSpan({ cls: "goodobsidian-laser-note-icon" }), "pointer", "");
+    const note = this.optionsEl.createDiv({ cls: "finenotes-x-laser-note" });
+    iconOrText(note.createSpan({ cls: "finenotes-x-laser-note-icon" }), "pointer", "");
     note.createSpan({ text: "Laser pointer (L): its trail fades and is never saved" });
   }
 
@@ -1783,7 +1783,7 @@ export class Toolbar {
       return;
     }
     const body = this.openPopover("saved-pens", anchor);
-    body.addClass("goodobsidian-saved-pens-popover");
+    body.addClass("finenotes-x-saved-pens-popover");
     this.popoverRender = () => {
       body.empty();
       this.renderSavedPens(body);
@@ -1793,18 +1793,18 @@ export class Toolbar {
   }
 
   private renderSavedPens(body: HTMLElement): void {
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Saved pens" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Saved pens" });
     const pens = this.callbacks.savedPens?.() ?? [];
     const current = penOfState(this.state);
     const inHand = this.state.tool === "pen" || this.state.tool === "highlighter";
     pens.forEach((pen, index) => {
       const spec = PEN_TYPES.find((type) => type.id === pen.type) ?? PEN_TYPES[0];
       const row = body.createEl("button", {
-        cls: "goodobsidian-wide goodobsidian-pen-row goodobsidian-saved-pen",
+        cls: "finenotes-x-wide finenotes-x-pen-row finenotes-x-saved-pen",
       });
       row.append(penGlyph(spec.id, pen.color));
-      row.createSpan({ cls: "goodobsidian-saved-pen-label", text: savedPenLabel(pen) });
-      row.createEl("kbd", { cls: "goodobsidian-saved-pen-key", text: String(index + 1) });
+      row.createSpan({ cls: "finenotes-x-saved-pen-label", text: savedPenLabel(pen) });
+      row.createEl("kbd", { cls: "finenotes-x-saved-pen-key", text: String(index + 1) });
       row.toggleClass("is-active", inHand && samePen(pen, current));
       row.addEventListener("click", () => {
         this.closePopover();
@@ -1812,12 +1812,12 @@ export class Toolbar {
       });
     });
     if (pens.length === 0) {
-      body.createDiv({ cls: "goodobsidian-popover-hint", text: "No saved pens yet." });
+      body.createDiv({ cls: "finenotes-x-popover-hint", text: "No saved pens yet." });
     }
-    body.createDiv({ cls: "goodobsidian-popover-divider" });
+    body.createDiv({ cls: "finenotes-x-popover-divider" });
     const saved = pens.some((pen) => samePen(pen, current));
     const add = body.createEl("button", {
-      cls: "goodobsidian-wide goodobsidian-popover-link clickable-icon",
+      cls: "finenotes-x-wide finenotes-x-popover-link clickable-icon",
     });
     add.createSpan({
       text: saved
@@ -1834,10 +1834,10 @@ export class Toolbar {
     });
     if (!this.callbacks.onEditPens) return;
     const edit = body.createEl("button", {
-      cls: "goodobsidian-wide goodobsidian-popover-link clickable-icon",
+      cls: "finenotes-x-wide finenotes-x-popover-link clickable-icon",
     });
     edit.createSpan({ text: "Edit saved pens" });
-    iconOrText(edit.createSpan({ cls: "goodobsidian-popover-link-icon" }), "chevron-right", ">");
+    iconOrText(edit.createSpan({ cls: "finenotes-x-popover-link-icon" }), "chevron-right", ">");
     edit.addEventListener("click", () => {
       this.closePopover();
       this.callbacks.onEditPens?.();
@@ -1871,22 +1871,22 @@ export class Toolbar {
   private buildEraserOptions(): void {
     // Mode first, as in GoodNotes: "Standard" with a chevron to switch.
     const mode = ERASER_MODES.find((m) => m.id === eraserModeFor(this.state)) ?? ERASER_MODES[0];
-    const modeButton = this.optionsEl.createEl("button", { cls: "goodobsidian-erasermode" });
-    const modeIcon = modeButton.createSpan({ cls: "goodobsidian-erasermode-icon" });
+    const modeButton = this.optionsEl.createEl("button", { cls: "finenotes-x-erasermode" });
+    const modeIcon = modeButton.createSpan({ cls: "finenotes-x-erasermode-icon" });
     eraserModeIcon(modeIcon, mode.id, mode.label);
     modeButton.createSpan({ text: mode.label });
-    const modeCaret = modeButton.createSpan({ cls: "goodobsidian-erasermode-caret" });
+    const modeCaret = modeButton.createSpan({ cls: "finenotes-x-erasermode-caret" });
     iconOrText(modeCaret, "chevron-down", "");
     modeButton.setAttribute("aria-label", `Eraser mode: ${mode.label}`);
     modeButton.addEventListener("click", () => this.toggleEraserModeList(modeButton));
 
-    this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
 
     // Sizes, drawn as eraser footprints of increasing diameter: the presets,
     // with a size set on the slider in place of the nearest one. The chevron
     // opens the slider, as the pen's widths do.
     for (const size of quickEraserSizes(eraserSizeFor(this.state))) {
-      const button = this.optionsEl.createEl("button", { cls: "goodobsidian-erasersize" });
+      const button = this.optionsEl.createEl("button", { cls: "finenotes-x-erasersize" });
       button.append(eraserSizeGlyph(size));
       button.setAttribute("aria-label", `Eraser size ${formatMm(size)}`);
       button.addEventListener("click", () => {
@@ -1898,25 +1898,25 @@ export class Toolbar {
     this.chevron("Eraser size", (anchor) => this.toggleEraserSizeList(anchor));
 
     // What it erases: GoodNotes' "Erase highlighter only", and "pen only".
-    this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
     const filter = eraserFilterFor(this.state);
     const filterButton = this.optionsEl.createEl("button", {
-      cls: "goodobsidian-erasermode goodobsidian-eraserfilter",
+      cls: "finenotes-x-erasermode finenotes-x-eraserfilter",
     });
-    const filterIcon = filterButton.createSpan({ cls: "goodobsidian-erasermode-icon" });
+    const filterIcon = filterButton.createSpan({ cls: "finenotes-x-erasermode-icon" });
     const icon =
       filter === "highlighter" ? "highlighter" : filter === "pen" ? "pen-line" : "layers";
     iconOrText(filterIcon, icon, ERASER_FILTER_LABELS[filter]);
     filterButton.createSpan({ text: ERASER_FILTER_LABELS[filter] });
-    const filterCaret = filterButton.createSpan({ cls: "goodobsidian-erasermode-caret" });
+    const filterCaret = filterButton.createSpan({ cls: "finenotes-x-erasermode-caret" });
     iconOrText(filterCaret, "chevron-down", "");
     filterButton.toggleClass("is-filtered", filter !== "all");
     filterButton.setAttribute("aria-label", `Eraser erases: ${ERASER_FILTER_LABELS[filter]}`);
     filterButton.addEventListener("click", () => this.toggleEraserFilterList(filterButton));
 
-    this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
     const clear = this.optionsEl.createEl("button", {
-      cls: "goodobsidian-text-button",
+      cls: "finenotes-x-text-button",
       text: "Clear page",
     });
     clear.addEventListener("click", () => this.callbacks.onClear());
@@ -1928,10 +1928,10 @@ export class Toolbar {
     const groups: ShapeMode[][] = [[...SHAPE_PRESETS], [...CONNECTOR_PRESETS], ["table"]];
     this.tableCaption = null;
     groups.forEach((modes, g) => {
-      if (g > 0) this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+      if (g > 0) this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
       for (const mode of modes) {
         const button = this.optionsEl.createEl("button", {
-          cls: "goodobsidian-shape clickable-icon",
+          cls: "finenotes-x-shape clickable-icon",
         });
         button.append(shapeGlyph(mode));
         button.setAttribute("aria-label", SHAPE_LABELS[mode]);
@@ -1949,7 +1949,7 @@ export class Toolbar {
           // The size shows on the button, so the remembered choice is visible
           // before the picker is ever opened again.
           button.addClass("is-table");
-          this.tableCaption = button.createSpan({ cls: "goodobsidian-shape-caption" });
+          this.tableCaption = button.createSpan({ cls: "finenotes-x-shape-caption" });
           this.refreshTableButton();
         }
       }
@@ -1957,12 +1957,12 @@ export class Toolbar {
 
     // The shapes' own colour, black until another is picked: a disc of it
     // and a caret, opening the colour picker.
-    this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
     const color = this.state.shapeColor ?? DEFAULT_SHAPE_COLOR;
     const button = this.optionsEl.createEl("button", {
-      cls: "goodobsidian-shape-color clickable-icon",
+      cls: "finenotes-x-shape-color clickable-icon",
     });
-    button.createSpan({ cls: "goodobsidian-text-disc" }).setCssStyles({ background: color });
+    button.createSpan({ cls: "finenotes-x-text-disc" }).setCssStyles({ background: color });
     caretIn(button);
     button.setAttribute("aria-label", `Shape colour ${color}`);
     button.setAttribute("title", "Shape colour");
@@ -1977,7 +1977,7 @@ export class Toolbar {
     // Fill, line, corners and arrowheads, in one popover; the button shows
     // the fill and line a new shape gets.
     const styleButton = this.optionsEl.createEl("button", {
-      cls: "goodobsidian-shape-style clickable-icon",
+      cls: "finenotes-x-shape-style clickable-icon",
     });
     styleButton.append(shapeStyleGlyph(readShapeToolStyle(this.state.shapeStyle), color));
     caretIn(styleButton);
@@ -1992,7 +1992,7 @@ export class Toolbar {
       return;
     }
     const body = this.openPopover("shape-style", anchor);
-    body.addClass("goodobsidian-shape-style-popover");
+    body.addClass("finenotes-x-shape-style-popover");
     this.renderShapeStyle(body, anchor);
     this.keepPopoverInside(anchor);
   }
@@ -2022,8 +2022,8 @@ export class Toolbar {
       current: T,
       pick: (value: T) => void,
     ): void => {
-      body.createDiv({ cls: "goodobsidian-popover-label", text: label });
-      const row = body.createDiv({ cls: "goodobsidian-text-row" });
+      body.createDiv({ cls: "finenotes-x-popover-label", text: label });
+      const row = body.createDiv({ cls: "finenotes-x-text-row" });
       for (const option of options) {
         const button = this.textOption(row, "is-flag", "", () => pick(option.value));
         button.append(option.glyph);
@@ -2055,7 +2055,7 @@ export class Toolbar {
       (dash) => set({ dash }),
     );
     this.switchRow(
-      body.createDiv({ cls: "goodobsidian-switch-list goodobsidian-text-switches" }),
+      body.createDiv({ cls: "finenotes-x-switch-list finenotes-x-text-switches" }),
       "Rounded corners",
       style.round === true,
       (on) => set({ round: on ? true : undefined }),
@@ -2102,9 +2102,9 @@ export class Toolbar {
     }
     const body = this.openPopover("table", anchor);
     this.popover?.addClass("is-table-picker");
-    body.addClass("goodobsidian-table-picker");
-    const title = body.createDiv({ cls: "goodobsidian-popover-label" });
-    const grid = body.createDiv({ cls: "goodobsidian-table-grid" });
+    body.addClass("finenotes-x-table-picker");
+    const title = body.createDiv({ cls: "finenotes-x-popover-label" });
+    const grid = body.createDiv({ cls: "finenotes-x-table-grid" });
     const cells: Array<{ button: HTMLButtonElement; size: TableSize }> = [];
     const show = (size: TableSize): void => {
       title.setText(`Table · ${tableSizeLabel(size)}`);
@@ -2117,7 +2117,7 @@ export class Toolbar {
       for (let cols = 1; cols <= TABLE_MAX_COLS; cols++) {
         const size = { rows, cols };
         const button = grid.createEl("button", {
-          cls: "goodobsidian-table-pick clickable-icon",
+          cls: "finenotes-x-table-pick clickable-icon",
         });
         button.setAttribute("aria-label", `${tableSizeLabel(size)} table`);
         button.addEventListener("pointerenter", () => show(size));
@@ -2128,7 +2128,7 @@ export class Toolbar {
     }
     grid.addEventListener("pointerleave", () => show(tableSizeFor(this.state)));
     this.switchRow(
-      body.createDiv({ cls: "goodobsidian-switch-list goodobsidian-text-switches" }),
+      body.createDiv({ cls: "finenotes-x-switch-list finenotes-x-text-switches" }),
       "Header row",
       this.state.tableHeader === true,
       (on) => {
@@ -2137,7 +2137,7 @@ export class Toolbar {
       },
     );
     body.createDiv({
-      cls: "goodobsidian-popover-hint",
+      cls: "finenotes-x-popover-hint",
       text: "Then drag it out on the page, or tap to place it",
     });
     show(tableSizeFor(this.state));
@@ -2179,7 +2179,7 @@ export class Toolbar {
     const body = this.openPopover("lasso", anchor);
     this.popover?.addClass("is-lasso-popover");
     this.popover?.addClass("has-arrow");
-    body.addClass("goodobsidian-lasso-popover");
+    body.addClass("finenotes-x-lasso-popover");
     this.popoverRender = () => {
       body.empty();
       this.renderLassoOptions(body);
@@ -2189,15 +2189,15 @@ export class Toolbar {
   }
 
   private renderLassoOptions(body: HTMLElement): void {
-    body.createDiv({ cls: "goodobsidian-popover-title", text: "Lasso tool" });
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Lasso type" });
-    const types = body.createDiv({ cls: "goodobsidian-lasso-types" });
+    body.createDiv({ cls: "finenotes-x-popover-title", text: "Lasso tool" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Lasso type" });
+    const types = body.createDiv({ cls: "finenotes-x-lasso-types" });
     const mode = lassoModeFor(this.state);
     for (const option of [...LASSO_MODES].reverse()) {
       // Rectangular first, as GoodNotes lays them out.
-      const card = types.createEl("button", { cls: "goodobsidian-lasso-type clickable-icon" });
+      const card = types.createEl("button", { cls: "finenotes-x-lasso-type clickable-icon" });
       card.append(lassoGlyph(option));
-      card.createSpan({ cls: "goodobsidian-lasso-type-label", text: LASSO_MODE_LABELS[option] });
+      card.createSpan({ cls: "finenotes-x-lasso-type-label", text: LASSO_MODE_LABELS[option] });
       card.toggleClass("is-active", option === mode);
       card.setAttribute("aria-pressed", String(option === mode));
       card.addEventListener("click", () => {
@@ -2208,8 +2208,8 @@ export class Toolbar {
       });
     }
 
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "What to include in the selection" });
-    const list = body.createDiv({ cls: "goodobsidian-switch-list" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "What to include in the selection" });
+    const list = body.createDiv({ cls: "finenotes-x-switch-list" });
     const filter = lassoFilterFor(this.state);
     for (const key of LASSO_FILTER_KEYS) {
       this.switchRow(list, LASSO_FILTER_LABELS[key], filter[key], (on) => {
@@ -2235,11 +2235,11 @@ export class Toolbar {
     onChange: (on: boolean) => void,
   ): HTMLButtonElement {
     const row = parent.createEl("button", {
-      cls: "goodobsidian-switch-row clickable-icon",
+      cls: "finenotes-x-switch-row clickable-icon",
       attr: { role: "switch", "aria-checked": String(on), "aria-label": label },
     });
-    row.createSpan({ cls: "goodobsidian-switch-label", text: label });
-    row.createSpan({ cls: "goodobsidian-switch" }).createSpan({ cls: "goodobsidian-switch-thumb" });
+    row.createSpan({ cls: "finenotes-x-switch-label", text: label });
+    row.createSpan({ cls: "finenotes-x-switch" }).createSpan({ cls: "finenotes-x-switch-thumb" });
     row.toggleClass("is-on", on);
     // The row keeps its own state: a popover that does not redraw after a
     // change (the table picker's Header row) still shows the flip, and a
@@ -2283,14 +2283,14 @@ export class Toolbar {
       `Text style: ${preset?.name ?? "custom"}`,
       (b) => this.toggleTextPopover("preset", b, (body) => this.renderTextPresets(body)),
     );
-    styles.createSpan({ cls: "goodobsidian-text-drop-label", text: preset?.name ?? "Style" });
+    styles.createSpan({ cls: "finenotes-x-text-drop-label", text: preset?.name ?? "Style" });
     caretIn(styles);
 
     const color = this.textControl("is-color", "Text colour", (b) =>
       this.toggleTextPopover("color", b, (body) => this.renderTextColors(body)),
     );
     // The disc *is* the text colour: a value, not chrome.
-    color.createSpan({ cls: "goodobsidian-text-disc" }).setCssStyles({ background: style.color });
+    color.createSpan({ cls: "finenotes-x-text-disc" }).setCssStyles({ background: style.color });
     caretIn(color);
 
     // To one decimal: a box resized before sizes were rounded may hold more.
@@ -2298,7 +2298,7 @@ export class Toolbar {
     const size = this.textControl("is-drop is-size", `Font size ${shownSize}`, (b) =>
       this.toggleTextPopover("size", b, (body) => this.renderTextSizes(body)),
     );
-    size.createSpan({ cls: "goodobsidian-text-drop-label", text: shownSize });
+    size.createSpan({ cls: "finenotes-x-text-drop-label", text: shownSize });
     caretIn(size);
 
     // The font's name, set in that font, as GoodNotes shows it.
@@ -2307,15 +2307,15 @@ export class Toolbar {
       this.toggleTextPopover("font", b, (body) => this.renderTextFonts(body)),
     );
     fontButton
-      .createSpan({ cls: "goodobsidian-text-drop-label", text: TEXT_FONT_LABELS[font] })
+      .createSpan({ cls: "finenotes-x-text-drop-label", text: TEXT_FONT_LABELS[font] })
       .setCssStyles({ fontFamily: TEXT_FONT_STACKS[font] });
     caretIn(fontButton);
 
     const format = this.textControl("is-format", "Bold, italic, underline, strikethrough", (b) =>
       this.toggleTextPopover("format", b, (body) => this.renderTextFormat(body)),
     );
-    format.createSpan({ cls: "goodobsidian-text-b", text: "B" });
-    format.createSpan({ cls: "goodobsidian-text-i", text: "I" });
+    format.createSpan({ cls: "finenotes-x-text-b", text: "B" });
+    format.createSpan({ cls: "finenotes-x-text-i", text: "I" });
     format.toggleClass("is-on", !!(style.bold || style.italic || style.underline || style.strike));
 
     const align = style.align ?? "left";
@@ -2334,7 +2334,7 @@ export class Toolbar {
     list.append(listGlyph("bullet"));
     list.disabled = this.textTarget === null;
 
-    this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
 
     this.textControl("is-glyph", style.fill ? "Box fill" : "Box fill: none", (b) =>
       this.toggleTextPopover("fill", b, (body) => this.renderTextFills(body)),
@@ -2357,19 +2357,19 @@ export class Toolbar {
     });
     // Labelled, as GoodNotes has it; a pane too narrow for the whole pill
     // (fitTextPill) drops the label and keeps the icon.
-    iconOrText(pin.createSpan({ cls: "goodobsidian-text-pin-icon" }), "pin", "Pin");
-    pin.createSpan({ cls: "goodobsidian-text-pin-label", text: "Pin Text tool" });
+    iconOrText(pin.createSpan({ cls: "finenotes-x-text-pin-icon" }), "pin", "Pin");
+    pin.createSpan({ cls: "finenotes-x-text-pin-label", text: "Pin Text tool" });
     pin.toggleClass("is-active", pinned);
     pin.setAttribute("aria-pressed", String(pinned));
 
     // Delete the box being edited: last, apart, and red, so it is not hit
     // by accident. Only while a box has focus; Undo brings it back.
     if (this.callbacks.onTextDelete) {
-      this.optionsEl.createDiv({ cls: "goodobsidian-sep" });
+      this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
       const remove = this.textControl("is-delete", "Delete text box", () =>
         this.callbacks.onTextDelete?.(),
       );
-      iconOrText(remove.createSpan({ cls: "goodobsidian-text-pin-icon" }), "trash-2", "Delete");
+      iconOrText(remove.createSpan({ cls: "finenotes-x-text-pin-icon" }), "trash-2", "Delete");
       remove.disabled = this.textTarget === null;
     }
   }
@@ -2381,7 +2381,7 @@ export class Toolbar {
     onClick: (button: HTMLButtonElement) => void,
   ): HTMLButtonElement {
     const button = this.optionsEl.createEl("button", {
-      cls: `goodobsidian-text-control clickable-icon ${cls}`,
+      cls: `finenotes-x-text-control clickable-icon ${cls}`,
     });
     button.setAttr("aria-label", label);
     button.setAttribute("title", label);
@@ -2397,7 +2397,7 @@ export class Toolbar {
     onClick: () => void,
   ): HTMLButtonElement {
     const button = parent.createEl("button", {
-      cls: `goodobsidian-text-option clickable-icon ${cls}`,
+      cls: `finenotes-x-text-option clickable-icon ${cls}`,
       text,
     });
     button.addEventListener("click", onClick);
@@ -2447,7 +2447,7 @@ export class Toolbar {
       return;
     }
     const body = this.openPopover(key, anchor);
-    body.addClass("goodobsidian-text-popover");
+    body.addClass("finenotes-x-text-popover");
     this.popover?.addClass("is-text-sheet");
     this.popoverRender = () => {
       body.empty();
@@ -2488,7 +2488,7 @@ export class Toolbar {
   }
 
   private renderTextColors(body: HTMLElement): void {
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Colour" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Colour" });
     renderColorPicker(body, {
       current: this.shownTextStyle().color,
       extra: this.pickerExtras(this.shownTextStyle().color),
@@ -2509,17 +2509,17 @@ export class Toolbar {
     const current = this.shownTextStyle().fontSize;
     // Any size between the smallest and the largest, to one decimal, on a
     // slider above the usual sizes; the box follows it as it moves.
-    const head = body.createDiv({ cls: "goodobsidian-width-head" });
-    head.createDiv({ cls: "goodobsidian-popover-label", text: "Size" });
+    const head = body.createDiv({ cls: "finenotes-x-width-head" });
+    head.createDiv({ cls: "finenotes-x-popover-label", text: "Size" });
     const readout = head.createDiv({
-      cls: "goodobsidian-text-size-readout",
+      cls: "finenotes-x-text-size-readout",
       text: String(Math.round(current * 10) / 10),
     });
     const slider = body.createDiv({
-      cls: "goodobsidian-width-slider goodobsidian-text-size-slider",
+      cls: "finenotes-x-width-slider finenotes-x-text-size-slider",
     });
     const range = slider.createEl("input", {
-      cls: "goodobsidian-width-range",
+      cls: "finenotes-x-width-range",
       type: "range",
       attr: { "aria-label": "Font size" },
     });
@@ -2539,7 +2539,7 @@ export class Toolbar {
       this.callbacks.onTextSizePreview?.(null);
       if (fontSize !== this.shownTextStyle().fontSize) this.applyTextPatch({ fontSize });
     });
-    const grid = body.createDiv({ cls: "goodobsidian-text-grid" });
+    const grid = body.createDiv({ cls: "finenotes-x-text-grid" });
     for (const fontSize of TEXT_SIZES) {
       this.textOption(grid, "is-size", String(fontSize), () =>
         this.pickText({ fontSize }),
@@ -2548,7 +2548,7 @@ export class Toolbar {
   }
 
   private renderTextFonts(body: HTMLElement): void {
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Font" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Font" });
     const current = fontOf(this.shownTextStyle());
     for (const font of TEXT_FONTS) {
       const button = this.textOption(body, "is-wide", TEXT_FONT_LABELS[font], () =>
@@ -2561,13 +2561,13 @@ export class Toolbar {
 
   /** The named styles, each shown in its own look; a pick applies it and closes. */
   private renderTextPresets(body: HTMLElement): void {
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Text style" });
-    const list = body.createDiv({ cls: "goodobsidian-text-presets" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Text style" });
+    const list = body.createDiv({ cls: "finenotes-x-text-presets" });
     const current = presetOf(this.shownTextStyle());
     for (const preset of TEXT_PRESETS) {
       const look = withTextStyle(DEFAULT_TEXT_STYLE, preset.patch);
       const button = list.createEl("button", {
-        cls: "goodobsidian-text-preset clickable-icon",
+        cls: "finenotes-x-text-preset clickable-icon",
         text: preset.name,
         attr: { "aria-label": preset.name, "aria-pressed": String(current?.id === preset.id) },
       });
@@ -2586,8 +2586,8 @@ export class Toolbar {
   }
 
   private renderTextFormat(body: HTMLElement): void {
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Text style" });
-    const row = body.createDiv({ cls: "goodobsidian-text-row" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Text style" });
+    const row = body.createDiv({ cls: "finenotes-x-text-row" });
     const style = this.shownTextStyle();
     const flags = [
       { key: "bold", glyph: "B", label: "Bold" },
@@ -2610,8 +2610,8 @@ export class Toolbar {
   }
 
   private renderTextAlign(body: HTMLElement): void {
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Alignment" });
-    const row = body.createDiv({ cls: "goodobsidian-text-row" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Alignment" });
+    const row = body.createDiv({ cls: "finenotes-x-text-row" });
     const current = this.shownTextStyle().align ?? "left";
     for (const align of TEXT_ALIGNS) {
       const button = this.textOption(row, "is-flag", "", () => this.pickText({ align }));
@@ -2623,7 +2623,7 @@ export class Toolbar {
   }
 
   private renderTextSpacing(body: HTMLElement): void {
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Line spacing" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Line spacing" });
     const current = lineHeightOf(this.shownTextStyle());
     for (const lineHeight of LINE_HEIGHTS) {
       // The default is a choice like any other; picking it removes the key.
@@ -2639,7 +2639,7 @@ export class Toolbar {
   }
 
   private renderTextFills(body: HTMLElement): void {
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Box fill" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Box fill" });
     renderColorPicker(body, {
       current: this.shownTextStyle().fill ?? null,
       allowNone: true,
@@ -2663,8 +2663,8 @@ export class Toolbar {
    */
   private renderTextBorder(body: HTMLElement): void {
     const style = this.shownTextStyle();
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Border" });
-    const row = body.createDiv({ cls: "goodobsidian-text-row" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Border" });
+    const row = body.createDiv({ cls: "finenotes-x-text-row" });
     const widths = [
       { label: "None", width: null },
       ...TEXT_BORDER_CHOICES.map((width) => ({ label: `${width} px`, width })),
@@ -2681,8 +2681,8 @@ export class Toolbar {
       button.setAttribute("aria-pressed", String(on));
       button.toggleClass("is-active", on);
     }
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Corners" });
-    const corners = body.createDiv({ cls: "goodobsidian-text-row" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Corners" });
+    const corners = body.createDiv({ cls: "finenotes-x-text-row" });
     for (const { label, radius } of TEXT_CORNER_CHOICES) {
       const on = radius === 0 ? style.radius === undefined : style.radius === radius;
       const button = this.textOption(corners, "is-flag", "", () =>
@@ -2694,8 +2694,8 @@ export class Toolbar {
       button.setAttribute("aria-pressed", String(on));
       button.toggleClass("is-active", on);
     }
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Padding" });
-    const paddings = body.createDiv({ cls: "goodobsidian-text-row" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Padding" });
+    const paddings = body.createDiv({ cls: "finenotes-x-text-row" });
     for (const { label, padding } of TEXT_PADDINGS) {
       const on = padding === 0 ? style.padding === undefined : style.padding === padding;
       const button = this.textOption(paddings, "is-flag is-padding", label, () =>
@@ -2705,7 +2705,7 @@ export class Toolbar {
       button.setAttribute("aria-pressed", String(on));
       button.toggleClass("is-active", on);
     }
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Border colour" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Border colour" });
     const current = style.border?.color ?? style.color;
     // A colour picked with no border adds a thin one in that colour.
     renderColorPicker(body, {
@@ -2725,8 +2725,8 @@ export class Toolbar {
   }
 
   private renderTextLists(body: HTMLElement): void {
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Lists" });
-    const row = body.createDiv({ cls: "goodobsidian-text-row" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Lists" });
+    const row = body.createDiv({ cls: "finenotes-x-text-row" });
     const kinds: Array<{ kind: ListKind; label: string }> = [
       { kind: "bullet", label: "Bullets" },
       { kind: "number", label: "Numbering" },
@@ -2807,7 +2807,7 @@ export class Toolbar {
   }
 
   private chevron(label: string, onClick: (button: HTMLButtonElement) => void): HTMLButtonElement {
-    const button = this.optionsEl.createEl("button", { cls: "goodobsidian-chevron" });
+    const button = this.optionsEl.createEl("button", { cls: "finenotes-x-chevron" });
     iconOrText(button, "chevron-down", label);
     button.setAttr("aria-label", label);
     button.addEventListener("click", () => onClick(button));
@@ -2822,17 +2822,17 @@ export class Toolbar {
       return;
     }
     const body = this.openPopover("widths", anchor);
-    body.addClass("goodobsidian-width-popover");
+    body.addClass("finenotes-x-width-popover");
     // GoodNotes' Stroke Settings: the width in millimetres (a pen stroke has
     // the same real thickness on every paper size), a reset, a slider whose
     // track widens like the stroke does, and the presets.
-    const head = body.createDiv({ cls: "goodobsidian-width-head" });
-    head.createDiv({ cls: "goodobsidian-popover-label", text: "Stroke width" });
+    const head = body.createDiv({ cls: "finenotes-x-width-head" });
+    head.createDiv({ cls: "finenotes-x-popover-label", text: "Stroke width" });
     // The width as a field: any width from the thinnest pen to 5 mm can be
     // typed, to a hundredth of a mm (FineNotes#24).
-    const readout = head.createDiv({ cls: "goodobsidian-width-readout" });
+    const readout = head.createDiv({ cls: "finenotes-x-width-readout" });
     const field = readout.createEl("input", {
-      cls: "goodobsidian-width-field",
+      cls: "finenotes-x-width-field",
       type: "text",
       attr: {
         inputmode: "decimal",
@@ -2841,15 +2841,15 @@ export class Toolbar {
         "aria-label": "Stroke width in millimetres",
       },
     });
-    readout.createSpan({ cls: "goodobsidian-width-unit", text: "mm" });
+    readout.createSpan({ cls: "finenotes-x-width-unit", text: "mm" });
     const reset = head.createEl("button", {
-      cls: "goodobsidian-width-reset clickable-icon",
+      cls: "finenotes-x-width-reset clickable-icon",
       attr: { "aria-label": "Reset stroke width", title: "Reset stroke width" },
     });
     iconOrText(reset, "rotate-ccw", "Reset");
-    const slider = body.createDiv({ cls: "goodobsidian-width-slider" });
+    const slider = body.createDiv({ cls: "finenotes-x-width-slider" });
     const range = slider.createEl("input", {
-      cls: "goodobsidian-width-range",
+      cls: "finenotes-x-width-range",
       type: "range",
       attr: { "aria-label": "Stroke width" },
     });
@@ -2863,7 +2863,7 @@ export class Toolbar {
     range.max = String(stops.length - 1);
     range.step = "1";
     const preview = strokePreview(body);
-    const row = body.createDiv({ cls: "goodobsidian-sizes" });
+    const row = body.createDiv({ cls: "finenotes-x-sizes" });
     const presets = new Map<number, HTMLElement>();
     // The readout, the thumb, the preview and the presets always show the live width.
     const show = (): void => {
@@ -2953,18 +2953,18 @@ export class Toolbar {
       return;
     }
     const body = this.openPopover("eraser-size", anchor);
-    body.addClass("goodobsidian-width-popover");
-    const head = body.createDiv({ cls: "goodobsidian-width-head" });
-    head.createDiv({ cls: "goodobsidian-popover-label", text: "Eraser size" });
-    const readout = head.createSpan({ cls: "goodobsidian-width-readout" });
+    body.addClass("finenotes-x-width-popover");
+    const head = body.createDiv({ cls: "finenotes-x-width-head" });
+    head.createDiv({ cls: "finenotes-x-popover-label", text: "Eraser size" });
+    const readout = head.createSpan({ cls: "finenotes-x-width-readout" });
     const reset = head.createEl("button", {
-      cls: "goodobsidian-width-reset clickable-icon",
+      cls: "finenotes-x-width-reset clickable-icon",
       attr: { "aria-label": "Reset eraser size", title: "Reset eraser size" },
     });
     iconOrText(reset, "rotate-ccw", "Reset");
-    const slider = body.createDiv({ cls: "goodobsidian-width-slider" });
+    const slider = body.createDiv({ cls: "finenotes-x-width-slider" });
     const range = slider.createEl("input", {
-      cls: "goodobsidian-width-range",
+      cls: "finenotes-x-width-range",
       type: "range",
       attr: { "aria-label": "Eraser size" },
     });
@@ -2973,7 +2973,7 @@ export class Toolbar {
     range.max = String(stops.length - 1);
     range.step = "1";
     const preview = eraserPreview(body);
-    const row = body.createDiv({ cls: "goodobsidian-sizes" });
+    const row = body.createDiv({ cls: "finenotes-x-sizes" });
     const presets = new Map<number, HTMLElement>();
     // The readout, the thumb, the preview and the presets always show the live size.
     const show = (): void => {
@@ -2994,7 +2994,7 @@ export class Toolbar {
       this.syncActive();
     };
     for (const size of ERASER_SIZES) {
-      const preset = row.createEl("button", { cls: "goodobsidian-erasersize" });
+      const preset = row.createEl("button", { cls: "finenotes-x-erasersize" });
       preset.append(eraserSizeGlyph(size));
       preset.setAttribute("aria-label", `Eraser size ${formatMm(size)}`);
       preset.setAttribute("title", formatMm(size));
@@ -3030,13 +3030,13 @@ export class Toolbar {
       return;
     }
     const body = this.openPopover("eraser-mode", anchor);
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Eraser" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Eraser" });
     for (const mode of ERASER_MODES) {
       const button = body.createEl("button", {
-        cls: "goodobsidian-wide goodobsidian-erasermode-row",
+        cls: "finenotes-x-wide finenotes-x-erasermode-row",
       });
       eraserModeIcon(
-        button.createSpan({ cls: "goodobsidian-erasermode-icon" }),
+        button.createSpan({ cls: "finenotes-x-erasermode-icon" }),
         mode.id,
         mode.label,
       );
@@ -3062,7 +3062,7 @@ export class Toolbar {
       return;
     }
     const body = this.openPopover("eraser-filter", anchor);
-    body.addClass("goodobsidian-eraser-filter");
+    body.addClass("finenotes-x-eraser-filter");
     const set = (filter: EraserFilter): void => {
       this.state.eraserFilter = filter;
       this.callbacks.onEraserFilterChange?.(filter);
@@ -3071,15 +3071,15 @@ export class Toolbar {
     };
     this.popoverRender = () => {
       body.empty();
-      body.createDiv({ cls: "goodobsidian-popover-label", text: "What the eraser erases" });
-      const list = body.createDiv({ cls: "goodobsidian-switch-list" });
+      body.createDiv({ cls: "finenotes-x-popover-label", text: "What the eraser erases" });
+      const list = body.createDiv({ cls: "finenotes-x-switch-list" });
       const filter = eraserFilterFor(this.state);
       this.switchRow(list, "Erase highlighter only", filter === "highlighter", (on) =>
         set(on ? "highlighter" : "all"),
       );
       this.switchRow(list, "Erase pen only", filter === "pen", (on) => set(on ? "pen" : "all"));
       body.createDiv({
-        cls: "goodobsidian-popover-hint",
+        cls: "finenotes-x-popover-hint",
         text: "Pictures and text boxes are never erased.",
       });
     };
@@ -3127,10 +3127,10 @@ export class Toolbar {
     openGestures: () => void,
   ): void {
     this.penMenuRows.clear();
-    body.createDiv({ cls: "goodobsidian-popover-label", text: "Pen type" });
+    body.createDiv({ cls: "finenotes-x-popover-label", text: "Pen type" });
     for (const spec of PEN_MENU_TYPES) {
       if (this.practice && spec.tool === "highlighter") continue;
-      const button = body.createEl("button", { cls: "goodobsidian-wide goodobsidian-pen-row" });
+      const button = body.createEl("button", { cls: "finenotes-x-wide finenotes-x-pen-row" });
       button.append(penGlyph(spec.id, this.inkColorOf(spec)));
       this.penMenuRows.set(spec.id, button);
       button.createSpan({ text: spec.label });
@@ -3143,11 +3143,11 @@ export class Toolbar {
     if (this.practice) return;
     // The laser pointer has no bar button (FineNotes#25): here, and L.
     const laser = body.createEl("button", {
-      cls: "goodobsidian-wide goodobsidian-pen-row goodobsidian-laser-row",
+      cls: "finenotes-x-wide finenotes-x-pen-row finenotes-x-laser-row",
     });
-    iconOrText(laser.createSpan({ cls: "goodobsidian-laser-row-icon" }), "pointer", "");
+    iconOrText(laser.createSpan({ cls: "finenotes-x-laser-row-icon" }), "pointer", "");
     laser.createSpan({ text: "Laser pointer" });
-    laser.createEl("kbd", { cls: "goodobsidian-saved-pen-key", text: "L" });
+    laser.createEl("kbd", { cls: "finenotes-x-saved-pen-key", text: "L" });
     laser.addEventListener("click", () => {
       this.closePopover();
       this.leaveToolFor("laser");
@@ -3156,7 +3156,7 @@ export class Toolbar {
       this.buildOptions();
       this.syncActive();
     });
-    body.createDiv({ cls: "goodobsidian-popover-divider" });
+    body.createDiv({ cls: "finenotes-x-popover-divider" });
     this.popoverLink(body, "Pen settings", "sliders-horizontal", openSettings);
     this.popoverLink(body, "Pen gestures", "signature", openGestures);
   }
@@ -3164,12 +3164,12 @@ export class Toolbar {
   /** A row that opens another page of the popover: an icon, its name, and a chevron. */
   private popoverLink(body: HTMLElement, label: string, icon: string, open: () => void): void {
     const link = body.createEl("button", {
-      cls: "goodobsidian-wide goodobsidian-popover-link clickable-icon",
+      cls: "finenotes-x-wide finenotes-x-popover-link clickable-icon",
     });
-    const name = link.createSpan({ cls: "goodobsidian-popover-link-name" });
-    iconOrText(name.createSpan({ cls: "goodobsidian-popover-link-icon" }), icon, "");
+    const name = link.createSpan({ cls: "finenotes-x-popover-link-name" });
+    iconOrText(name.createSpan({ cls: "finenotes-x-popover-link-icon" }), icon, "");
     name.createSpan({ text: label });
-    iconOrText(link.createSpan({ cls: "goodobsidian-popover-link-icon" }), "chevron-right", ">");
+    iconOrText(link.createSpan({ cls: "finenotes-x-popover-link-icon" }), "chevron-right", ">");
     link.addEventListener("click", open);
   }
 
@@ -3180,14 +3180,14 @@ export class Toolbar {
     backLabel: string,
     back: () => void,
   ): void {
-    const head = body.createDiv({ cls: "goodobsidian-popover-head" });
+    const head = body.createDiv({ cls: "finenotes-x-popover-head" });
     const backButton = head.createEl("button", {
-      cls: "goodobsidian-popover-back clickable-icon",
+      cls: "finenotes-x-popover-back clickable-icon",
     });
     iconOrText(backButton, "arrow-left", "Back");
     backButton.setAttribute("aria-label", backLabel);
     backButton.addEventListener("click", back);
-    head.createDiv({ cls: "goodobsidian-popover-title", text: title });
+    head.createDiv({ cls: "finenotes-x-popover-title", text: title });
   }
 
   /** The pen in hand's own settings, behind "Pen settings" in the pen type menu. */
@@ -3203,12 +3203,12 @@ export class Toolbar {
    */
   private renderStabilization(body: HTMLElement): void {
     const spec = this.activePenType();
-    const head = body.createDiv({ cls: "goodobsidian-width-head" });
-    head.createDiv({ cls: "goodobsidian-popover-label", text: "Stroke stabilization" });
-    const readout = head.createDiv({ cls: "goodobsidian-width-readout" });
-    const slider = body.createDiv({ cls: "goodobsidian-width-slider" });
+    const head = body.createDiv({ cls: "finenotes-x-width-head" });
+    head.createDiv({ cls: "finenotes-x-popover-label", text: "Stroke stabilization" });
+    const readout = head.createDiv({ cls: "finenotes-x-width-readout" });
+    const slider = body.createDiv({ cls: "finenotes-x-width-slider" });
     const range = slider.createEl("input", {
-      cls: "goodobsidian-width-range",
+      cls: "finenotes-x-width-range",
       type: "range",
       attr: { "aria-label": `Stroke stabilization, ${spec.label}` },
     });
@@ -3236,7 +3236,7 @@ export class Toolbar {
       show(percent);
     });
     body.createDiv({
-      cls: "goodobsidian-popover-hint",
+      cls: "finenotes-x-popover-hint",
       text: "Steadies a shaky hand as you write. Higher settings trail the pen a little and round off small loops.",
     });
   }
@@ -3256,7 +3256,7 @@ export class Toolbar {
       this.popoverRender?.();
     };
 
-    const scribble = body.createDiv({ cls: "goodobsidian-switch-list" });
+    const scribble = body.createDiv({ cls: "finenotes-x-switch-list" });
     this.switchRow(scribble, "Scribble to erase", gestures.scribbleErase, (on) =>
       set({ scribbleErase: on }),
     );
@@ -3268,16 +3268,16 @@ export class Toolbar {
     );
     all.disabled = !gestures.scribbleErase;
     body.createDiv({
-      cls: "goodobsidian-popover-hint",
+      cls: "finenotes-x-popover-hint",
       text: "Erase handwriting and drawings by scribbling over them.",
     });
 
-    const lasso = body.createDiv({ cls: "goodobsidian-switch-list" });
+    const lasso = body.createDiv({ cls: "finenotes-x-switch-list" });
     this.switchRow(lasso, "Circle to lasso", gestures.circleLasso, (on) =>
       set({ circleLasso: on }),
     );
     body.createDiv({
-      cls: "goodobsidian-popover-hint",
+      cls: "finenotes-x-popover-hint",
       text: "Draw around anything, then hold the pen on the loop to select it and move it.",
     });
   }
@@ -3285,11 +3285,11 @@ export class Toolbar {
   private openPopover(kind: string, anchor: HTMLElement): HTMLElement {
     this.closePopover();
     // Appended to the host, not to a bar: either bar would clip it.
-    const popover = this.host.createDiv({ cls: "goodobsidian-popover" });
+    const popover = this.host.createDiv({ cls: "finenotes-x-popover" });
     popover.setAttribute("role", "dialog");
     // Removed with the popover, so its listeners need no disposer.
     this.keepFocus(popover, false);
-    const body = popover.createDiv({ cls: "goodobsidian-popover-body" });
+    const body = popover.createDiv({ cls: "finenotes-x-popover-body" });
 
     const hostBox = this.host.getBoundingClientRect();
     const anchorBox = anchor.getBoundingClientRect();
@@ -4046,10 +4046,10 @@ function lassoGlyph(mode: LassoMode, size = 30): SVGElement {
 function strokePreview(
   parent: HTMLElement,
 ): (screenWidth: number, color: string, pen: string) => void {
-  const strip = parent.createDiv({ cls: "goodobsidian-size-preview" });
+  const strip = parent.createDiv({ cls: "finenotes-x-size-preview" });
   strip.setAttribute("aria-hidden", "true");
   const svg = activeDocument.createElementNS(SVG_NS, "svg");
-  svg.classList.add("goodobsidian-size-preview-stroke");
+  svg.classList.add("finenotes-x-size-preview-stroke");
   const path = activeDocument.createElementNS(SVG_NS, "path");
   path.setAttribute("stroke-linejoin", "round");
   svg.append(path);
@@ -4085,9 +4085,9 @@ function strokePreview(
  * at its edges, which still reads as large. Returns the redraw function.
  */
 function eraserPreview(parent: HTMLElement): (screenDiameter: number) => void {
-  const strip = parent.createDiv({ cls: "goodobsidian-size-preview" });
+  const strip = parent.createDiv({ cls: "finenotes-x-size-preview" });
   strip.setAttribute("aria-hidden", "true");
-  const ring = strip.createDiv({ cls: "goodobsidian-size-preview-eraser" });
+  const ring = strip.createDiv({ cls: "finenotes-x-size-preview-eraser" });
   return (screenDiameter) => {
     const d = `${Math.max(2, screenDiameter).toFixed(1)}px`;
     ring.setCssStyles({ width: d, height: d });
@@ -4122,7 +4122,7 @@ function widthButton(
   pen: string,
   onPick: () => void,
 ): HTMLButtonElement {
-  const button = parent.createEl("button", { cls: "goodobsidian-width" });
+  const button = parent.createEl("button", { cls: "finenotes-x-width" });
   button.append(widthGlyph(width, pen));
   button.setAttribute("aria-label", `Width ${formatMm(width)}`);
   button.setAttribute("title", formatMm(width));
@@ -4342,7 +4342,7 @@ function listGlyph(kind: ListKind): SVGElement {
 
 /** A dropdown's chevron, inside the button it opens. */
 function caretIn(button: HTMLElement): void {
-  iconOrText(button.createSpan({ cls: "goodobsidian-text-caret" }), "chevron-down", "");
+  iconOrText(button.createSpan({ cls: "finenotes-x-text-caret" }), "chevron-down", "");
 }
 
 /** `1` → "1.0", `1.15` → "1.15": how line spacing reads in the menu. */
@@ -4380,7 +4380,7 @@ function eraserModeIcon(el: HTMLElement, mode: EraserMode, label: string): void 
   el.empty();
   const svg = activeDocument.createElementNS(SVG_NS, "svg");
   for (const [key, value] of Object.entries({
-    class: "svg-icon goodobsidian-eraser-glyph",
+    class: "svg-icon finenotes-x-eraser-glyph",
     viewBox: "0 0 24 24",
     width: "24",
     height: "24",
@@ -4426,6 +4426,6 @@ function iconOrText(el: HTMLElement, icon: string, label: string): void {
   if (!svg || svg.childElementCount === 0) {
     el.empty();
     el.setText(label.slice(0, 2));
-    el.addClass("goodobsidian-icon-fallback");
+    el.addClass("finenotes-x-icon-fallback");
   }
 }

@@ -31,7 +31,7 @@ describe("ConfirmModal", () => {
   it("opens with the title, the message, and the confirming button before Cancel", () => {
     const { modal, row } = ask();
     expect(modal.isOpen).toBe(true);
-    expect(modal.modalEl.hasClass("goodobsidian-dialog")).toBe(true);
+    expect(modal.modalEl.hasClass("finenotes-x-dialog")).toBe(true);
     expect(modal.titleEl.text).toBe("Delete page 3?");
     expect(modal.contentEl.children[0]).toMatchObject({ tag: "p", text: "Its ink goes too." });
     expect(modal.contentEl.children[1]).toBe(row.settingEl);
@@ -83,9 +83,9 @@ describe("WhatsNewModal", () => {
     const owner = { name: "plugin" };
     new WhatsNewModal({} as never, "## [1.0.0]\n- New", owner as never).open();
     const modal: FakeModal = Modal.made[Modal.made.length - 1];
-    expect(modal.titleEl.text).toBe("What's new in FineNotes");
-    expect(modal.modalEl.hasClass("goodobsidian-whats-new")).toBe(true);
-    expect(modal.modalEl.hasClass("goodobsidian-dialog")).toBe(true);
+    expect(modal.titleEl.text).toBe("What's new in FineNotesX");
+    expect(modal.modalEl.hasClass("finenotes-x-whats-new")).toBe(true);
+    expect(modal.modalEl.hasClass("finenotes-x-dialog")).toBe(true);
     expect(MarkdownRenderer.rendered).toHaveLength(1);
     expect(MarkdownRenderer.rendered[0]).toMatchObject({
       markdown: "## [1.0.0]\n- New",

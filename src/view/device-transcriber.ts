@@ -206,10 +206,10 @@ export class DeviceTranscriber {
   /** A notice that stays up with the progress and a Stop button. Tapping it only hides it. */
   private showNotice(): void {
     const fragment = createFragment();
-    const wrap = fragment.createDiv({ cls: "goodobsidian-speech-notice" });
+    const wrap = fragment.createDiv({ cls: "finenotes-x-speech-notice" });
     this.noticeText = wrap.createSpan({ text: "FineNotes: starting…" });
     const stop = wrap.createEl("button", {
-      cls: "goodobsidian-speech-notice-stop clickable-icon",
+      cls: "finenotes-x-speech-notice-stop clickable-icon",
       text: "Stop",
     });
     stop.addEventListener("click", (event) => {

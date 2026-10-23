@@ -52,7 +52,7 @@ import { stickerById, stickerFileName, stickerSvg } from "./stickers";
 import { templateBackdrop } from "./templates";
 
 /** The welcome notebook's name, and the title on its cover. */
-export const WELCOME_TITLE = "Welcome to FineNotes";
+export const WELCOME_TITLE = "Welcome to FineNotesX";
 
 /**
  * Whether to greet the user: only on a vault that had no FineNotes settings

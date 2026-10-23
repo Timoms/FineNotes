@@ -58,27 +58,27 @@ export class CoverPicker {
     this.design = options.design;
     this.paperColor = options.paperColor;
     this.geometry = options.geometry;
-    this.el = parent.createDiv({ cls: "goodobsidian-coverpicker" });
+    this.el = parent.createDiv({ cls: "finenotes-x-coverpicker" });
 
     const large = options.allowNone ? " is-large" : "";
     COVER_SECTIONS.forEach((section, index) => {
-      const group = this.el.createDiv({ cls: "goodobsidian-coverpicker-group" });
+      const group = this.el.createDiv({ cls: "finenotes-x-coverpicker-group" });
       // A lone group needs no heading: the dialog's own "Cover" says it.
       if (COVER_SECTIONS.length > 1) {
-        group.createDiv({ cls: "goodobsidian-coverpicker-heading", text: section.title });
+        group.createDiv({ cls: "finenotes-x-coverpicker-heading", text: section.title });
       }
-      const row = group.createDiv({ cls: "goodobsidian-coverpicker-designs" });
+      const row = group.createDiv({ cls: "finenotes-x-coverpicker-designs" });
       if (index === 0 && options.allowNone) {
         // Every button here carries `clickable-icon` (CLAUDE.md: Obsidian pads
         // plain buttons 20 px on iPad, and fills them).
         const root = row.createEl("button", {
-          cls: `goodobsidian-template-card${large} clickable-icon`,
+          cls: `finenotes-x-template-card${large} clickable-icon`,
         });
         const preview = root.createDiv({
-          cls: "goodobsidian-template-preview goodobsidian-cover-none",
+          cls: "finenotes-x-template-preview finenotes-x-cover-none",
         });
         setIcon(preview, "ban");
-        root.createDiv({ cls: "goodobsidian-template-name", text: "No cover" });
+        root.createDiv({ cls: "finenotes-x-template-name", text: "No cover" });
         root.setAttribute("aria-label", "No cover");
         root.addEventListener("click", () => this.pick("none", this.paperColor));
         this.designs.set("none", { root, canvas: null, preview });
@@ -86,11 +86,11 @@ export class CoverPicker {
       for (const template of section.templates) {
         const design = template.ruling as CoverRuling;
         const root = row.createEl("button", {
-          cls: `goodobsidian-template-card${large} clickable-icon`,
+          cls: `finenotes-x-template-card${large} clickable-icon`,
         });
-        const canvas = root.createEl("canvas", { cls: "goodobsidian-template-preview" });
+        const canvas = root.createEl("canvas", { cls: "finenotes-x-template-preview" });
         root.createDiv({
-          cls: "goodobsidian-template-name",
+          cls: "finenotes-x-template-name",
           text: template.name.replace(/ cover$/, ""),
         });
         root.setAttribute("aria-label", template.name);
@@ -99,16 +99,16 @@ export class CoverPicker {
       }
     });
 
-    this.colorRow = this.el.createDiv({ cls: "goodobsidian-coverpicker-colors" });
+    this.colorRow = this.el.createDiv({ cls: "finenotes-x-coverpicker-colors" });
     this.colorRow.setAttribute("role", "group");
     this.colorRow.setAttribute("aria-label", "Cover colour");
     for (const color of COVER_COLORS) {
       const swatch = this.colorRow.createEl("button", {
-        cls: "goodobsidian-cover-swatch clickable-icon",
+        cls: "finenotes-x-cover-swatch clickable-icon",
       });
       // The dot *is* the cover colour, so this inline style is the value
       // itself rather than chrome (as the toolbar's ink swatches do).
-      swatch.createSpan({ cls: "goodobsidian-cover-swatch-dot" }).setCssStyles({
+      swatch.createSpan({ cls: "finenotes-x-cover-swatch-dot" }).setCssStyles({
         background: color.color,
       });
       swatch.setAttribute("aria-label", color.label);
@@ -189,10 +189,10 @@ export class CoverPopover {
   private closed = false;
 
   constructor(anchor: HTMLElement, options: CoverPopoverOptions) {
-    this.el = document.body.createDiv({ cls: "goodobsidian-addpage goodobsidian-coverpopover" });
+    this.el = document.body.createDiv({ cls: "finenotes-x-addpage finenotes-x-coverpopover" });
     this.el.setAttribute("role", "dialog");
     this.el.setAttribute("aria-label", "Change cover");
-    this.el.createDiv({ cls: "goodobsidian-addpage-title", text: "Change cover" });
+    this.el.createDiv({ cls: "finenotes-x-addpage-title", text: "Change cover" });
     const kind = options.backdrop.kind;
     new CoverPicker(this.el, {
       design: isCoverRuling(kind) ? kind : "cover-plain",

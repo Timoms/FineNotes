@@ -1453,10 +1453,7 @@ function drawPaperTexture(
   ctx.restore();
 }
 
-function paperTextureTile(
-  texture: "fine" | "heavy",
-  night: boolean,
-): HTMLCanvasElement | null {
+function paperTextureTile(texture: "fine" | "heavy", night: boolean): HTMLCanvasElement | null {
   if (typeof document === "undefined") return null;
   const key = `${texture}:${night ? "night" : "day"}`;
   const known = paperTextureTiles.get(key);
@@ -1491,7 +1488,8 @@ function paperTextureTile(
   const flecks = texture === "heavy" ? 150 : 65;
   ctx.fillStyle = night ? "rgb(255 255 255 / 13%)" : "rgb(76 60 38 / 13%)";
   for (let i = 0; i < flecks; i++) {
-    const radius = (texture === "heavy" ? 0.35 : 0.2) + random() * (texture === "heavy" ? 1.15 : 0.55);
+    const radius =
+      (texture === "heavy" ? 0.35 : 0.2) + random() * (texture === "heavy" ? 1.15 : 0.55);
     ctx.beginPath();
     ctx.arc(random() * PAPER_TEXTURE_SIZE, random() * PAPER_TEXTURE_SIZE, radius, 0, Math.PI * 2);
     ctx.fill();

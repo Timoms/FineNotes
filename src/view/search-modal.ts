@@ -44,7 +44,7 @@ export class NotebookSearchModal extends SuggestModal<SearchHit> {
     super(app);
     this.transcribed = hasTranscripts(host.index);
     this.keyboard = new DialogKeyboard(this.modalEl);
-    this.modalEl.addClass("goodobsidian-search-modal");
+    this.modalEl.addClass("finenotes-x-search-modal");
     this.limit = 500;
     this.setPlaceholder("Search this notebook");
     this.emptyStateText = this.hint("");
@@ -73,17 +73,17 @@ export class NotebookSearchModal extends SuggestModal<SearchHit> {
   }
 
   renderSuggestion(hit: SearchHit, el: HTMLElement): void {
-    el.addClass("goodobsidian-search-hit");
-    const head = el.createDiv({ cls: "goodobsidian-search-page" });
+    el.addClass("finenotes-x-search-hit");
+    const head = el.createDiv({ cls: "finenotes-x-search-page" });
     head.createSpan({ text: `Page ${hit.pageIndex + 1}` });
     head.createSpan({
-      cls: "goodobsidian-search-count",
+      cls: "finenotes-x-search-count",
       text: hit.count === 1 ? "1 match" : `${hit.count} matches`,
     });
     for (const snippet of hit.snippets) {
-      const line = el.createDiv({ cls: "goodobsidian-search-snippet" });
+      const line = el.createDiv({ cls: "finenotes-x-search-snippet" });
       line.createSpan({
-        cls: "goodobsidian-search-kind",
+        cls: "finenotes-x-search-kind",
         text: snippet.kind === "handwriting" ? "Handwriting" : "Text",
       });
       line.appendText(snippet.before);

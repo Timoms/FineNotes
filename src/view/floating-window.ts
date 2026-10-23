@@ -29,7 +29,7 @@ import {
 
 /** Every floating window's class, for bringing one over the others. */
 const FLOATING_WINDOWS =
-  ".goodobsidian-graph-window, .goodobsidian-calc-window, .goodobsidian-math-window";
+  ".finenotes-x-graph-window, .finenotes-x-calc-window, .finenotes-x-math-window";
 
 export interface FloatingWindowButton {
   icon: string;

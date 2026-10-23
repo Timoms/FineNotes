@@ -667,8 +667,8 @@ describe("which rows show", () => {
     const plugin = makePlugin();
     plugin.updates.available = "2.4.2";
     const drawn = renderRow(rows(makeTab(plugin).tab)[0].def);
-    expect(drawn.settingEl.find("goodobsidian-callout-title")?.textContent).toMatch(
-      /^FineNotes 2\.4\.2 is out/,
+    expect(drawn.settingEl.find("finenotes-x-callout-title")?.textContent).toMatch(
+      /^FineNotesX 2\.4\.2 is out/,
     );
     const opened: string[] = [];
     vi.stubGlobal("window", { open: (url: string) => opened.push(url) });
@@ -677,7 +677,7 @@ describe("which rows show", () => {
     } finally {
       vi.unstubAllGlobals();
     }
-    expect(opened).toEqual(["obsidian://show-plugin?id=finenotes"]);
+    expect(opened).toEqual(["https://github.com/Timoms/FineNotes/releases/latest"]);
   });
 
   it("switching update checks tells the marks at once, and checks when switched on", async () => {
@@ -700,14 +700,14 @@ describe("which rows show", () => {
     const tip = rows(tab)[0].def;
     expect(shown(tip)).toBe(true);
     const drawn = renderRow(tip);
-    expect(drawn.find("goodobsidian-callout-title")?.text).toMatch(/Scribble/);
+    expect(drawn.find("finenotes-x-callout-title")?.text).toMatch(/Scribble/);
     // The how is behind the ⓘ, hidden until it is tapped.
-    const how = drawn.find("goodobsidian-info-text");
+    const how = drawn.find("finenotes-x-info-text");
     expect(how?.hasClass("is-hidden")).toBe(true);
-    drawn.find("goodobsidian-info")?.dispatch("click");
+    drawn.find("finenotes-x-info")?.dispatch("click");
     expect(how?.hasClass("is-hidden")).toBe(false);
     expect(how?.text).toMatch(/Apple Pencil → Scribble/);
-    drawn.find("goodobsidian-callout-close")?.dispatch("click");
+    drawn.find("finenotes-x-callout-close")?.dispatch("click");
     expect(plugin.settings.scribbleTipDismissed).toBe(true);
     expect(plugin.calls).toContain("save");
     expect(fake.domRefreshes).toBe(1);
@@ -741,7 +741,7 @@ describe("which rows show", () => {
       plugin.settings.llmBaseUrl = url;
       expect([url, shown(invalid), shown(plainHttp)]).toEqual([url, bad, http]);
     }
-    expect(renderRow(invalid).find("goodobsidian-callout")).toBeDefined();
+    expect(renderRow(invalid).find("finenotes-x-callout")).toBeDefined();
     expect(renderRow(plainHttp).settingEl.textContent).toMatch(/HTTPS/);
   });
 
@@ -771,8 +771,8 @@ describe("which rows show", () => {
     const all = rows(makeTab(makePlugin()).tab);
     const why = blockAfter(all, "Image generation");
     expect(shown(why)).toBe(true);
-    const callout = renderRow(why).find("goodobsidian-callout");
-    expect(callout?.find("goodobsidian-callout-title")?.text).toBe(
+    const callout = renderRow(why).find("finenotes-x-callout");
+    expect(callout?.find("finenotes-x-callout-title")?.text).toBe(
       `${imageUnsupportedReason("anthropic")}.`,
     );
     expect(callout?.children).toHaveLength(1);
@@ -946,7 +946,7 @@ describe("paper width", () => {
     const plugin = makePlugin({ paperWidth: 1024 });
     const { tab } = makeTab(plugin);
     const setting = renderRow(named(rows(tab), "Paper width"));
-    const error = setting.find("goodobsidian-field-error");
+    const error = setting.find("finenotes-x-field-error");
     const field = setting.texts[0];
     expect(field.value).toBe("1024");
     expect(error?.hasClass("is-hidden")).toBe(true);
@@ -979,7 +979,7 @@ describe("paper width", () => {
     const all = rows(makeTab(makePlugin()).tab);
     await renderRow(named(all, "Paper width")).texts[0].type("99999");
     const again = renderRow(named(all, "Paper width"));
-    expect(again.find("goodobsidian-field-error")?.hasClass("is-hidden")).toBe(true);
+    expect(again.find("finenotes-x-field-error")?.hasClass("is-hidden")).toBe(true);
   });
 });
 
@@ -1009,7 +1009,7 @@ describe("endpoint URL", () => {
     const field = setting.texts[0];
     expect(field.value).toBe("http://old/v1");
     expect(field.placeholder).toBe("http://localhost:11434/v1");
-    expect(setting.settingEl.hasClass("goodobsidian-wide-text")).toBe(true);
+    expect(setting.settingEl.hasClass("finenotes-x-wide-text")).toBe(true);
     await field.type("  https://box.ts.net/v1 ");
     expect(plugin.settings.llmBaseUrl).toBe("https://box.ts.net/v1");
     expect(fake.domRefreshes).toBe(1);
@@ -1062,7 +1062,7 @@ describe("API key rows", () => {
       makePlugin({}, { anthropic: "sk-ant-secret" }),
       "Anthropic (Claude) API key",
     );
-    const status = set.find("goodobsidian-key-status");
+    const status = set.find("finenotes-x-key-status");
     expect([status?.text, status?.hasClass("is-set")]).toEqual(["Set", true]);
     expect(set.buttons.map((b) => [b.text, b.cta])).toEqual([
       ["Replace", false],
@@ -1071,12 +1071,12 @@ describe("API key rows", () => {
     expect(set.settingEl.textContent).not.toContain("sk-ant-secret");
 
     const unset = keyRow(makePlugin(), "Anthropic (Claude) API key");
-    const none = unset.find("goodobsidian-key-status");
+    const none = unset.find("finenotes-x-key-status");
     expect([none?.text, none?.hasClass("is-set")]).toEqual(["Not set", false]);
     expect(unset.buttons.map((b) => [b.text, b.cta])).toEqual([["Add key", true]]);
 
     const custom = keyRow(makePlugin({ llmVendor: "custom" }), "Endpoint API key");
-    expect(custom.find("goodobsidian-key-status")?.text).toBe("Not set (optional)");
+    expect(custom.find("finenotes-x-key-status")?.text).toBe("Not set (optional)");
     expect(custom.buttons.map((b) => [b.text, b.cta])).toEqual([["Add key", false]]);
   });
 
@@ -1162,8 +1162,8 @@ describe("the feedback footer", () => {
     vi.stubGlobal("window", { open: (url: string) => opened.push(url) });
     try {
       const footer = renderRow(named(rows(makeTab(makePlugin()).tab), FOOTER));
-      expect(footer.settingEl.hasClass("goodobsidian-settings-footer")).toBe(true);
-      const links = footer.settingEl.findAll("goodobsidian-footer-link");
+      expect(footer.settingEl.hasClass("finenotes-x-settings-footer")).toBe(true);
+      const links = footer.settingEl.findAll("finenotes-x-footer-link");
       expect(links.map((l) => l.textContent)).toEqual([
         "Ideas and questions",
         "Report a bug",
@@ -1174,8 +1174,8 @@ describe("the feedback footer", () => {
       ]);
       for (const link of links) link.dispatch("click");
       expect(opened).toEqual([
-        "https://github.com/Joost-8/FineNotes/discussions",
-        "https://github.com/Joost-8/FineNotes/issues/new/choose",
+        "https://github.com/Timoms/FineNotes/discussions",
+        "https://github.com/Timoms/FineNotes/issues/new/choose",
         "https://x.com/finenotes_",
         "https://www.instagram.com/finenotesobsidian/",
         "https://www.tiktok.com/@finenotesobsidian",
@@ -1193,11 +1193,11 @@ describe("the ⓘ after a row's name", () => {
     row.setName("Hold to make shapes");
     addInfo(row.settingEl as never, "Draw a rough line and keep the pen still.");
     addInfo(row.settingEl as never, "twice");
-    const buttons = row.settingEl.findAll("goodobsidian-info");
+    const buttons = row.settingEl.findAll("finenotes-x-info");
     expect(buttons).toHaveLength(1);
     expect(buttons[0].parent).toBe(row.nameEl);
     expect(buttons[0].attrs).toMatchObject({ role: "button", "aria-expanded": "false" });
-    const text = row.infoEl.find("goodobsidian-info-text");
+    const text = row.infoEl.find("finenotes-x-info-text");
     expect(text?.hasClass("is-hidden")).toBe(true);
     // A tap on it is not a tap on the row (a toggle row would flip).
     let rowTapped = false;
@@ -1217,10 +1217,10 @@ describe("callout blocks", () => {
     const plugin = makePlugin({ llmVendor: "custom", llmBaseUrl: "nope" });
     const all = rows(makeTab(plugin).tab);
     const setting = renderRow(blockAfter(all, "Endpoint URL"));
-    expect(setting.settingEl.hasClass("goodobsidian-plain-row")).toBe(true);
+    expect(setting.settingEl.hasClass("finenotes-x-plain-row")).toBe(true);
     expect(setting.find("setting-item-name")).toBeUndefined();
-    const callout = setting.find("goodobsidian-callout");
-    expect(callout?.find("goodobsidian-callout-title")?.text).toBeTruthy();
+    const callout = setting.find("finenotes-x-callout");
+    expect(callout?.find("finenotes-x-callout-title")?.text).toBeTruthy();
     expect(callout?.children).toHaveLength(2);
   });
 });
@@ -1247,17 +1247,17 @@ describe("pens and shortcuts (FineNotes#24, #25)", () => {
     const pens = penRows(plugin);
     expect(pens).toHaveLength(8);
     const pen = plugin.settings.savedPens[1];
-    const mark = pens[1].nameEl.find("goodobsidian-saved-pen-mark");
+    const mark = pens[1].nameEl.find("finenotes-x-saved-pen-mark");
     // The mark is all the name shows: the words are its label and tooltip.
     expect(pens[1].nameEl.children).toEqual([mark]);
     expect(pens[1].nameEl.text).toBe("");
     expect(mark?.tag).toBe("button");
     expect(mark?.attrs["aria-label"]).toBe(`Pen 2: ${savedPenLabel(pen)}`);
-    expect(mark?.find("goodobsidian-saved-pen-key")?.text).toBe("2");
+    expect(mark?.find("finenotes-x-saved-pen-key")?.text).toBe("2");
     const glyph = mark?.children.find((c) => c.tag === "svg");
     const painted = (glyph?.children ?? []).flatMap((part) => Object.values(part.attrs));
     expect(painted).toContain(pen.color);
-    const stroke = mark?.find("goodobsidian-pen-sample")?.children[0]?.children[0];
+    const stroke = mark?.find("finenotes-x-pen-sample")?.children[0]?.children[0];
     expect(stroke?.tag).toBe("path");
     expect(Object.values(stroke?.attrs ?? {})).toContain(pen.color);
     expect(named(rows(makeTab(plugin).tab), savedPenLabel(pen))).toBeDefined();
@@ -1267,8 +1267,8 @@ describe("pens and shortcuts (FineNotes#24, #25)", () => {
     const plugin = makePlugin();
     plugin.settings.highlighterAlpha = 0.3;
     const at = plugin.settings.savedPens.findIndex((pen) => pen.type === "highlighter");
-    const mark = penRows(plugin)[at].nameEl.find("goodobsidian-saved-pen-mark");
-    const paper = mark?.find("goodobsidian-pen-sample");
+    const mark = penRows(plugin)[at].nameEl.find("finenotes-x-saved-pen-mark");
+    const paper = mark?.find("finenotes-x-pen-sample");
     expect(paper?.hasClass("is-highlighter")).toBe(true);
     expect(paper?.children[0]?.children[0]?.attrs.opacity).toBe("0.3");
   });
@@ -1306,7 +1306,7 @@ describe("pens and shortcuts (FineNotes#24, #25)", () => {
     const plugin = makePlugin();
     const [, second, third] = plugin.settings.savedPens;
     const pens = penRows(plugin);
-    pens[2].nameEl.find("goodobsidian-saved-pen-mark")?.dispatch("click");
+    pens[2].nameEl.find("finenotes-x-saved-pen-mark")?.dispatch("click");
     const dialog = dialogs.penModals.at(-1);
     expect(dialog?.index).toBe(2);
     expect(dialog?.pen).toEqual(third);
@@ -1343,7 +1343,7 @@ describe("pens and shortcuts (FineNotes#24, #25)", () => {
     const def = named(all, savedPenLabel(plugin.settings.savedPens[0]));
     const setting = renderRow(def);
     def.render?.(setting, {});
-    expect(setting.nameEl.findAll("goodobsidian-saved-pen-mark")).toHaveLength(1);
+    expect(setting.nameEl.findAll("finenotes-x-saved-pen-mark")).toHaveLength(1);
   });
 
   it("restores the default pens only after asking", async () => {
@@ -1397,12 +1397,12 @@ describe("pens and shortcuts (FineNotes#24, #25)", () => {
     void row.button("Show all").click();
     const modal = Modal.made.at(-1);
     expect(modal?.isOpen).toBe(true);
-    return modal?.contentEl.find("goodobsidian-shortcuts");
+    return modal?.contentEl.find("finenotes-x-shortcuts");
   }
 
   it("lists the shortcuts on their own sheet, each key a key cap, Ctrl or ⌘ by platform", () => {
     const list = shortcutSheet();
-    expect(list?.findAll("goodobsidian-shortcut-group-title").map((el) => el.text)).toEqual([
+    expect(list?.findAll("finenotes-x-shortcut-group-title").map((el) => el.text)).toEqual([
       "Tools",
       "Pens",
       "Selection and editing",
@@ -1411,34 +1411,34 @@ describe("pens and shortcuts (FineNotes#24, #25)", () => {
     ]);
     const line = (action: string) => {
       const found = list
-        ?.findAll("goodobsidian-shortcut")
-        .find((el) => el.find("goodobsidian-shortcut-action")?.text === action);
+        ?.findAll("finenotes-x-shortcut")
+        .find((el) => el.find("finenotes-x-shortcut-action")?.text === action);
       if (!found) throw new Error(`no shortcut "${action}"`);
       return found;
     };
     const caps = (action: string) =>
       line(action)
-        .findAll("goodobsidian-key")
+        .findAll("finenotes-x-key")
         .map((el) => el.text);
     expect(caps("Redo")).toEqual(["Ctrl", "Shift", "Z"]);
-    expect(line("Redo").find("goodobsidian-shortcut-keys")?.textContent).toBe("Ctrl+Shift+Z");
+    expect(line("Redo").find("finenotes-x-shortcut-keys")?.textContent).toBe("Ctrl+Shift+Z");
     expect(caps("Pen")).toEqual(["P", "W"]);
-    expect(line("Pen").find("goodobsidian-shortcut-sep")?.text).toBe("or");
-    expect(line("Saved pens 1 to 8").find("goodobsidian-shortcut-sep")?.text).toBe("–");
-    expect(line("Move the page").find("goodobsidian-shortcut-gesture")?.text).toBe("+ drag");
+    expect(line("Pen").find("finenotes-x-shortcut-sep")?.text).toBe("or");
+    expect(line("Saved pens 1 to 8").find("finenotes-x-shortcut-sep")?.text).toBe("–");
+    expect(line("Move the page").find("finenotes-x-shortcut-gesture")?.text).toBe("+ drag");
     expect(caps("Erase")).toEqual([]);
 
     Platform.isIosApp = true;
     const redo = shortcutSheet()
-      ?.findAll("goodobsidian-shortcut")
-      .find((el) => el.find("goodobsidian-shortcut-action")?.text === "Redo");
-    expect(redo?.findAll("goodobsidian-key").map((el) => [el.text, el.attrs.title])).toEqual([
+      ?.findAll("finenotes-x-shortcut")
+      .find((el) => el.find("finenotes-x-shortcut-action")?.text === "Redo");
+    expect(redo?.findAll("finenotes-x-key").map((el) => [el.text, el.attrs.title])).toEqual([
       ["⌘", "Command"],
       ["⇧", "Shift"],
       ["Z", undefined],
     ]);
     // Glyphs sit side by side, as in Obsidian's Hotkeys tab: no "+" between them.
-    expect(redo?.findAll("goodobsidian-shortcut-plus")).toEqual([]);
+    expect(redo?.findAll("finenotes-x-shortcut-plus")).toEqual([]);
   });
 
   it("writes each shortcut as Obsidian prints a hotkey", () => {
@@ -1503,7 +1503,7 @@ describe("folding sections", () => {
   it("folds every section at first, leaving only their headers and the footer", () => {
     const { tab } = makeTab(makePlugin(), false);
     expect(groups(tab).map((g) => [g.heading, g.cls])).toEqual(
-      HEADINGS.map((h) => [h, "goodobsidian-section is-folded"]),
+      HEADINGS.map((h) => [h, "finenotes-x-section is-folded"]),
     );
     expect(unfoldedRows(tab).map((r) => r.def.name)).toEqual([FOOTER]);
   });
@@ -1531,22 +1531,22 @@ describe("folding sections", () => {
     const { tab } = makeTab(plugin, false);
     const drawn = groups(tab).map(drawGroup);
     const [writing, pens, pages, models, ai, advanced] = drawn;
-    expect(writing.header.find("goodobsidian-section-icon")?.attrs["data-icon"]).toBe("pencil");
+    expect(writing.header.find("finenotes-x-section-icon")?.attrs["data-icon"]).toBe("pencil");
     expect(
-      writing.header.find("setting-item-name")?.children[0].hasClass("goodobsidian-section-icon"),
+      writing.header.find("setting-item-name")?.children[0].hasClass("finenotes-x-section-icon"),
     ).toBe(true);
     const status = (g: (typeof drawn)[number]) =>
-      g.header.find("goodobsidian-section-status")?.textContent;
+      g.header.find("finenotes-x-section-status")?.textContent;
     expect(status(writing)).toBe("Highlighter · 5");
-    expect(writing.header.find("goodobsidian-status-swatch")?.style.backgroundColor).toBe(
+    expect(writing.header.find("finenotes-x-status-swatch")?.style.backgroundColor).toBe(
       plugin.settings.defaultColor,
     );
     expect(status(pens)).toBe("8 saved");
     expect(status(pages)).toBe("Light · 900 px");
     expect(status(models)).toBe("VoiceHandwriting");
-    expect(models.header.findAll("goodobsidian-status-part").map((p) => [...p.classes])).toEqual([
-      ["goodobsidian-status-part", "is-ready"],
-      ["goodobsidian-status-part", "is-ready"],
+    expect(models.header.findAll("finenotes-x-status-part").map((p) => [...p.classes])).toEqual([
+      ["finenotes-x-status-part", "is-ready"],
+      ["finenotes-x-status-part", "is-ready"],
     ]);
     expect(status(ai)).toBe("Not set up");
     expect(status(advanced)).toBe("");
@@ -1560,7 +1560,7 @@ describe("folding sections", () => {
     const { tab } = makeTab(plugin, false);
     const pens = drawGroup(groups(tab)[1]);
     expect(pens.groupEl.hasClass("is-folded")).toBe(true);
-    expect(pens.header.hasClass("goodobsidian-fold-header")).toBe(true);
+    expect(pens.header.hasClass("finenotes-x-fold-header")).toBe(true);
     expect(pens.chevron?.attrs).toMatchObject({
       role: "button",
       "aria-expanded": "false",
@@ -1576,7 +1576,7 @@ describe("folding sections", () => {
 
     // Reopening the settings (or Obsidian) draws it open.
     const reopened = makeTab(plugin, false).tab;
-    expect(groups(reopened)[1].cls).toBe("goodobsidian-section");
+    expect(groups(reopened)[1].cls).toBe("finenotes-x-section");
     expect(unfoldedRows(reopened).some((r) => r.def.name === "Stylus side button")).toBe(true);
 
     // On a computer several stay open.
@@ -1621,7 +1621,7 @@ describe("folding sections", () => {
   it("hides the rows after More until it is tapped, and keeps it open while the settings are", () => {
     const plugin = makePlugin({ settingsOpen: ["writing"] });
     const { tab } = makeTab(plugin, false);
-    expect(groups(tab)[0].cls).toBe("goodobsidian-section");
+    expect(groups(tab)[0].cls).toBe("finenotes-x-section");
     const writing = drawGroup(groups(tab)[0]);
     // Obsidian draws More as an action row and runs its action on a tap.
     const row = writing.groupEl.createDiv("setting-items").createDiv("setting-item mod-action");
@@ -1629,14 +1629,14 @@ describe("folding sections", () => {
     tap();
     expect(writing.groupEl.hasClass("is-more-open")).toBe(true);
     // Drawn again (a value changed), the section keeps its More open.
-    expect(groups(tab)[0].cls).toBe("goodobsidian-section is-more-open");
+    expect(groups(tab)[0].cls).toBe("finenotes-x-section is-more-open");
     tap();
     expect(writing.groupEl.hasClass("is-more-open")).toBe(false);
-    expect(groups(tab)[0].cls).toBe("goodobsidian-section");
+    expect(groups(tab)[0].cls).toBe("finenotes-x-section");
     // Closing the settings forgets it.
     tap();
     tab.hide();
-    expect(groups(tab)[0].cls).toBe("goodobsidian-section");
+    expect(groups(tab)[0].cls).toBe("finenotes-x-section");
   });
 });
 
@@ -1649,7 +1649,7 @@ describe("Models on this device", () => {
   const GRAPE = "Handwriting · Grape 2.0";
   const VOICE = "Voice · Whisper base";
   const status = (setting: FakeSetting) =>
-    setting.descEl.find("goodobsidian-model-status")?.textContent ?? "";
+    setting.descEl.find("finenotes-x-model-status")?.textContent ?? "";
 
   it("says in one line whether each model is here and how big it is; what it is for is behind ⓘ", () => {
     const plugin = makePlugin();
@@ -1658,11 +1658,11 @@ describe("Models on this device", () => {
     const all = rows(tab);
     const grape = renderRow(named(all, GRAPE));
     expect(grape.descEl.textContent).toBe("Version 2.0, 5.7 MB, on this device.");
-    expect(grape.descEl.find("goodobsidian-model-status")?.hasClass("is-ready")).toBe(true);
+    expect(grape.descEl.find("finenotes-x-model-status")?.hasClass("is-ready")).toBe(true);
     expect(tab.infoOf(GRAPE)).toMatch(/^Grape \(handwriting recognizer model\) reads/);
     const voice = renderRow(named(all, VOICE));
     expect(status(voice)).toBe("Not downloaded yet (83.4 MB).");
-    expect(voice.descEl.find("goodobsidian-model-status")?.hasClass("is-missing")).toBe(true);
+    expect(voice.descEl.find("finenotes-x-model-status")?.hasClass("is-missing")).toBe(true);
     expect(tab.infoOf(VOICE)).toMatch(/^Whisper \(speech recognizer model\) turns recordings/);
   });
 

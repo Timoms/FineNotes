@@ -47,9 +47,7 @@ export function parseRulerSettings(value: unknown): RulerSettings {
   const raw = value as Partial<RulerSettings>;
   return {
     theme:
-      raw.theme === "light" || raw.theme === "dark" || raw.theme === "school"
-        ? raw.theme
-        : "clear",
+      raw.theme === "light" || raw.theme === "dark" || raw.theme === "school" ? raw.theme : "clear",
     unit: raw.unit === "inch" ? "inch" : "cm",
     kind: raw.kind === "triangle" || raw.kind === "protractor" ? raw.kind : "ruler",
     baseLength: rulerBaseLength(raw.baseLength, raw.unit === "inch" ? "inch" : "cm"),
@@ -128,12 +126,12 @@ export class RulerOverlay {
   private readonly ticks: HTMLElement;
 
   constructor(private readonly host: HTMLElement) {
-    this.el = host.createDiv({ cls: "goodobsidian-ruler is-hidden" });
+    this.el = host.createDiv({ cls: "finenotes-x-ruler is-hidden" });
     this.el.setAttribute("aria-hidden", "true");
-    this.ticks = this.el.createDiv({ cls: "goodobsidian-ruler-ticks" });
-    const move = this.el.createDiv({ cls: "goodobsidian-ruler-handle is-move" });
+    this.ticks = this.el.createDiv({ cls: "finenotes-x-ruler-ticks" });
+    const move = this.el.createDiv({ cls: "finenotes-x-ruler-handle is-move" });
     move.setAttribute("aria-label", "Move ruler");
-    const transform = this.el.createDiv({ cls: "goodobsidian-ruler-handle is-transform" });
+    const transform = this.el.createDiv({ cls: "finenotes-x-ruler-handle is-transform" });
     transform.setAttribute("aria-label", "Rotate ruler");
     this.bindHandle(move, "move");
     this.bindHandle(transform, "transform");
@@ -247,10 +245,7 @@ export class RulerOverlay {
           originLocal.x * Math.cos(radians) -
           originLocal.y * Math.sin(radians),
         y:
-          rect.top +
-          this.y +
-          originLocal.x * Math.sin(radians) +
-          originLocal.y * Math.cos(radians),
+          rect.top + this.y + originLocal.x * Math.sin(radians) + originLocal.y * Math.cos(radians),
       },
       direction,
     };
@@ -300,7 +295,7 @@ export class RulerOverlay {
     const majors = Math.floor(this.lengthMm / majorMm);
     for (let i = 1; i <= majors; i++) {
       const label = this.ticks.createSpan({
-        cls: "goodobsidian-ruler-number",
+        cls: "finenotes-x-ruler-number",
         text: String(i),
       });
       label.setCssStyles({ left: `${i * majorMm * this.pxPerMm}px` });
@@ -386,7 +381,7 @@ export class RulerOverlay {
       const radians = (Math.PI * (180 - degree)) / 180;
       const inset = degree % 10 === 0 ? 13 : 7;
       const tick = this.ticks.createSpan({
-        cls: degree % 10 === 0 ? "goodobsidian-degree is-major" : "goodobsidian-degree",
+        cls: degree % 10 === 0 ? "finenotes-x-degree is-major" : "finenotes-x-degree",
       });
       tick.setCssStyles({
         left: `${centreX + (radius - inset) * Math.cos(radians)}px`,
@@ -396,7 +391,7 @@ export class RulerOverlay {
       if (degree % 10 === 0) {
         const labelRadius = radius - 27;
         const label = this.ticks.createSpan({
-          cls: "goodobsidian-degree-number",
+          cls: "finenotes-x-degree-number",
           text: String(degree),
         });
         label.setCssStyles({
@@ -408,7 +403,7 @@ export class RulerOverlay {
   }
 
   private renderProtractorScale(): void {
-    const scale = this.ticks.createDiv({ cls: "goodobsidian-protractor-linear-scale" });
+    const scale = this.ticks.createDiv({ cls: "finenotes-x-protractor-linear-scale" });
     const inch = this.settings.unit === "inch";
     const stepMm = rulerStepMm(this.pxPerMm, this.settings.unit);
     const majorMm = inch ? 25.4 : 10;
@@ -420,19 +415,22 @@ export class RulerOverlay {
     });
     const majors = Math.floor(this.lengthMm / majorMm);
     for (let i = 1; i <= majors; i++) {
-      const label = scale.createSpan({ cls: "goodobsidian-protractor-scale-number", text: String(i) });
+      const label = scale.createSpan({
+        cls: "finenotes-x-protractor-scale-number",
+        text: String(i),
+      });
       label.setCssStyles({ left: `${i * majorMm * this.pxPerMm}px` });
     }
   }
 
   private renderTriangleDegrees(): void {
-    const band = this.ticks.createDiv({ cls: "goodobsidian-triangle-degree-band" });
+    const band = this.ticks.createDiv({ cls: "finenotes-x-triangle-degree-band" });
     const centreX = this.lengthPx / 2;
     const centreY = this.toolHeight;
     const radius = this.toolHeight * 0.64;
     for (let degree = 0; degree <= 90; degree += 10) {
       const radians = ((-135 + degree) * Math.PI) / 180;
-      const tick = band.createSpan({ cls: "goodobsidian-triangle-degree" });
+      const tick = band.createSpan({ cls: "finenotes-x-triangle-degree" });
       tick.setCssStyles({
         left: `${centreX + radius * Math.cos(radians)}px`,
         top: `${centreY + radius * Math.sin(radians)}px`,
@@ -440,7 +438,7 @@ export class RulerOverlay {
       });
       const labelRadius = radius - 13;
       const label = band.createSpan({
-        cls: "goodobsidian-triangle-degree-number",
+        cls: "finenotes-x-triangle-degree-number",
         text: String(degree <= 45 ? degree : 90 - degree),
       });
       label.setCssStyles({

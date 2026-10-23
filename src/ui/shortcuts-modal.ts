@@ -22,11 +22,11 @@ export class ShortcutsModal extends Modal {
 
   override onOpen(): void {
     this.shown = true;
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-shortcuts-modal");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-shortcuts-modal");
     this.titleEl.setText("Keyboard and stylus shortcuts");
     renderShortcutList(this.contentEl, this.apple);
     this.contentEl.createDiv({
-      cls: "goodobsidian-shortcuts-hint",
+      cls: "finenotes-x-shortcuts-hint",
       text: "Press ? to show or hide this list. None of them act while you type in a text box.",
     });
     // ? closes it, as it opened it.

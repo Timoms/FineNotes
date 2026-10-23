@@ -22,7 +22,7 @@ function record(partial: Partial<TextEndRecord> = {}): TextEndRecord {
 describe("describeElement", () => {
   it("names the tag and the first class, without the plugin's prefix", () => {
     expect(
-      describeElement({ tagName: "TEXTAREA", className: "goodobsidian-page-textbox-input x" }),
+      describeElement({ tagName: "TEXTAREA", className: "finenotes-x-page-textbox-input x" }),
     ).toBe("textarea.page-textbox-input");
     expect(describeElement({ tagName: "BUTTON", className: "clickable-icon" })).toBe(
       "button.clickable-icon",

@@ -42,21 +42,21 @@ export class CommentModal extends Modal {
 
   override onOpen(): void {
     const comment = this.comment;
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-comment-modal");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-comment-modal");
     this.titleEl.setText(comment ? "Comment" : `New comment on page ${this.pageNumber}`);
     const body = this.contentEl;
-    body.addClass("goodobsidian-ask");
+    body.addClass("finenotes-x-ask");
     if (comment) {
       const by = comment.author === "ai" ? "From the AI" : "Yours";
       const when = comment.created > 0 ? ` · ${new Date(comment.created).toLocaleString()}` : "";
       const state = comment.resolved ? " · Resolved" : "";
       body.createDiv({
-        cls: "goodobsidian-ask-note",
+        cls: "finenotes-x-ask-note",
         text: `${by} · page ${this.pageNumber}${when}${state}`,
       });
     }
     const field = body.createEl("textarea", {
-      cls: "goodobsidian-ask-input goodobsidian-comment-field",
+      cls: "finenotes-x-ask-input finenotes-x-comment-field",
       attr: {
         "aria-label": "Comment",
         placeholder: "What is this about?",
@@ -67,11 +67,11 @@ export class CommentModal extends Modal {
     this.keyboard.watch(field, field);
 
     const actions = body.createDiv({
-      cls: "goodobsidian-ask-actions goodobsidian-comment-actions",
+      cls: "finenotes-x-ask-actions finenotes-x-comment-actions",
     });
     if (comment && this.actions.remove) {
       const remove = actions.createEl("button", {
-        cls: "goodobsidian-comment-delete clickable-icon",
+        cls: "finenotes-x-comment-delete clickable-icon",
         text: "Delete",
       });
       remove.addEventListener("click", () => {

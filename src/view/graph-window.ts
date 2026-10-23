@@ -53,7 +53,7 @@ export class GraphWindow {
   constructor(private readonly host: GraphWindowHost) {
     this.frame = new FloatingWindow({
       container: host.container,
-      cls: "goodobsidian-graph-window",
+      cls: "finenotes-x-graph-window",
       title: "Graph",
       label: "Graph window",
       buttons: host.insertGraph

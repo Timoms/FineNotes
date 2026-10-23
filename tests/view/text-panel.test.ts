@@ -53,10 +53,10 @@ describe("TextPanel", () => {
   it("builds a labelled field with a placeholder, inside its parent", () => {
     const { parent, root, field } = panel();
     expect(parent.children).toEqual([root]);
-    expect(root.cls).toBe("goodobsidian-textpanel");
+    expect(root.cls).toBe("finenotes-x-textpanel");
     expect(root.children.map((c) => c.tag)).toEqual(["div", "textarea"]);
     expect(root.children[0].text).not.toBe("");
-    expect(field.cls).toBe("goodobsidian-textpanel-input");
+    expect(field.cls).toBe("finenotes-x-textpanel-input");
     expect(field.attr.placeholder).not.toBe("");
   });
 

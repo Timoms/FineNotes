@@ -48,8 +48,8 @@ const WRAPPED = Symbol("finenotes-folder-notebooks");
 type Wrapped = ExplorerView & { [WRAPPED]?: () => void };
 
 /** The icon element this added to a row, so it is made once and can be taken away. */
-const ICON_CLASS = "goodobsidian-explorer-icon";
-const NOTEBOOK_ROW_CLASS = "goodobsidian-folder-notebook";
+const ICON_CLASS = "finenotes-x-explorer-icon";
+const NOTEBOOK_ROW_CLASS = "finenotes-x-folder-notebook";
 
 export class ExplorerFolderNotebooks {
   private readonly wrapped = new Set<Wrapped>();

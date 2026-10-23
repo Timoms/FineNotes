@@ -477,17 +477,17 @@ class NotebookPageEmbed extends Component {
   ) {
     super();
     this.containerEl = ctx.containerEl;
-    this.containerEl.addClass("goodobsidian-page-embed");
+    this.containerEl.addClass("finenotes-x-page-embed");
     // Live preview selects the link's source on a click inside an embed,
     // except inside an `interactive-child`: a click on the page opens it.
     this.pageEl = this.containerEl.createDiv({
-      cls: "goodobsidian-page-embed-page interactive-child",
+      cls: "finenotes-x-page-embed-page interactive-child",
     });
     this.pageEl.setAttribute("role", "link");
     this.pageEl.tabIndex = 0;
     this.pageEl.setAttribute("aria-label", embedLabel(file.basename, target));
     this.pageEl.setCssStyles({ aspectRatio: aspectOf(DEFAULT_PAGE_GEOMETRY) });
-    this.canvas = this.pageEl.createEl("canvas", { cls: "goodobsidian-page-embed-canvas" });
+    this.canvas = this.pageEl.createEl("canvas", { cls: "finenotes-x-page-embed-canvas" });
     // No backing store until the page is painted (a canvas starts at 300 x 150).
     releaseCanvas(this.canvas);
   }
@@ -544,7 +544,7 @@ class NotebookPageEmbed extends Component {
     this.containerEl.addClass("is-link");
     this.linkEl?.remove();
     const link = this.containerEl.createEl("a", {
-      cls: "internal-link goodobsidian-page-embed-link interactive-child",
+      cls: "internal-link finenotes-x-page-embed-link interactive-child",
       text: embedLabel(this.file.basename, this.target),
       href: this.ctx.linktext,
     });

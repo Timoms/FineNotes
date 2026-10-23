@@ -57,7 +57,7 @@ export class SaveTemplateModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-template-save");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-template-save");
     this.titleEl.setText("Save as template");
     const el = this.contentEl;
     el.createDiv({
@@ -171,7 +171,7 @@ export class TemplateGalleryModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-template-gallery");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-template-gallery");
     this.titleEl.setText("Template gallery");
     this.showBrowse();
   }
@@ -185,7 +185,7 @@ export class TemplateGalleryModal extends Modal {
     el.empty();
     el.removeClass("is-detail");
     const shown = this.entries.filter((entry) => !entry.retired);
-    const head = el.createDiv({ cls: "goodobsidian-gallery-head" });
+    const head = el.createDiv({ cls: "finenotes-x-gallery-head" });
     head.createSpan({
       cls: "setting-item-description",
       text: "Free templates shared by people who use FineNotes.",
@@ -206,7 +206,7 @@ export class TemplateGalleryModal extends Modal {
       return;
     }
     const search = el.createEl("input", {
-      cls: "goodobsidian-gallery-search",
+      cls: "finenotes-x-gallery-search",
       type: "search",
       attr: { placeholder: "Search templates", "aria-label": "Search templates" },
     });
@@ -215,13 +215,13 @@ export class TemplateGalleryModal extends Modal {
       this.query = search.value;
       this.renderList(shown);
     });
-    const filters = el.createDiv({ cls: "goodobsidian-gallery-filters" });
-    const chips = filters.createDiv({ cls: "goodobsidian-gallery-chips" });
+    const filters = el.createDiv({ cls: "finenotes-x-gallery-filters" });
+    const chips = filters.createDiv({ cls: "finenotes-x-gallery-chips" });
     const used = GALLERY_CATEGORIES.filter((c) => shown.some((e) => e.category === c.id));
     const chipButtons: HTMLElement[] = [];
     for (const category of [{ id: "all", label: "All" }, ...used]) {
       const chip = chips.createEl("button", {
-        cls: "goodobsidian-gallery-chip clickable-icon",
+        cls: "finenotes-x-gallery-chip clickable-icon",
         text: category.label,
       });
       chip.toggleClass("is-active", category.id === this.category);
@@ -233,7 +233,7 @@ export class TemplateGalleryModal extends Modal {
       chipButtons.push(chip);
     }
     // Popular (most downloaded) · New · A–Z.
-    const sorts = filters.createDiv({ cls: "goodobsidian-segmented goodobsidian-gallery-sort" });
+    const sorts = filters.createDiv({ cls: "finenotes-x-segmented finenotes-x-gallery-sort" });
     const sortButtons: HTMLElement[] = [];
     for (const sort of GALLERY_SORTS) {
       const button = sorts.createEl("button", { cls: "clickable-icon", text: sort.label });
@@ -249,7 +249,7 @@ export class TemplateGalleryModal extends Modal {
       });
       sortButtons.push(button);
     }
-    this.listEl = el.createDiv({ cls: "goodobsidian-gallery-grid" });
+    this.listEl = el.createDiv({ cls: "finenotes-x-gallery-grid" });
     this.renderList(shown);
     this.listEl.scrollTop = this.browseScroll;
   }
@@ -272,20 +272,20 @@ export class TemplateGalleryModal extends Modal {
     }
     for (const entry of matching) {
       const card = grid.createEl("button", {
-        cls: "goodobsidian-gallery-card clickable-icon",
+        cls: "finenotes-x-gallery-card clickable-icon",
         attr: { "aria-label": entry.name },
       });
-      const cover = card.createDiv({ cls: "goodobsidian-gallery-cover" });
+      const cover = card.createDiv({ cls: "finenotes-x-gallery-cover" });
       const src = entry.preview || entry.previews[0];
       if (src) cover.createEl("img", { attr: { src, alt: "", loading: "lazy" } });
       if (entry.pages > 1) {
-        cover.createSpan({ cls: "goodobsidian-gallery-badge", text: `${entry.pages} pages` });
+        cover.createSpan({ cls: "finenotes-x-gallery-badge", text: `${entry.pages} pages` });
       }
-      card.createDiv({ cls: "goodobsidian-gallery-card-name", text: entry.name });
-      card.createDiv({ cls: "goodobsidian-gallery-card-meta", text: entry.author });
+      card.createDiv({ cls: "finenotes-x-gallery-card-name", text: entry.name });
+      card.createDiv({ cls: "finenotes-x-gallery-card-meta", text: entry.author });
       const where = entry.shop && !entry.download ? "In the creator's shop" : "Free";
       card.createDiv({
-        cls: "goodobsidian-gallery-card-meta",
+        cls: "finenotes-x-gallery-card-meta",
         text: [where, entry.download ? downloadsLabel(entry.downloads) : ""]
           .filter(Boolean)
           .join(" · "),
@@ -306,20 +306,20 @@ export class TemplateGalleryModal extends Modal {
     el.empty();
     el.addClass("is-detail");
     const back = el.createEl("button", {
-      cls: "goodobsidian-gallery-back clickable-icon",
+      cls: "finenotes-x-gallery-back clickable-icon",
       attr: { "aria-label": "Back to the gallery" },
     });
-    setIcon(back.createSpan({ cls: "goodobsidian-gallery-back-icon" }), "chevron-left");
+    setIcon(back.createSpan({ cls: "finenotes-x-gallery-back-icon" }), "chevron-left");
     back.createSpan({ text: "Gallery" });
     back.addEventListener("click", () => this.showBrowse());
 
-    const head = el.createDiv({ cls: "goodobsidian-gallery-detail-head" });
-    const titles = head.createDiv({ cls: "goodobsidian-gallery-detail-titles" });
-    titles.createDiv({ cls: "goodobsidian-gallery-detail-name", text: entry.name });
+    const head = el.createDiv({ cls: "finenotes-x-gallery-detail-head" });
+    const titles = head.createDiv({ cls: "finenotes-x-gallery-detail-titles" });
+    titles.createDiv({ cls: "finenotes-x-gallery-detail-name", text: entry.name });
     if (entry.author) {
-      titles.createDiv({ cls: "goodobsidian-gallery-detail-author", text: `by ${entry.author}` });
+      titles.createDiv({ cls: "finenotes-x-gallery-detail-author", text: `by ${entry.author}` });
     }
-    const actions = head.createDiv({ cls: "goodobsidian-gallery-detail-actions" });
+    const actions = head.createDiv({ cls: "finenotes-x-gallery-detail-actions" });
     if (entry.download) {
       const add = actions.createEl("button", {
         cls: "mod-cta",
@@ -338,31 +338,31 @@ export class TemplateGalleryModal extends Modal {
     // Every page, side by side, to swipe through.
     const pages = entry.previews.length > 0 ? entry.previews : entry.preview ? [entry.preview] : [];
     if (pages.length > 0) {
-      const strip = el.createDiv({ cls: "goodobsidian-gallery-pages" });
+      const strip = el.createDiv({ cls: "finenotes-x-gallery-pages" });
       pages.forEach((src, i) => {
-        const page = strip.createDiv({ cls: "goodobsidian-gallery-page" });
+        const page = strip.createDiv({ cls: "finenotes-x-gallery-page" });
         // The first few at once, so the page never opens empty; the rest as swiped to.
-        page.createDiv({ cls: "goodobsidian-gallery-page-frame" }).createEl("img", {
+        page.createDiv({ cls: "finenotes-x-gallery-page-frame" }).createEl("img", {
           attr: { src, alt: `Page ${i + 1}`, loading: i < 4 ? "eager" : "lazy" },
         });
-        page.createDiv({ cls: "goodobsidian-gallery-page-number", text: String(i + 1) });
+        page.createDiv({ cls: "finenotes-x-gallery-page-number", text: String(i + 1) });
       });
       if (entry.pages > pages.length) {
         el.createDiv({
-          cls: "goodobsidian-gallery-more",
+          cls: "finenotes-x-gallery-more",
           text: `The first ${pages.length} of ${entry.pages} pages.`,
         });
       }
     }
 
-    const about = el.createDiv({ cls: "goodobsidian-gallery-about" });
+    const about = el.createDiv({ cls: "finenotes-x-gallery-about" });
     if (entry.description) about.createEl("p", { text: entry.description });
-    const facts = about.createDiv({ cls: "goodobsidian-gallery-facts" });
+    const facts = about.createDiv({ cls: "finenotes-x-gallery-facts" });
     const fact = (label: string, value: string): void => {
       // Label and value are the grid's own cells: a row wrapper would need
       // `display: contents`, which the directory's review flags as only
       // partly supported.
-      facts.createSpan({ cls: "goodobsidian-gallery-fact-label", text: label });
+      facts.createSpan({ cls: "finenotes-x-gallery-fact-label", text: label });
       facts.createSpan({ text: value });
     };
     fact("Pages", String(entry.pages));
@@ -372,8 +372,8 @@ export class TemplateGalleryModal extends Modal {
     if (category) fact("Category", category);
     fact("Licence", TEMPLATE_LICENCES.find((l) => l.id === entry.licence)?.label ?? "");
     if (entry.tags.length > 0) {
-      const tags = about.createDiv({ cls: "goodobsidian-gallery-tags" });
-      for (const tag of entry.tags) tags.createSpan({ cls: "goodobsidian-gallery-tag", text: tag });
+      const tags = about.createDiv({ cls: "finenotes-x-gallery-tags" });
+      for (const tag of entry.tags) tags.createSpan({ cls: "finenotes-x-gallery-tag", text: tag });
     }
   }
 
@@ -419,7 +419,7 @@ export class ShareTemplateModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-share-template");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-share-template");
     this.titleEl.setText("Share a template");
     const el = this.contentEl;
     el.empty();
@@ -431,7 +431,7 @@ export class ShareTemplateModal extends Modal {
       return;
     }
     el.createDiv({
-      cls: "setting-item-description goodobsidian-share-intro",
+      cls: "setting-item-description finenotes-x-share-intro",
       text:
         "Everyone who uses FineNotes can find it in the template gallery once it is reviewed. " +
         "FineNotes opens the submission form on GitHub with this filled in; you attach the file " +
@@ -478,7 +478,7 @@ export class ShareTemplateModal extends Modal {
       .setName("Tags")
       .setDesc("A few words, separated by commas.")
       .addText((text) => text.onChange((v) => (this.details.tags = v)));
-    this.fileEl = el.createDiv({ cls: "goodobsidian-share-file" });
+    this.fileEl = el.createDiv({ cls: "finenotes-x-share-file" });
     this.renderFile();
     new Setting(el)
       .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
@@ -506,8 +506,8 @@ export class ShareTemplateModal extends Modal {
     const el = this.fileEl;
     if (!el || !this.chosen) return;
     el.empty();
-    el.createDiv({ cls: "goodobsidian-share-file-label", text: "On GitHub, attach this file:" });
-    el.createDiv({ cls: "goodobsidian-share-file-path", text: this.chosen.path });
+    el.createDiv({ cls: "finenotes-x-share-file-label", text: "On GitHub, attach this file:" });
+    el.createDiv({ cls: "finenotes-x-share-file-path", text: this.chosen.path });
   }
 
   override onClose(): void {
@@ -531,7 +531,7 @@ export class ConfirmModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-dialog");
+    this.modalEl.addClass("finenotes-x-dialog");
     this.titleEl.setText(this.title);
     this.contentEl.createEl("p", { text: this.message });
     new Setting(this.contentEl)

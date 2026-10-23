@@ -37,13 +37,13 @@ export class FloatingPenMenu {
     private readonly callbacks: FloatingPenMenuCallbacks,
   ) {
     this.actions = companionActionsOf(actions);
-    this.root = host.createDiv({ cls: "goodobsidian-pen-companion" });
-    this.ring = this.root.createDiv({ cls: "goodobsidian-pen-companion-ring" });
+    this.root = host.createDiv({ cls: "finenotes-x-pen-companion" });
+    this.ring = this.root.createDiv({ cls: "finenotes-x-pen-companion-ring" });
     this.stickerMenu = this.root.createDiv({
-      cls: "goodobsidian-pen-companion-stickers is-hidden",
+      cls: "finenotes-x-pen-companion-stickers is-hidden",
     });
     this.button = this.root.createEl("button", {
-      cls: "goodobsidian-pen-companion-button clickable-icon",
+      cls: "finenotes-x-pen-companion-button clickable-icon",
       attr: { "aria-label": "Quick tools", "aria-expanded": "false" },
     });
     setIcon(this.button, "pen-tool");
@@ -83,7 +83,7 @@ export class FloatingPenMenu {
       if (!spec) return;
       const angle = -Math.PI / 2 + (index * Math.PI * 2) / this.actions.length;
       const button = this.ring.createEl("button", {
-        cls: "goodobsidian-pen-companion-item clickable-icon",
+        cls: "finenotes-x-pen-companion-item clickable-icon",
         attr: { "aria-label": spec.label, title: spec.label },
       });
       setIcon(button, spec.icon);
@@ -111,7 +111,7 @@ export class FloatingPenMenu {
     }
     for (const sticker of this.callbacks.stickers()) {
       const button = this.stickerMenu.createEl("button", {
-        cls: "goodobsidian-pen-companion-sticker clickable-icon",
+        cls: "finenotes-x-pen-companion-sticker clickable-icon",
         attr: { "aria-label": sticker.label, title: sticker.label },
       });
       const parsed = new DOMParser().parseFromString(sticker.svg, "image/svg+xml").documentElement;
@@ -134,14 +134,14 @@ export class FloatingPenMenu {
     this.stickerMenu.addClass("is-sticky-notes");
     for (const note of this.callbacks.stickyNotes()) {
       const button = this.stickerMenu.createEl("button", {
-        cls: "goodobsidian-pen-companion-sticker goodobsidian-sticky-choice",
+        cls: "finenotes-x-pen-companion-sticker finenotes-x-sticky-choice",
         attr: { "aria-label": "Peel off sticky note", title: "Drag onto the page" },
       });
       button.style.setProperty("--sticky-color", note.color);
       const parsed = new DOMParser().parseFromString(note.svg, "image/svg+xml").documentElement;
       button.append(button.ownerDocument.importNode(parsed, true));
-      button.createSpan({ cls: "goodobsidian-sticky-peel is-left" });
-      button.createSpan({ cls: "goodobsidian-sticky-peel is-right" });
+      button.createSpan({ cls: "finenotes-x-sticky-peel is-left" });
+      button.createSpan({ cls: "finenotes-x-sticky-peel is-right" });
       this.bindSticky(button, note.color);
     }
     this.stickerMenu.removeClass("is-hidden");
@@ -161,7 +161,7 @@ export class FloatingPenMenu {
       const rect = button.getBoundingClientRect();
       const side = event.clientX < rect.left + rect.width / 2 ? "left" : "right";
       const ghost = button.cloneNode(true) as HTMLElement;
-      ghost.addClass("goodobsidian-sticky-ghost");
+      ghost.addClass("finenotes-x-sticky-ghost");
       ghost.addClass(`is-peeling-${side}`);
       this.host.append(ghost);
       drag = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false, side, ghost };

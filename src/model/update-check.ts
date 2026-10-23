@@ -13,10 +13,10 @@
 
 /** Where the released version is read: `main`'s manifest, as Obsidian's updater reads it. */
 export const UPDATE_MANIFEST_URL =
-  "https://raw.githubusercontent.com/Joost-8/FineNotes/main/manifest.json";
+  "https://raw.githubusercontent.com/Timoms/FineNotes/main/manifest.json";
 
 /** Obsidian's own page for the plugin, with its Update button. */
-export const PLUGIN_PAGE_URL = "obsidian://show-plugin?id=finenotes";
+export const PLUGIN_PAGE_URL = "https://github.com/Timoms/FineNotes/releases/latest";
 
 /** How often the version is read at most. */
 export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;

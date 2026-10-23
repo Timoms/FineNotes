@@ -15,8 +15,8 @@ export class WhatsNewModal extends Modal {
   }
 
   override onOpen(): void {
-    this.titleEl.setText("What's new in FineNotes");
-    this.modalEl.addClass("goodobsidian-whats-new", "goodobsidian-dialog");
+    this.titleEl.setText("What's new in FineNotesX");
+    this.modalEl.addClass("finenotes-x-whats-new", "finenotes-x-dialog");
     void MarkdownRenderer.render(this.app, this.notes, this.contentEl, "", this.owner);
   }
 

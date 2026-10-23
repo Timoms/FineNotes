@@ -98,7 +98,7 @@ export class ExportPdfModal extends Modal {
 
   override onOpen(): void {
     this.closed = false;
-    this.modalEl.addClass("goodobsidian-export-modal", "goodobsidian-dialog");
+    this.modalEl.addClass("finenotes-x-export-modal", "finenotes-x-dialog");
     this.titleEl.setText("Export as PDF");
     this.renderChoose();
   }
@@ -124,12 +124,12 @@ export class ExportPdfModal extends Modal {
   private renderChoose(): void {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass("goodobsidian-ask");
+    contentEl.addClass("finenotes-x-ask");
     this.scopeButtons.clear();
     const { pageCount, currentPage } = this.host;
 
     if (pageCount > 1) {
-      const seg = contentEl.createDiv({ cls: "goodobsidian-segmented goodobsidian-export-scope" });
+      const seg = contentEl.createDiv({ cls: "finenotes-x-segmented finenotes-x-export-scope" });
       const scopes: ReadonlyArray<{ id: ExportScope; label: string }> = [
         { id: "all", label: `All ${pageCount} pages` },
         { id: "current", label: `This page (${currentPage + 1})` },
@@ -147,11 +147,11 @@ export class ExportPdfModal extends Modal {
     }
 
     // Choose pages: select all / none and the typed form of the choice.
-    const bar = contentEl.createDiv({ cls: "goodobsidian-export-choose" });
+    const bar = contentEl.createDiv({ cls: "finenotes-x-export-choose" });
     const selectAll = bar.createEl("button", { cls: "clickable-icon", text: "Select all" });
     const selectNone = bar.createEl("button", { cls: "clickable-icon", text: "None" });
     const field = bar.createEl("input", {
-      cls: "goodobsidian-export-range",
+      cls: "finenotes-x-export-range",
       type: "text",
       attr: {
         placeholder: "Pages, e.g. 1-3, 5",
@@ -164,10 +164,10 @@ export class ExportPdfModal extends Modal {
     });
     this.keyboard.watch(field, bar);
 
-    const stage = contentEl.createDiv({ cls: "goodobsidian-export-stage" });
-    const summary = contentEl.createDiv({ cls: "goodobsidian-ask-note" });
-    const status = contentEl.createDiv({ cls: "goodobsidian-ask-status" });
-    const actions = contentEl.createDiv({ cls: "goodobsidian-ask-actions" });
+    const stage = contentEl.createDiv({ cls: "finenotes-x-export-stage" });
+    const summary = contentEl.createDiv({ cls: "finenotes-x-ask-note" });
+    const status = contentEl.createDiv({ cls: "finenotes-x-ask-status" });
+    const actions = contentEl.createDiv({ cls: "finenotes-x-ask-actions" });
     const cancel = actions.createEl("button", { text: "Cancel" });
     cancel.addEventListener("click", () => this.close());
     const go = actions.createEl("button", { cls: "mod-cta", text: "Export" });
@@ -307,11 +307,11 @@ export class ExportPdfModal extends Modal {
       return;
     }
     const index = this.host.currentPage;
-    const wrap = stage.createDiv({ cls: "goodobsidian-export-single" });
-    const frame = wrap.createDiv({ cls: "goodobsidian-thumb-frame" });
+    const wrap = stage.createDiv({ cls: "finenotes-x-export-single" });
+    const frame = wrap.createDiv({ cls: "finenotes-x-thumb-frame" });
     frame.setCssStyles({ aspectRatio: aspectOf(this.host.pageSize(index)) });
-    const canvas = frame.createEl("canvas", { cls: "goodobsidian-thumb-canvas" });
-    wrap.createDiv({ cls: "goodobsidian-thumb-number", text: `Page ${index + 1}` });
+    const canvas = frame.createEl("canvas", { cls: "finenotes-x-thumb-canvas" });
+    wrap.createDiv({ cls: "finenotes-x-thumb-number", text: `Page ${index + 1}` });
     this.single = canvas;
     void this.host.paintPreview(canvas, index, SINGLE_WIDTH).catch(() => undefined);
   }
@@ -332,9 +332,9 @@ export class ExportPdfModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.removeClass("is-busy");
-    contentEl.createDiv({ cls: "goodobsidian-export-done", text: `Saved “${saved.path}”.` });
-    const status = contentEl.createDiv({ cls: "goodobsidian-ask-status" });
-    const actions = contentEl.createDiv({ cls: "goodobsidian-ask-actions" });
+    contentEl.createDiv({ cls: "finenotes-x-export-done", text: `Saved “${saved.path}”.` });
+    const status = contentEl.createDiv({ cls: "finenotes-x-ask-status" });
+    const actions = contentEl.createDiv({ cls: "finenotes-x-ask-actions" });
 
     const file = shareableFile(saved);
     if (file) {
@@ -388,7 +388,7 @@ class PageGrid {
     private readonly host: ExportPdfHost,
     onTap: (index: number, extend: boolean) => void,
   ) {
-    this.el = parent.createDiv({ cls: "goodobsidian-export-grid" });
+    this.el = parent.createDiv({ cls: "finenotes-x-export-grid" });
     this.el.setAttribute("role", "listbox");
     this.el.setAttribute("aria-label", "Pages");
     this.el.setAttribute("aria-multiselectable", "true");
@@ -409,20 +409,20 @@ class PageGrid {
     );
 
     for (let index = 0; index < host.pageCount; index++) {
-      const root = this.el.createDiv({ cls: "goodobsidian-thumb goodobsidian-export-tile" });
+      const root = this.el.createDiv({ cls: "finenotes-x-thumb finenotes-x-export-tile" });
       if (index === host.currentPage) root.addClass("is-current");
       // `clickable-icon`: Obsidian restyles every other button (and pads it
       // 20 px on iPad).
       const frame = root.createEl("button", {
-        cls: "goodobsidian-thumb-frame clickable-icon",
+        cls: "finenotes-x-thumb-frame clickable-icon",
         attr: { role: "option", "aria-label": `Page ${index + 1}` },
       });
       frame.setCssStyles({ aspectRatio: aspectOf(host.pageSize(index)) });
-      const canvas = frame.createEl("canvas", { cls: "goodobsidian-thumb-canvas" });
-      const check = frame.createSpan({ cls: "goodobsidian-export-check" });
-      setIcon(check.createSpan({ cls: "goodobsidian-export-check-icon" }), "check");
-      check.createSpan({ cls: "goodobsidian-export-order" });
-      root.createDiv({ cls: "goodobsidian-thumb-number", text: String(index + 1) });
+      const canvas = frame.createEl("canvas", { cls: "finenotes-x-thumb-canvas" });
+      const check = frame.createSpan({ cls: "finenotes-x-export-check" });
+      setIcon(check.createSpan({ cls: "finenotes-x-export-check-icon" }), "check");
+      check.createSpan({ cls: "finenotes-x-export-order" });
+      root.createDiv({ cls: "finenotes-x-thumb-number", text: String(index + 1) });
       frame.addEventListener("click", (event) => onTap(index, event.shiftKey));
       this.tiles.push({ root, canvas, near: false, painted: false });
       this.observer.observe(root);
@@ -451,7 +451,7 @@ class PageGrid {
           ? `Page ${index + 1}, exported as page ${at}`
           : `Page ${index + 1}`,
       );
-      const label = tile.root.querySelector(".goodobsidian-export-order");
+      const label = tile.root.querySelector(".finenotes-x-export-order");
       if (label) label.textContent = at !== undefined && choosing ? String(at) : "";
     });
   }

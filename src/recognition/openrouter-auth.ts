@@ -4,7 +4,7 @@
  *
  * The round trip, which `main.ts` runs: open the approval page in the
  * browser with a challenge; OpenRouter sends the user back to
- * `obsidian://goodobsidian-openrouter?code=…`; POST that code with the
+ * `obsidian://finenotes-x-openrouter?code=…`; POST that code with the
  * verifier the challenge came from, and get an API key that belongs to the
  * user. The verifier never leaves the device until that POST, so a code
  * intercepted on the way back is useless on its own.
@@ -14,7 +14,7 @@
  * The `obsidian://` action OpenRouter redirects to. Protocol actions are one
  * namespace for every plugin, hence the plugin's name in it.
  */
-export const OPENROUTER_CALLBACK_ACTION = "goodobsidian-openrouter";
+export const OPENROUTER_CALLBACK_ACTION = "finenotes-x-openrouter";
 
 /** Unpadded base64url (RFC 4648 §5), the alphabet PKCE uses. */
 function base64Url(bytes: Uint8Array): string {

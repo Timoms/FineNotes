@@ -69,20 +69,20 @@ export class SavedPenModal extends Modal {
 
   override onOpen(): void {
     const { index } = this.options;
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-pen-modal");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-pen-modal");
     this.titleEl.setText(index === null ? "New pen" : `Pen ${index + 1}`);
     const body = this.contentEl;
-    body.addClass("goodobsidian-pen-modal-body");
+    body.addClass("finenotes-x-pen-modal-body");
 
-    const preview = body.createDiv({ cls: "goodobsidian-size-preview goodobsidian-pen-preview" });
+    const preview = body.createDiv({ cls: "finenotes-x-size-preview finenotes-x-pen-preview" });
     preview.setAttribute("role", "img");
 
-    const types = body.createDiv({ cls: "goodobsidian-pen-modal-types" });
+    const types = body.createDiv({ cls: "finenotes-x-pen-modal-types" });
     types.setAttribute("role", "radiogroup");
     types.setAttribute("aria-label", "Pen type");
     const typeButtons = SAVED_PEN_TYPES.map((type) => {
       const button = types.createEl("button", {
-        cls: "goodobsidian-pen-modal-type clickable-icon",
+        cls: "finenotes-x-pen-modal-type clickable-icon",
       });
       button.setAttribute("role", "radio");
       button.setAttribute("aria-label", SAVED_PEN_NAMES[type]);
@@ -94,18 +94,18 @@ export class SavedPenModal extends Modal {
       return { type, button };
     });
 
-    const widthRow = body.createDiv({ cls: "goodobsidian-pen-modal-width" });
+    const widthRow = body.createDiv({ cls: "finenotes-x-pen-modal-width" });
     // The pen pill's width slider, as its width popover draws it.
-    const range = widthRow.createDiv({ cls: "goodobsidian-width-slider" }).createEl("input", {
-      cls: "goodobsidian-width-range",
+    const range = widthRow.createDiv({ cls: "finenotes-x-width-slider" }).createEl("input", {
+      cls: "finenotes-x-width-range",
       type: "range",
     });
     range.setAttribute("aria-label", "Width");
     range.min = "0";
     range.step = "1";
-    const readout = widthRow.createDiv({ cls: "goodobsidian-width-readout" });
+    const readout = widthRow.createDiv({ cls: "finenotes-x-width-readout" });
     const field = readout.createEl("input", {
-      cls: "goodobsidian-width-field goodobsidian-pen-modal-mm",
+      cls: "finenotes-x-width-field finenotes-x-pen-modal-mm",
       type: "text",
     });
     field.setAttribute("inputmode", "decimal");
@@ -113,7 +113,7 @@ export class SavedPenModal extends Modal {
     field.setAttribute("autocomplete", "off");
     field.setAttribute("spellcheck", "false");
     field.setAttribute("aria-label", "Width in millimetres");
-    readout.createSpan({ cls: "goodobsidian-width-unit", text: "mm" });
+    readout.createSpan({ cls: "finenotes-x-width-unit", text: "mm" });
     this.keyboard.watch(field, widthRow);
     /** The slider's stops for the type in hand: the pens go finer than the highlighter. */
     const stops = (): number[] => widthStops(SIZES, this.pen.type !== "highlighter");
@@ -138,7 +138,7 @@ export class SavedPenModal extends Modal {
       typed();
     });
 
-    const colors = body.createDiv({ cls: "goodobsidian-pen-modal-colors" });
+    const colors = body.createDiv({ cls: "finenotes-x-pen-modal-colors" });
     const drawColors = (): void => {
       colors.empty();
       renderColorPicker(colors, {
@@ -162,9 +162,9 @@ export class SavedPenModal extends Modal {
     };
     drawColors();
 
-    const hint = body.createDiv({ cls: "goodobsidian-pen-modal-hint" });
+    const hint = body.createDiv({ cls: "finenotes-x-pen-modal-hint" });
 
-    const actions = body.createDiv({ cls: "goodobsidian-ask-actions" });
+    const actions = body.createDiv({ cls: "finenotes-x-ask-actions" });
     const cancel = actions.createEl("button", { text: "Cancel" });
     cancel.addEventListener("click", () => this.close());
     const save = actions.createEl("button", {

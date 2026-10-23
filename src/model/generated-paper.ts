@@ -117,11 +117,13 @@ export function encodeGeneratedPaper(paper: GeneratedPaperFile): string {
 }
 
 export function cloneGeneratedBackdrop(backdrop: SyntheticBackdrop): SyntheticBackdrop {
-  return parseGeneratedPaper({
-    format: 1,
-    geometry: { width: 1024, height: 1448 },
-    backdrop,
-  })?.backdrop ?? { kind: "blank" };
+  return (
+    parseGeneratedPaper({
+      format: 1,
+      geometry: { width: 1024, height: 1448 },
+      backdrop,
+    })?.backdrop ?? { kind: "blank" }
+  );
 }
 
 export function mmInsets(allMm: number): PaperInsets {

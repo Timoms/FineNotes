@@ -87,7 +87,7 @@ export class ImportNotebookModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-dialog");
+    this.modalEl.addClass("finenotes-x-dialog");
     this.keepDropsInside();
     if (this.options.preset && this.options.preset.length > 0) void this.run(this.options.preset);
     else this.showPicker();
@@ -160,7 +160,7 @@ export class ImportNotebookModal extends Modal {
   /** The dialog's title at each step, tagged as a beta. */
   private showTitle(text: string): void {
     this.titleEl.setText(text);
-    this.titleEl.createSpan({ cls: "goodobsidian-beta-tag", text: "Beta" });
+    this.titleEl.createSpan({ cls: "finenotes-x-beta-tag", text: "Beta" });
   }
 
   // --- Step 1: choose files ---------------------------------------------------
@@ -175,22 +175,22 @@ export class ImportNotebookModal extends Modal {
     this.titleEl.setText("Import notebooks");
     const el = this.contentEl;
     el.empty();
-    const cols = el.createDiv({ cls: "goodobsidian-import-cols" });
+    const cols = el.createDiv({ cls: "finenotes-x-import-cols" });
 
     // Where from: the drop zone, with the picker inside it, and the vault.
-    const from = cols.createDiv({ cls: "goodobsidian-import-from" });
-    const zone = from.createDiv({ cls: "goodobsidian-import-drop" });
-    setIcon(zone.createDiv({ cls: "goodobsidian-import-drop-icon" }), "file-up");
+    const from = cols.createDiv({ cls: "finenotes-x-import-from" });
+    const zone = from.createDiv({ cls: "finenotes-x-import-drop" });
+    setIcon(zone.createDiv({ cls: "finenotes-x-import-drop-icon" }), "file-up");
     zone.createDiv({
-      cls: "goodobsidian-import-drop-title",
+      cls: "finenotes-x-import-drop-title",
       text: Platform.isPhone ? "Choose notebooks" : "Drop files or a .zip",
     });
     zone.createDiv({
-      cls: "goodobsidian-import-drop-desc",
+      cls: "finenotes-x-import-drop-desc",
       text: "Notebook files or a PDF, several at once",
     });
     const choose = zone.createEl("button", {
-      cls: "mod-cta clickable-icon goodobsidian-import-drop-button",
+      cls: "mod-cta clickable-icon finenotes-x-import-drop-button",
       text: "Choose files",
       attr: { type: "button" },
     });
@@ -203,12 +203,12 @@ export class ImportNotebookModal extends Modal {
     this.listenForDrops(zone);
 
     const vault = from.createEl("button", {
-      cls: "goodobsidian-import-row clickable-icon",
+      cls: "finenotes-x-import-row clickable-icon",
       attr: { type: "button" },
     });
-    setIcon(vault.createSpan({ cls: "goodobsidian-import-row-icon" }), "folder-open");
-    vault.createSpan({ cls: "goodobsidian-import-row-label", text: "From this vault" });
-    setIcon(vault.createSpan({ cls: "goodobsidian-import-row-icon is-trailing" }), "chevron-right");
+    setIcon(vault.createSpan({ cls: "finenotes-x-import-row-icon" }), "folder-open");
+    vault.createSpan({ cls: "finenotes-x-import-row-label", text: "From this vault" });
+    setIcon(vault.createSpan({ cls: "finenotes-x-import-row-icon is-trailing" }), "chevron-right");
     vault.addEventListener("click", () => {
       new VaultImportSuggestModal(this.app, (file) => {
         void this.run([{ name: file.name, read: () => this.app.vault.readBinary(file) }]);
@@ -216,34 +216,34 @@ export class ImportNotebookModal extends Modal {
     });
 
     // What comes over.
-    const what = cols.createDiv({ cls: "goodobsidian-import-what" });
-    what.createDiv({ cls: "goodobsidian-import-what-title", text: "What comes over" });
+    const what = cols.createDiv({ cls: "finenotes-x-import-what" });
+    what.createDiv({ cls: "finenotes-x-import-what-title", text: "What comes over" });
     for (const line of ["Handwriting, still editable", "Paper and templates", "Pictures"]) {
-      const item = what.createDiv({ cls: "goodobsidian-import-what-item" });
-      setIcon(item.createSpan({ cls: "goodobsidian-import-what-check" }), "check");
+      const item = what.createDiv({ cls: "finenotes-x-import-what-item" });
+      setIcon(item.createSpan({ cls: "finenotes-x-import-what-check" }), "check");
       item.createSpan({ text: line });
     }
     what.createDiv({
-      cls: "goodobsidian-import-what-apps",
+      cls: "finenotes-x-import-what-apps",
       text: "From Goodnotes, Freenotes, Notability and more.",
     });
     // A PDF's own content is never turned back into ink: say so before anyone picks one.
-    const pdf = what.createDiv({ cls: "goodobsidian-import-what-note" });
-    setIcon(pdf.createSpan({ cls: "goodobsidian-import-what-note-icon" }), "file-text");
+    const pdf = what.createDiv({ cls: "finenotes-x-import-what-note" });
+    setIcon(pdf.createSpan({ cls: "finenotes-x-import-what-note-icon" }), "file-text");
     pdf.createSpan({
       text: "A PDF comes in as it is: you can write over its pages, but what's already on them can't be edited.",
     });
 
     // Where to, and help.
-    const footer = el.createDiv({ cls: "goodobsidian-import-footer" });
-    footer.createSpan({ cls: "goodobsidian-import-footer-label", text: "Save to" });
+    const footer = el.createDiv({ cls: "finenotes-x-import-footer" });
+    footer.createSpan({ cls: "finenotes-x-import-footer-label", text: "Save to" });
     const folder = footer.createEl("button", {
-      cls: "goodobsidian-import-folder clickable-icon",
+      cls: "finenotes-x-import-folder clickable-icon",
       attr: { type: "button", "aria-label": "Choose the folder to save to" },
     });
-    setIcon(folder.createSpan({ cls: "goodobsidian-import-folder-icon" }), "folder");
-    const folderName = folder.createSpan({ cls: "goodobsidian-import-folder-name" });
-    setIcon(folder.createSpan({ cls: "goodobsidian-import-folder-icon" }), "chevron-down");
+    setIcon(folder.createSpan({ cls: "finenotes-x-import-folder-icon" }), "folder");
+    const folderName = folder.createSpan({ cls: "finenotes-x-import-folder-name" });
+    setIcon(folder.createSpan({ cls: "finenotes-x-import-folder-icon" }), "chevron-down");
     const showFolder = (): void => {
       folderName.setText(this.folder || "Vault's top folder");
     };
@@ -261,11 +261,11 @@ export class ImportNotebookModal extends Modal {
     });
 
     const helpToggle = footer.createEl("button", {
-      cls: "goodobsidian-import-help-toggle clickable-icon",
+      cls: "finenotes-x-import-help-toggle clickable-icon",
       text: "How do I export?",
       attr: { type: "button", "aria-expanded": "false" },
     });
-    const help = el.createDiv({ cls: "goodobsidian-import-help is-hidden" });
+    const help = el.createDiv({ cls: "finenotes-x-import-help is-hidden" });
     helpToggle.addEventListener("click", () => {
       const open = help.hasClass("is-hidden");
       help.toggleClass("is-hidden", !open);
@@ -410,7 +410,7 @@ export class ImportNotebookModal extends Modal {
 
     for (const { result, file } of written) {
       const row = new Setting(el).setName(result.title).setDesc(describeImport(result));
-      setIcon(row.nameEl.createSpan({ cls: "goodobsidian-import-mark", prepend: true }), "check");
+      setIcon(row.nameEl.createSpan({ cls: "finenotes-x-import-mark", prepend: true }), "check");
       for (const warning of result.warnings) {
         row.descEl.createDiv({ text: warning, cls: "mod-warning" });
       }
@@ -428,7 +428,7 @@ export class ImportNotebookModal extends Modal {
       const row = new Setting(el).setName(failure.name).setDesc(failure.reason);
       row.descEl.addClass("mod-warning");
       setIcon(
-        row.nameEl.createSpan({ cls: "goodobsidian-import-mark", prepend: true }),
+        row.nameEl.createSpan({ cls: "finenotes-x-import-mark", prepend: true }),
         "alert-triangle",
       );
     }
@@ -497,7 +497,7 @@ class VaultImportSuggestModal extends FuzzySuggestModal<TFile> {
  */
 function pickFiles(host: HTMLElement): Promise<Picked[]> {
   const input = host.createEl("input", {
-    cls: "goodobsidian-file-input",
+    cls: "finenotes-x-file-input",
     attr: { type: "file", multiple: "", "aria-hidden": "true", tabindex: "-1" },
   });
   if (!Platform.isMobile) input.accept = IMPORT_EXTENSIONS.map((ext) => `.${ext}`).join(",");

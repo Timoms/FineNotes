@@ -53,15 +53,15 @@ class HwrReadingModal extends Modal {
   constructor(app: App, pageNumber: number) {
     super(app);
     this.titleEl.setText(`Page ${pageNumber}, read on this device`);
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-hwr");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-hwr");
     this.contentEl.createDiv({
-      cls: "goodobsidian-beta-note",
+      cls: "finenotes-x-beta-note",
       text:
         "Beta: reading handwriting is new in FineNotes and misreads some words. " +
         "Check the text before you rely on it.",
     });
     this.statusEl = this.contentEl.createDiv({
-      cls: ["goodobsidian-hwr-meta", "setting-item-description"],
+      cls: ["finenotes-x-hwr-meta", "setting-item-description"],
     });
   }
 
@@ -80,12 +80,12 @@ class HwrReadingModal extends Modal {
         `in ${Math.round(totalMs)} ms: network ${Math.round(network)} ms, decoding ` +
         `${Math.round(decode)} ms, lines ${Math.round(reading.segment)} ms.`,
     );
-    const list = this.contentEl.createDiv({ cls: "goodobsidian-hwr-lines" });
+    const list = this.contentEl.createDiv({ cls: "finenotes-x-hwr-lines" });
     if (reading.lines.length === 0) list.createDiv({ text: "No handwriting found on this page." });
     for (const line of reading.lines) {
       const row = list.createDiv();
       row.createDiv({ text: line.text || "…" });
-      const meta = row.createDiv({ cls: ["goodobsidian-hwr-meta", "setting-item-description"] });
+      const meta = row.createDiv({ cls: ["finenotes-x-hwr-meta", "setting-item-description"] });
       if (line.greedy !== line.text) meta.appendText(`as written: ${line.greedy} · `);
       meta.appendText(
         `${line.frames} frames, ${Math.round(line.timings.network)} + ` +

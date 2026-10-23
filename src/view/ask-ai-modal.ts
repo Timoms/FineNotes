@@ -174,11 +174,11 @@ export class AskChat {
     this.component.load();
     const contentEl = this.frame.content;
     contentEl.empty();
-    contentEl.addClass("goodobsidian-chat");
+    contentEl.addClass("finenotes-x-chat");
 
-    const top = contentEl.createDiv({ cls: "goodobsidian-chat-top" });
+    const top = contentEl.createDiv({ cls: "finenotes-x-chat-top" });
     this.buildPagesChip(top);
-    const tools = top.createDiv({ cls: "goodobsidian-chat-tools" });
+    const tools = top.createDiv({ cls: "finenotes-x-chat-tools" });
     this.saveButton = this.toolButton(tools, "bookmark", "Save chat", () => {
       const save = !this.session.save;
       this.host.rememberSave(save);
@@ -195,7 +195,7 @@ export class AskChat {
       other === "sidebar" ? "panel-left" : "app-window",
       other === "sidebar" ? "Show in the sidebar" : "Show as a window",
       () => this.frame.switchLayout(),
-      "goodobsidian-chat-layout",
+      "finenotes-x-chat-layout",
     );
     this.newChatButton = this.toolButton(tools, "square-pen", "New chat", () => {
       this.closePicker();
@@ -203,26 +203,26 @@ export class AskChat {
       this.input?.focus();
     });
 
-    this.noteEl = contentEl.createDiv({ cls: "goodobsidian-chat-note" });
+    this.noteEl = contentEl.createDiv({ cls: "finenotes-x-chat-note" });
     this.buildPicker(contentEl);
-    this.threadEl = contentEl.createDiv({ cls: "goodobsidian-chat-thread" });
+    this.threadEl = contentEl.createDiv({ cls: "finenotes-x-chat-thread" });
 
-    const composer = contentEl.createDiv({ cls: "goodobsidian-chat-composer" });
-    this.filesEl = composer.createDiv({ cls: "goodobsidian-chat-files is-hidden" });
-    const row = composer.createDiv({ cls: "goodobsidian-chat-compose-row" });
+    const composer = contentEl.createDiv({ cls: "finenotes-x-chat-composer" });
+    this.filesEl = composer.createDiv({ cls: "finenotes-x-chat-files is-hidden" });
+    const row = composer.createDiv({ cls: "finenotes-x-chat-compose-row" });
     this.attachButton = row.createEl("button", {
-      cls: "goodobsidian-chat-attach clickable-icon",
+      cls: "finenotes-x-chat-attach clickable-icon",
       attr: { "aria-label": "Attach a file" },
     });
     setIcon(this.attachButton, "paperclip");
     this.attachButton.addEventListener("click", () => this.showAttachMenu());
     // The device's own picker (Files and Photos on the iPad), behind "From Files…".
     this.fileInput = row.createEl("input", {
-      cls: "goodobsidian-chat-file-input",
+      cls: "finenotes-x-chat-file-input",
       attr: { type: "file", accept: ATTACH_ACCEPT, multiple: "" },
     });
     this.fileInput.addEventListener("change", () => void this.attachPicked());
-    const input = row.createEl("textarea", { cls: "goodobsidian-chat-input" });
+    const input = row.createEl("textarea", { cls: "finenotes-x-chat-input" });
     this.input = input;
     input.rows = 1;
     input.value = this.session.draft;
@@ -241,7 +241,7 @@ export class AskChat {
       }
     });
     this.sendButton = row.createEl("button", {
-      cls: "goodobsidian-chat-send clickable-icon",
+      cls: "finenotes-x-chat-send clickable-icon",
       attr: { "aria-label": "Send" },
     });
     setIcon(this.sendButton, "arrow-up");
@@ -276,11 +276,11 @@ export class AskChat {
     cls = "",
   ): HTMLButtonElement {
     const button = parent.createEl("button", {
-      cls: `goodobsidian-chat-tool clickable-icon ${cls}`.trim(),
+      cls: `finenotes-x-chat-tool clickable-icon ${cls}`.trim(),
       attr: { "aria-label": label },
     });
-    setIcon(button.createSpan({ cls: "goodobsidian-chat-tool-icon" }), icon);
-    button.createSpan({ cls: "goodobsidian-chat-tool-label", text: label });
+    setIcon(button.createSpan({ cls: "finenotes-x-chat-tool-icon" }), icon);
+    button.createSpan({ cls: "finenotes-x-chat-tool-label", text: label });
     button.addEventListener("click", onClick);
     return button;
   }
@@ -290,26 +290,26 @@ export class AskChat {
   /** The chip top left: a thumbnail of the first picked page, and what is picked. */
   private buildPagesChip(parent: HTMLElement): void {
     const chip = parent.createEl("button", {
-      cls: "goodobsidian-chat-pages clickable-icon",
+      cls: "finenotes-x-chat-pages clickable-icon",
       attr: { "aria-haspopup": "true", "aria-expanded": "false" },
     });
-    const stack = chip.createDiv({ cls: "goodobsidian-chat-pages-stack" });
-    this.chipThumb = stack.createEl("canvas", { cls: "goodobsidian-chat-pages-thumb" });
-    this.chipLabel = chip.createSpan({ cls: "goodobsidian-chat-pages-label" });
-    setIcon(chip.createSpan({ cls: "goodobsidian-chat-pages-chevron" }), "chevron-down");
+    const stack = chip.createDiv({ cls: "finenotes-x-chat-pages-stack" });
+    this.chipThumb = stack.createEl("canvas", { cls: "finenotes-x-chat-pages-thumb" });
+    this.chipLabel = chip.createSpan({ cls: "finenotes-x-chat-pages-label" });
+    setIcon(chip.createSpan({ cls: "finenotes-x-chat-pages-chevron" }), "chevron-down");
     chip.addEventListener("click", () => this.togglePicker());
     this.pagesButton = chip;
   }
 
   /** The grid of every page, hidden until the chip is tapped. */
   private buildPicker(parent: HTMLElement): void {
-    const picker = parent.createDiv({ cls: "goodobsidian-chat-picker is-hidden" });
-    const head = picker.createDiv({ cls: "goodobsidian-chat-picker-head" });
-    const title = head.createDiv({ cls: "goodobsidian-chat-picker-title" });
+    const picker = parent.createDiv({ cls: "finenotes-x-chat-picker is-hidden" });
+    const head = picker.createDiv({ cls: "finenotes-x-chat-picker-head" });
+    const title = head.createDiv({ cls: "finenotes-x-chat-picker-title" });
     title.createSpan({ text: "Pages to send" });
-    this.pickerCount = title.createSpan({ cls: "goodobsidian-chat-picker-count" });
+    this.pickerCount = title.createSpan({ cls: "finenotes-x-chat-picker-count" });
     const only = head.createEl("button", {
-      cls: "goodobsidian-chat-picker-link clickable-icon",
+      cls: "finenotes-x-chat-picker-link clickable-icon",
       text: "Only this page",
     });
     only.addEventListener("click", () => this.session.setSelection([this.host.currentPage()]));
@@ -317,21 +317,21 @@ export class AskChat {
     done.addEventListener("click", () => this.closePicker());
 
     this.buildPdfList(picker);
-    const grid = picker.createDiv({ cls: "goodobsidian-chat-picker-grid" });
+    const grid = picker.createDiv({ cls: "finenotes-x-chat-picker-grid" });
     const current = this.host.currentPage();
     for (let page = 1; page <= this.session.totalPages; page++) {
       const tile = grid.createEl("button", {
-        cls: "goodobsidian-chat-tile clickable-icon",
+        cls: "finenotes-x-chat-tile clickable-icon",
         attr: { "aria-label": `Page ${page}` },
       });
-      const frame = tile.createDiv({ cls: "goodobsidian-chat-tile-frame" });
-      frame.createEl("canvas", { cls: "goodobsidian-chat-tile-thumb" });
-      setIcon(frame.createDiv({ cls: "goodobsidian-chat-tile-check" }), "check");
-      const caption = tile.createDiv({ cls: "goodobsidian-chat-tile-caption" });
+      const frame = tile.createDiv({ cls: "finenotes-x-chat-tile-frame" });
+      frame.createEl("canvas", { cls: "finenotes-x-chat-tile-thumb" });
+      setIcon(frame.createDiv({ cls: "finenotes-x-chat-tile-check" }), "check");
+      const caption = tile.createDiv({ cls: "finenotes-x-chat-tile-caption" });
       caption.createSpan({ text: String(page) });
       if (page === current)
-        caption.createSpan({ cls: "goodobsidian-chat-tile-tag", text: "This page" });
-      caption.createSpan({ cls: "goodobsidian-chat-tile-sent", text: "In chat" });
+        caption.createSpan({ cls: "finenotes-x-chat-tile-tag", text: "This page" });
+      caption.createSpan({ cls: "finenotes-x-chat-tile-sent", text: "In chat" });
       if (!this.host.pageHasContent(page)) {
         tile.addClass("is-empty");
         tile.disabled = true;
@@ -341,7 +341,7 @@ export class AskChat {
       this.tiles.set(page, tile);
     }
     picker.createDiv({
-      cls: "goodobsidian-chat-picker-foot",
+      cls: "finenotes-x-chat-picker-foot",
       text: `Up to ${ASK_MAX_PAGES} pages. Pages already in the chat stay in it.`,
     });
     this.pickerEl = picker;
@@ -507,16 +507,16 @@ export class AskChat {
     const files = this.session.attachments;
     el.toggleClass("is-hidden", files.length === 0);
     for (const file of files) {
-      const chip = el.createDiv({ cls: "goodobsidian-chat-file" });
-      setIcon(chip.createSpan({ cls: "goodobsidian-chat-file-icon" }), fileIcon(file));
-      const text = chip.createDiv({ cls: "goodobsidian-chat-file-text" });
-      text.createDiv({ cls: "goodobsidian-chat-file-name", text: file.name });
+      const chip = el.createDiv({ cls: "finenotes-x-chat-file" });
+      setIcon(chip.createSpan({ cls: "finenotes-x-chat-file-icon" }), fileIcon(file));
+      const text = chip.createDiv({ cls: "finenotes-x-chat-file-text" });
+      text.createDiv({ cls: "finenotes-x-chat-file-name", text: file.name });
       text.createDiv({
-        cls: "goodobsidian-chat-file-size",
+        cls: "finenotes-x-chat-file-size",
         text: sizeLabel(attachmentBytes(file)),
       });
       const remove = chip.createEl("button", {
-        cls: "goodobsidian-chat-file-remove clickable-icon",
+        cls: "finenotes-x-chat-file-remove clickable-icon",
         attr: { "aria-label": `Remove ${file.name}` },
       });
       setIcon(remove, "x");
@@ -536,16 +536,16 @@ export class AskChat {
     // Closed with its ✕, it stays closed while the notebook is open, and the
     // pages get its room. The paperclip still attaches any PDF.
     if (pdfs.length === 0 || this.session.pdfListClosed) return;
-    const section = picker.createDiv({ cls: "goodobsidian-chat-pdfs" });
-    const head = section.createDiv({ cls: "goodobsidian-chat-pdfs-head" });
-    const words = head.createDiv({ cls: "goodobsidian-chat-pdfs-words" });
-    words.createSpan({ cls: "goodobsidian-chat-pdfs-title", text: "PDFs in this notebook" });
+    const section = picker.createDiv({ cls: "finenotes-x-chat-pdfs" });
+    const head = section.createDiv({ cls: "finenotes-x-chat-pdfs-head" });
+    const words = head.createDiv({ cls: "finenotes-x-chat-pdfs-words" });
+    words.createSpan({ cls: "finenotes-x-chat-pdfs-title", text: "PDFs in this notebook" });
     words.createSpan({
-      cls: "goodobsidian-chat-pdfs-hint",
+      cls: "finenotes-x-chat-pdfs-hint",
       text: "Attach one and the AI reads its text, not only pictures of the pages.",
     });
     const close = head.createEl("button", {
-      cls: "goodobsidian-chat-pdfs-close clickable-icon",
+      cls: "finenotes-x-chat-pdfs-close clickable-icon",
       attr: { "aria-label": "Hide the PDFs" },
     });
     setIcon(close, "x");
@@ -554,17 +554,17 @@ export class AskChat {
       section.remove();
       this.pdfRows.clear();
     });
-    const list = section.createDiv({ cls: "goodobsidian-chat-pdfs-list" });
+    const list = section.createDiv({ cls: "finenotes-x-chat-pdfs-list" });
     for (const pdf of pdfs) {
-      const row = list.createEl("button", { cls: "goodobsidian-chat-pdf clickable-icon" });
-      setIcon(row.createSpan({ cls: "goodobsidian-chat-pdf-icon" }), "file-text");
-      const text = row.createSpan({ cls: "goodobsidian-chat-pdf-text" });
-      text.createSpan({ cls: "goodobsidian-chat-pdf-name", text: fileNameOf(pdf.path) });
+      const row = list.createEl("button", { cls: "finenotes-x-chat-pdf clickable-icon" });
+      setIcon(row.createSpan({ cls: "finenotes-x-chat-pdf-icon" }), "file-text");
+      const text = row.createSpan({ cls: "finenotes-x-chat-pdf-text" });
+      text.createSpan({ cls: "finenotes-x-chat-pdf-name", text: fileNameOf(pdf.path) });
       text.createSpan({
-        cls: "goodobsidian-chat-pdf-pages",
+        cls: "finenotes-x-chat-pdf-pages",
         text: `${pdf.pages.length === 1 ? "Page" : "Pages"} ${pageRanges(pdf.pages)}`,
       });
-      const state = row.createSpan({ cls: "goodobsidian-chat-pdf-state" });
+      const state = row.createSpan({ cls: "finenotes-x-chat-pdf-state" });
       row.addEventListener("click", () => {
         const attached = this.session.attachments.find((f) => f.path === pdf.path);
         if (attached) this.session.detach(attached);
@@ -624,10 +624,10 @@ export class AskChat {
         "aria-label",
         saved ? "Saved — tap to stop saving" : "Save chat",
       );
-      const icon = this.saveButton.querySelector<HTMLElement>(".goodobsidian-chat-tool-icon");
+      const icon = this.saveButton.querySelector<HTMLElement>(".finenotes-x-chat-tool-icon");
       if (icon) setIcon(icon, saved ? "bookmark-check" : "bookmark");
       this.saveButton
-        .querySelector(".goodobsidian-chat-tool-label")
+        .querySelector(".finenotes-x-chat-tool-label")
         ?.setText(saved ? "Saved" : "Save chat");
     }
     if (this.pagesButton) this.pagesButton.disabled = busy;
@@ -660,12 +660,12 @@ export class AskChat {
       "is-typing",
       document.activeElement === input && keyboardHeight() > 0,
     );
-    input.setCssProps({ "--goodobsidian-chat-input-h": "auto" });
+    input.setCssProps({ "--finenotes-x-chat-input-h": "auto" });
     const max = this.inputRoom(input);
     const height = Math.min(max, input.scrollHeight);
     input.setCssProps({
-      "--goodobsidian-chat-input-h": `${height}px`,
-      "--goodobsidian-chat-input-max": `${max}px`,
+      "--finenotes-x-chat-input-h": `${height}px`,
+      "--finenotes-x-chat-input-max": `${max}px`,
     });
     // Past its room the field scrolls inside, and the line being typed stays in view.
     input.toggleClass("is-scrolling", input.scrollHeight > max);
@@ -680,7 +680,7 @@ export class AskChat {
    */
   private inputRoom(input: HTMLTextAreaElement): number {
     const content = this.frame.content;
-    const composer = input.closest<HTMLElement>(".goodobsidian-chat-composer");
+    const composer = input.closest<HTMLElement>(".finenotes-x-chat-composer");
     const above =
       this.pickerEl && !this.pickerEl.hasClass("is-hidden") ? this.pickerEl : this.threadEl;
     if (!composer || !above) return INPUT_MAX_PX;
@@ -732,12 +732,12 @@ export class AskChat {
     if (session.empty) {
       const one = session.selected.length <= 1;
       if (this.emptyForOne !== one) {
-        thread.querySelector(".goodobsidian-chat-empty")?.remove();
+        thread.querySelector(".finenotes-x-chat-empty")?.remove();
         this.renderEmpty(thread, one);
         this.emptyForOne = one;
       }
     } else if (this.emptyForOne !== null) {
-      thread.querySelector(".goodobsidian-chat-empty")?.remove();
+      thread.querySelector(".finenotes-x-chat-empty")?.remove();
       this.emptyForOne = null;
     }
 
@@ -746,7 +746,7 @@ export class AskChat {
       ? `${outstanding.question}|${outstanding.status}|${outstanding.error ?? ""}`
       : "";
     if (outstanding) {
-      const row = thread.createDiv({ cls: "goodobsidian-chat-outstanding" });
+      const row = thread.createDiv({ cls: "finenotes-x-chat-outstanding" });
       this.questionRow(row, outstanding.question);
       if (outstanding.error === undefined) this.pendingRow(row, outstanding.status);
       else this.errorRow(row, outstanding.question, outstanding.error);
@@ -759,15 +759,15 @@ export class AskChat {
 
   /** The thread before the first question: what this is, and a few questions to start with. */
   private renderEmpty(thread: HTMLElement, one: boolean): void {
-    const empty = thread.createDiv({ cls: "goodobsidian-chat-empty" });
-    setIcon(empty.createDiv({ cls: "goodobsidian-chat-empty-icon" }), "sparkles");
+    const empty = thread.createDiv({ cls: "finenotes-x-chat-empty" });
+    setIcon(empty.createDiv({ cls: "finenotes-x-chat-empty-icon" }), "sparkles");
     empty.createDiv({
-      cls: "goodobsidian-chat-empty-title",
+      cls: "finenotes-x-chat-empty-title",
       text: one ? "Ask about this page" : "Ask about these pages",
     });
-    const chips = empty.createDiv({ cls: "goodobsidian-chat-suggestions" });
+    const chips = empty.createDiv({ cls: "finenotes-x-chat-suggestions" });
     for (const text of one ? SUGGESTIONS.one : SUGGESTIONS.many) {
-      const chip = chips.createEl("button", { cls: "goodobsidian-chat-suggestion clickable-icon" });
+      const chip = chips.createEl("button", { cls: "finenotes-x-chat-suggestion clickable-icon" });
       chip.setText(text);
       chip.addEventListener("click", () => this.submit(text));
     }
@@ -780,17 +780,17 @@ export class AskChat {
     pages?: readonly number[],
     files?: readonly ChatFile[],
   ): void {
-    const row = parent.createDiv({ cls: "goodobsidian-chat-msg is-user" });
-    const column = row.createDiv({ cls: "goodobsidian-chat-question" });
-    column.createDiv({ cls: "goodobsidian-chat-bubble", text });
+    const row = parent.createDiv({ cls: "finenotes-x-chat-msg is-user" });
+    const column = row.createDiv({ cls: "finenotes-x-chat-question" });
+    column.createDiv({ cls: "finenotes-x-chat-bubble", text });
     if (pages?.length) {
       const label = pages.length === 1 ? `Page ${pages[0]}` : `Pages ${pages.join(", ")}`;
-      const meta = column.createDiv({ cls: "goodobsidian-chat-question-pages" });
+      const meta = column.createDiv({ cls: "finenotes-x-chat-question-pages" });
       setIcon(meta.createSpan(), "file-image");
       meta.createSpan({ text: label });
     }
     if (files?.length) {
-      const meta = column.createDiv({ cls: "goodobsidian-chat-question-pages" });
+      const meta = column.createDiv({ cls: "finenotes-x-chat-question-pages" });
       setIcon(meta.createSpan(), "paperclip");
       meta.createSpan({ text: files.map((f) => f.name).join(", ") });
     }
@@ -798,25 +798,25 @@ export class AskChat {
 
   /** An answer's row: the assistant's mark and a body. */
   private aiRow(parent: HTMLElement): { row: HTMLElement; body: HTMLElement } {
-    const row = parent.createDiv({ cls: "goodobsidian-chat-msg is-ai" });
-    setIcon(row.createDiv({ cls: "goodobsidian-chat-avatar" }), "sparkles");
-    return { row, body: row.createDiv({ cls: "goodobsidian-chat-body" }) };
+    const row = parent.createDiv({ cls: "finenotes-x-chat-msg is-ai" });
+    setIcon(row.createDiv({ cls: "finenotes-x-chat-avatar" }), "sparkles");
+    return { row, body: row.createDiv({ cls: "finenotes-x-chat-body" }) };
   }
 
   /** Three bouncing dots, and what is happening when there is something to say. */
   private pendingRow(parent: HTMLElement, status: string): void {
     const { body } = this.aiRow(parent);
-    const typing = body.createDiv({ cls: "goodobsidian-chat-typing" });
+    const typing = body.createDiv({ cls: "finenotes-x-chat-typing" });
     typing.setAttribute("aria-label", "Thinking");
-    for (let i = 0; i < 3; i++) typing.createSpan({ cls: "goodobsidian-chat-dot" });
-    body.createDiv({ cls: "goodobsidian-chat-status", text: status });
+    for (let i = 0; i < 3; i++) typing.createSpan({ cls: "finenotes-x-chat-dot" });
+    body.createDiv({ cls: "finenotes-x-chat-status", text: status });
   }
 
   private errorRow(parent: HTMLElement, question: string, message: string): void {
     const { row, body } = this.aiRow(parent);
     row.addClass("is-error");
-    body.createDiv({ cls: "goodobsidian-chat-error", text: `Could not answer: ${message}` });
-    const retry = body.createEl("button", { cls: "goodobsidian-chat-action clickable-icon" });
+    body.createDiv({ cls: "finenotes-x-chat-error", text: `Could not answer: ${message}` });
+    const retry = body.createEl("button", { cls: "finenotes-x-chat-action clickable-icon" });
     setIcon(retry.createSpan(), "rotate-ccw");
     retry.createSpan({ text: "Try again" });
     retry.addEventListener("click", () => this.submit(question));
@@ -826,14 +826,14 @@ export class AskChat {
     const { row, body } = this.aiRow(parent);
     // What Claude did in the notebook on the way to the answer.
     if (done?.length) {
-      const list = body.createDiv({ cls: "goodobsidian-chat-done" });
+      const list = body.createDiv({ cls: "finenotes-x-chat-done" });
       for (const action of done) {
-        const item = list.createDiv({ cls: "goodobsidian-chat-done-item" });
+        const item = list.createDiv({ cls: "finenotes-x-chat-done-item" });
         setIcon(item.createSpan(), "check");
         item.createSpan({ text: action });
       }
     }
-    const text = body.createDiv({ cls: "goodobsidian-chat-markdown markdown-rendered" });
+    const text = body.createDiv({ cls: "finenotes-x-chat-markdown markdown-rendered" });
     if (this.component) {
       void MarkdownRenderer.render(
         this.app,
@@ -846,8 +846,8 @@ export class AskChat {
       text.setText(markdown);
     }
 
-    const actions = body.createDiv({ cls: "goodobsidian-chat-actions" });
-    const copy = actions.createEl("button", { cls: "goodobsidian-chat-action clickable-icon" });
+    const actions = body.createDiv({ cls: "finenotes-x-chat-actions" });
+    const copy = actions.createEl("button", { cls: "finenotes-x-chat-action clickable-icon" });
     setIcon(copy.createSpan(), "copy");
     copy.createSpan({ text: "Copy" });
     copy.addEventListener("click", () => {
@@ -857,7 +857,7 @@ export class AskChat {
       );
     });
 
-    const insert = actions.createEl("button", { cls: "goodobsidian-chat-action clickable-icon" });
+    const insert = actions.createEl("button", { cls: "finenotes-x-chat-action clickable-icon" });
     setIcon(insert.createSpan(), "text-cursor-input");
     insert.createSpan({ text: "Insert as text box" });
     insert.addEventListener("click", () => {
@@ -878,17 +878,17 @@ export class AskChat {
       const svg = code.textContent?.trim() ?? "";
       const pre = code.parentElement;
       if (!pre?.parentElement || !/^(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(svg)) continue;
-      const figure = pre.parentElement.createDiv({ cls: "goodobsidian-chat-figure" });
+      const figure = pre.parentElement.createDiv({ cls: "finenotes-x-chat-figure" });
       pre.replaceWith(figure);
       figure.createEl("img", {
-        cls: "goodobsidian-chat-figure-img",
+        cls: "finenotes-x-chat-figure-img",
         attr: {
           alt: "A drawing",
           src: `data:image/svg+xml;base64,${bytesToBase64(new TextEncoder().encode(svg))}`,
         },
       });
       const insert = figure.createEl("button", {
-        cls: "goodobsidian-chat-action clickable-icon",
+        cls: "finenotes-x-chat-action clickable-icon",
       });
       setIcon(insert.createSpan(), "image-plus");
       insert.createSpan({ text: "Insert on page" });
@@ -958,7 +958,7 @@ export type AskLayout = "window" | "sidebar";
 
 /** The frame an `AskChat` is drawn in, and what it can ask of it. */
 export interface AskChatFrame {
-  /** The window or the panel; carries `goodobsidian-ask-frame`. */
+  /** The window or the panel; carries `finenotes-x-ask-frame`. */
   el: HTMLElement;
   /** Where the chat's own elements go. */
   content: HTMLElement;
@@ -981,11 +981,7 @@ export class AskAiModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass(
-      "goodobsidian-ask-modal",
-      "goodobsidian-dialog",
-      "goodobsidian-ask-frame",
-    );
+    this.modalEl.addClass("finenotes-x-ask-modal", "finenotes-x-dialog", "finenotes-x-ask-frame");
     this.titleEl.setText("Ask");
     this.contentEl.empty();
     this.chat = new AskChat(this.app, this.host, {
@@ -1031,7 +1027,7 @@ export class AskChatPanel {
       switchLayout: () => void;
     },
   ) {
-    this.el = parent.createDiv({ cls: "goodobsidian-chatpanel goodobsidian-ask-frame is-hidden" });
+    this.el = parent.createDiv({ cls: "finenotes-x-chatpanel finenotes-x-ask-frame is-hidden" });
   }
 
   get isOpen(): boolean {
@@ -1041,15 +1037,15 @@ export class AskChatPanel {
   open(): void {
     if (this.isOpen) return;
     this.el.empty();
-    const head = this.el.createDiv({ cls: "goodobsidian-chatpanel-head" });
-    head.createDiv({ cls: "goodobsidian-chatpanel-title", text: "Ask" });
+    const head = this.el.createDiv({ cls: "finenotes-x-chatpanel-head" });
+    head.createDiv({ cls: "finenotes-x-chatpanel-title", text: "Ask" });
     const close = head.createEl("button", {
-      cls: "goodobsidian-chatpanel-close clickable-icon",
+      cls: "finenotes-x-chatpanel-close clickable-icon",
       attr: { "aria-label": "Close" },
     });
     setIcon(close, "x");
     close.addEventListener("click", () => this.callbacks.onClose());
-    const content = this.el.createDiv({ cls: "goodobsidian-chatpanel-body" });
+    const content = this.el.createDiv({ cls: "finenotes-x-chatpanel-body" });
     this.el.removeClass("is-hidden");
     this.chat = new AskChat(this.app, this.callbacks.host(), {
       el: this.el,

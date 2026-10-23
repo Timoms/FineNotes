@@ -322,7 +322,7 @@ export function pickImageFile(
   accept = "image/*",
 ): Promise<File | null> {
   const input = host.createEl("input", {
-    cls: "goodobsidian-file-input",
+    cls: "finenotes-x-file-input",
     attr: { type: "file", accept, "aria-hidden": "true", tabindex: "-1" },
   });
   if (capture) input.setAttribute("capture", "environment");

@@ -77,7 +77,7 @@ const CLOSE_HOLD_MAX_MS = 2000;
  * the page to zero height"). Our own, not the surface's text-editing class,
  * so neither can release the other's.
  */
-const TYPING_BODY_CLASS = "goodobsidian-dialog-typing";
+const TYPING_BODY_CLASS = "finenotes-x-dialog-typing";
 /** Longest the cap stays lifted after the title lets go, waiting for the keyboard, ms. */
 const CAP_RELEASE_MS = 1500;
 const CAP_POLL_MS = 50;
@@ -110,8 +110,8 @@ export class NewNotebookModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-newnb-modal", "goodobsidian-dialog");
-    this.containerEl.addClass("goodobsidian-newnb-container");
+    this.modalEl.addClass("finenotes-x-newnb-modal", "finenotes-x-dialog");
+    this.containerEl.addClass("finenotes-x-newnb-container");
     // Our own ✕ in the header is the way out. The stylesheet hides Obsidian's
     // ✕ too, but on the iPad it still showed, on top of the header: remove it
     // outright, and again whenever it comes back, in case Obsidian adds it
@@ -122,10 +122,10 @@ export class NewNotebookModal extends Modal {
     this.closeWatch.observe(this.modalEl, { childList: true });
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass("goodobsidian-newnb");
+    contentEl.addClass("finenotes-x-newnb");
 
-    this.buildHeader(contentEl.createDiv({ cls: "goodobsidian-newnb-header" }));
-    const body = contentEl.createDiv({ cls: "goodobsidian-newnb-body" });
+    this.buildHeader(contentEl.createDiv({ cls: "finenotes-x-newnb-header" }));
+    const body = contentEl.createDiv({ cls: "finenotes-x-newnb-body" });
     this.buildTitle(body);
     this.buildCover(body);
     this.buildPaper(body);
@@ -185,9 +185,9 @@ export class NewNotebookModal extends Modal {
   private buildHeader(header: HTMLElement): void {
     const create = header.createEl("button", { cls: "mod-cta", text: "Create" });
     create.addEventListener("click", () => this.create());
-    header.createDiv({ cls: "goodobsidian-newnb-heading", text: "New notebook" });
+    header.createDiv({ cls: "finenotes-x-newnb-heading", text: "New notebook" });
     const close = header.createEl("button", {
-      cls: "goodobsidian-newnb-close clickable-icon",
+      cls: "finenotes-x-newnb-close clickable-icon",
       attr: { type: "button", "aria-label": "Close" },
     });
     setIcon(close, "x");
@@ -196,7 +196,7 @@ export class NewNotebookModal extends Modal {
 
   private buildTitle(body: HTMLElement): void {
     const input = body.createEl("input", {
-      cls: "goodobsidian-newnb-title",
+      cls: "finenotes-x-newnb-title",
       type: "text",
       attr: {
         "aria-label": "Title",
@@ -232,7 +232,7 @@ export class NewNotebookModal extends Modal {
     });
     this.titleInput = input;
     // Under the title: importing instead on the left, where it goes on the right.
-    const row = body.createDiv({ cls: "goodobsidian-newnb-under-title" });
+    const row = body.createDiv({ cls: "finenotes-x-newnb-under-title" });
     this.buildImportLink(row);
     this.buildFolder(row);
   }
@@ -244,12 +244,12 @@ export class NewNotebookModal extends Modal {
     // `clickable-icon` keeps Obsidian's own button styling (and its iPad
     // padding) off this link-styled button.
     const link = body.createEl("button", {
-      cls: "goodobsidian-newnb-import clickable-icon",
+      cls: "finenotes-x-newnb-import clickable-icon",
       attr: { type: "button" },
     });
-    setIcon(link.createSpan({ cls: "goodobsidian-newnb-import-icon" }), ICON_IMPORT_NOTEBOOK);
+    setIcon(link.createSpan({ cls: "finenotes-x-newnb-import-icon" }), ICON_IMPORT_NOTEBOOK);
     link.createSpan({ text: "Import from another app…" });
-    link.createSpan({ cls: "goodobsidian-beta-tag", text: "Beta" });
+    link.createSpan({ cls: "finenotes-x-beta-tag", text: "Beta" });
     link.addEventListener("click", () => {
       const folder = this.folder;
       this.close();
@@ -276,7 +276,7 @@ export class NewNotebookModal extends Modal {
 
   private buildPaper(body: HTMLElement): void {
     const section = this.section(body, "Paper");
-    new PaperControls(section.createDiv({ cls: "goodobsidian-templates-controls" }), {
+    new PaperControls(section.createDiv({ cls: "finenotes-x-templates-controls" }), {
       keepSize: false,
       sizeId: this.choices.size,
       color: this.choices.paper,
@@ -338,11 +338,11 @@ export class NewNotebookModal extends Modal {
 
   /** The folder it is made in, as a chip beside the import link: tap to choose another. */
   private buildFolder(parent: HTMLElement): void {
-    const row = parent.createEl("button", { cls: "goodobsidian-newnb-folder clickable-icon" });
+    const row = parent.createEl("button", { cls: "finenotes-x-newnb-folder clickable-icon" });
     row.setAttribute("aria-label", "Choose folder");
-    setIcon(row.createSpan({ cls: "goodobsidian-newnb-folder-icon" }), "folder");
-    this.folderLabel = row.createSpan({ cls: "goodobsidian-newnb-folder-path" });
-    setIcon(row.createSpan({ cls: "goodobsidian-newnb-folder-icon" }), "chevron-right");
+    setIcon(row.createSpan({ cls: "finenotes-x-newnb-folder-icon" }), "folder");
+    this.folderLabel = row.createSpan({ cls: "finenotes-x-newnb-folder-path" });
+    setIcon(row.createSpan({ cls: "finenotes-x-newnb-folder-icon" }), "chevron-right");
     row.addEventListener("click", () => {
       new FolderSuggestModal(
         this.app,
@@ -358,8 +358,8 @@ export class NewNotebookModal extends Modal {
   }
 
   private section(body: HTMLElement, title: string): HTMLElement {
-    const section = body.createDiv({ cls: "goodobsidian-newnb-section" });
-    section.createDiv({ cls: "goodobsidian-newnb-section-title", text: title });
+    const section = body.createDiv({ cls: "finenotes-x-newnb-section" });
+    section.createDiv({ cls: "finenotes-x-newnb-section-title", text: title });
     return section;
   }
 

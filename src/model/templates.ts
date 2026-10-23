@@ -254,7 +254,12 @@ export interface PageSize {
 const mm = (v: number): number => Math.round(mmToPage(v));
 
 export const PAGE_SIZES: readonly PageSize[] = [
-  { id: "standard", label: "A4 (Standard)", width: DEFAULT_PAPER_WIDTH, height: DEFAULT_PAGE_HEIGHT },
+  {
+    id: "standard",
+    label: "A4 (Standard)",
+    width: DEFAULT_PAPER_WIDTH,
+    height: DEFAULT_PAGE_HEIGHT,
+  },
   { id: "a6", label: "A6", width: mm(105), height: mm(148) },
   { id: "a5", label: "A5", width: mm(148), height: mm(210) },
   { id: "a3", label: "A3", width: mm(297), height: mm(420) },

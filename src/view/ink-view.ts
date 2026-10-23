@@ -3,12 +3,12 @@
  * `.ink.md`) open in a tab. Obsidian reads and writes the file; this view
  * turns its text into a notebook and back, and puts the pieces on screen:
  *
- *   .goodobsidian-view                the tab's content
- *     .goodobsidian-toolbar           tools and actions (toolbar.ts)
- *     .goodobsidian-body              a row:
- *       .goodobsidian-pagesidebar       page thumbnails, shown on request (page-sidebar.ts)
- *       .goodobsidian-surface           the pages themselves (ink-surface.ts)
- *     .goodobsidian-textpanel         the note's Markdown text layer (text-panel.ts)
+ *   .finenotes-x-view                the tab's content
+ *     .finenotes-x-toolbar           tools and actions (toolbar.ts)
+ *     .finenotes-x-body              a row:
+ *       .finenotes-x-pagesidebar       page thumbnails, shown on request (page-sidebar.ts)
+ *       .finenotes-x-surface           the pages themselves (ink-surface.ts)
+ *     .finenotes-x-textpanel         the note's Markdown text layer (text-panel.ts)
  *
  * Drawing, erasing, selecting and zooming belong to the surface. What stays
  * here is what concerns the file and the note as a whole: loading and saving
@@ -2492,7 +2492,7 @@ export class InkView extends TextFileView {
   private buildDom(): void {
     const root = this.contentEl;
     root.empty();
-    root.addClass("goodobsidian-view");
+    root.addClass("finenotes-x-view");
 
     // Ink colours are absolute: pages are paper-white whatever Obsidian's
     // theme, so the default ink must not follow the theme either (dark ink
@@ -2630,7 +2630,7 @@ export class InkView extends TextFileView {
     this.thumbBackdrops.setDeviceScale(thumbnailRasterScale(window.devicePixelRatio || 1));
     this.images = new VaultImageCache(this.app);
 
-    const body = root.createDiv({ cls: "goodobsidian-body" });
+    const body = root.createDiv({ cls: "finenotes-x-body" });
     this.sidebar = new PageSidebar(
       body,
       {
@@ -2651,7 +2651,7 @@ export class InkView extends TextFileView {
         // The options pill floats over the page, which the overview covers.
         pageSnapshot: () => this.surface?.snapshotPage() ?? null,
         onOverviewChange: (open) => {
-          root.toggleClass("goodobsidian-overview-open", open);
+          root.toggleClass("finenotes-x-overview-open", open);
           if (!open) this.closeSidebarAfterOverview();
         },
         listFiles: (kind) => this.listNotebookFiles(kind),
@@ -2960,7 +2960,7 @@ export class InkView extends TextFileView {
         files,
         ...(preview ? { preview } : {}),
       });
-      const folder = normalizeFolder(this.settings.templateFolder) || "FineNotes templates";
+      const folder = normalizeFolder(this.settings.templateFolder) || "FineNotesX templates";
       if (!this.app.vault.getFolderByPath(folder)) await this.app.vault.createFolder(folder);
       const taken = new Set(
         this.app.vault.getFolderByPath(folder)?.children.map((child) => child.name) ?? [],
@@ -4146,7 +4146,7 @@ export class InkView extends TextFileView {
       createFragment((fragment) => {
         fragment.createSpan({ text: message });
         const undo = fragment.createEl("button", {
-          cls: "goodobsidian-notice-action clickable-icon",
+          cls: "finenotes-x-notice-action clickable-icon",
           text: "Undo",
         });
         undo.addEventListener("click", () => {
@@ -4487,7 +4487,7 @@ export class InkView extends TextFileView {
     if (!painter) return undefined;
     return new VaultPaperLibrary(
       this.app,
-      () => normalizeFolder(this.settings.templateFolder) || "FineNotes templates",
+      () => normalizeFolder(this.settings.templateFolder) || "FineNotesX templates",
       (canvas, backdrop, geometry, cssWidth) => {
         const page: Page = {
           id: "paper",

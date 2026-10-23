@@ -44,19 +44,19 @@ export class ContentsTitleModal extends Modal {
   override onOpen(): void {
     const renaming = this.current !== undefined;
     const fallback = this.section ? `Section on page ${this.index + 1}` : `Page ${this.index + 1}`;
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-contents-modal");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-contents-modal");
     this.titleEl.setText(renaming ? "Rename in contents" : "Add to contents");
     const body = this.contentEl;
-    body.addClass("goodobsidian-ask");
+    body.addClass("finenotes-x-ask");
     body.createDiv({
-      cls: "goodobsidian-ask-note",
+      cls: "finenotes-x-ask-note",
       text: this.section
         ? "Listed in the Contents tab with its page, and marked by a ribbon in the margin."
         : "Listed in the Contents tab of the page sidebar, where it starts a section.",
     });
-    const row = body.createDiv({ cls: "goodobsidian-contents-field-row" });
+    const row = body.createDiv({ cls: "finenotes-x-contents-field-row" });
     const field = row.createEl("input", {
-      cls: "goodobsidian-contents-field",
+      cls: "finenotes-x-contents-field",
       type: "text",
       attr: {
         placeholder: fallback,
@@ -71,7 +71,7 @@ export class ContentsTitleModal extends Modal {
     field.value = this.current ?? "";
     this.field = field;
     this.fieldRow = row;
-    const count = row.createDiv({ cls: "goodobsidian-contents-count" });
+    const count = row.createDiv({ cls: "finenotes-x-contents-count" });
     const updateCount = (): void => {
       count.setText(`${field.value.length}/${MAX_PAGE_TITLE_LENGTH}`);
     };
@@ -83,7 +83,7 @@ export class ContentsTitleModal extends Modal {
     });
     this.keyboard.watch(field, row);
 
-    const actions = body.createDiv({ cls: "goodobsidian-ask-actions" });
+    const actions = body.createDiv({ cls: "finenotes-x-ask-actions" });
     const cancel = actions.createEl("button", { text: "Cancel" });
     cancel.addEventListener("click", () => this.close());
     const done = actions.createEl("button", {

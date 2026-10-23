@@ -115,7 +115,7 @@ interface Registered {
   unload(): void;
 }
 
-const INK = "goodobsidian-view";
+const INK = "finenotes-x-view";
 const VERSION = "0.9.0";
 
 // --- A fake app -----------------------------------------------------------------
@@ -392,7 +392,7 @@ describe("New notebook context menu", () => {
       const items = menuFor(new TFolder(path));
       expect(items[1]).toMatchObject({
         title: "Import notebook (beta)…",
-        icon: "finenotes-notebook-import",
+        icon: "finenotes-x-notebook-import",
         section: "action-primary",
       });
       items[1].click();
@@ -476,8 +476,8 @@ describe("registration", () => {
     expect(registered.ribbon.map((r) => r.icon)).toEqual(["notebook-pen"]);
     expect(registered.ribbon[0].title).toBe("New notebook");
     // The import icon is FineNotes' own, so it must be registered before use.
-    expect(addedIcons.has("finenotes-notebook-import")).toBe(true);
-    expect([...registered.protocolHandlers.keys()]).toEqual(["goodobsidian-openrouter"]);
+    expect(addedIcons.has("finenotes-x-notebook-import")).toBe(true);
+    expect([...registered.protocolHandlers.keys()]).toEqual(["finenotes-x-openrouter"]);
   });
 
   it("opens the import dialog on the folder it was asked for", async () => {
@@ -495,17 +495,17 @@ describe("registration", () => {
     await plugin.openWelcomeTour();
     const created = (app.vault as unknown as { created: { path: string; content: string }[] })
       .created;
-    expect(created.map((c) => c.path)).toEqual(["Welcome to FineNotes.notebook.md"]);
-    expect(created[0].content).toContain("# Welcome to FineNotes");
+    expect(created.map((c) => c.path)).toEqual(["Welcome to FineNotesX.notebook.md"]);
+    expect(created[0].content).toContain("# Welcome to FineNotesX");
     expect(viewStateCalls.at(-1)?.state).toMatchObject({
       type: INK,
-      state: { file: "Welcome to FineNotes.notebook.md" },
+      state: { file: "Welcome to FineNotesX.notebook.md" },
     });
     // Already in the vault: opened again, not made again.
     await plugin.openWelcomeTour();
     expect(created).toHaveLength(1);
     expect(viewStateCalls.at(-1)?.state).toMatchObject({
-      state: { file: "Welcome to FineNotes.notebook.md" },
+      state: { file: "Welcome to FineNotesX.notebook.md" },
     });
   });
 
@@ -808,7 +808,7 @@ describe("loading settings", () => {
     const mark = { path: "School/Maths.notebook.md", key: "p3", hash: "h3", page: 3 };
     const reading = JSON.stringify({ version: VERSION, reading: mark, crashed: [] });
     await load({ lastSeenVersion: VERSION }, VERSION, true, {
-      "finenotes:device-reading": reading,
+      "finenotes-x:device-reading": reading,
     });
     expect(plugin.readingGuard.paused).toBe(true);
     expect(plugin.readingGuard.skipped(mark.path)).toEqual(new Map([["p3", "h3"]]));
@@ -882,7 +882,7 @@ describe("loading settings", () => {
 });
 
 describe("settings after a change of plugin id", () => {
-  const OLD_FILE = ".obsidian/plugins/goodobsidian/data.json";
+  const OLD_FILE = ".obsidian/plugins/finenotes/data.json";
   let reads: string[];
 
   /** Load under `id`, with `oldFile` as the old folder's data.json (null: none). */
@@ -923,7 +923,7 @@ describe("settings after a change of plugin id", () => {
   });
 
   it("never looks for itself under the old id", async () => {
-    await loadAs("goodobsidian", JSON.stringify({ defaultSize: 8 }));
+    await loadAs("finenotes", JSON.stringify({ defaultSize: 8 }));
     expect(plugin.settings.defaultSize).toBe(DEFAULT_SETTINGS.defaultSize);
     expect(reads).toEqual([]);
   });
@@ -1119,7 +1119,7 @@ describe("OpenRouter connect", () => {
   function challengeOf(url: string): string {
     const parsed = new URL(url);
     expect(parsed.origin + parsed.pathname).toBe("https://openrouter.ai/auth");
-    expect(parsed.searchParams.get("callback_url")).toBe("obsidian://goodobsidian-openrouter");
+    expect(parsed.searchParams.get("callback_url")).toBe("obsidian://finenotes-x-openrouter");
     expect(parsed.searchParams.get("code_challenge_method")).toBe("S256");
     return parsed.searchParams.get("code_challenge") ?? "";
   }
@@ -1131,7 +1131,7 @@ describe("OpenRouter connect", () => {
   }
 
   function callback(params: Record<string, string>): Promise<void> {
-    const handler = registered.protocolHandlers.get("goodobsidian-openrouter");
+    const handler = registered.protocolHandlers.get("finenotes-x-openrouter");
     if (!handler) throw new Error("no handler");
     handler(params);
     return flush();
@@ -1150,7 +1150,7 @@ describe("OpenRouter connect", () => {
     await load({ lastSeenVersion: VERSION, llmVendor: "anthropic" });
     const challenge = await connect();
     hooks.post = () => Promise.resolve({ status: 200, json: { key: "sk-or-v1-abc" } });
-    await callback({ action: "goodobsidian-openrouter", code: "one-time" });
+    await callback({ action: "finenotes-x-openrouter", code: "one-time" });
 
     expect(hooks.posts).toHaveLength(1);
     const sent = hooks.posts[0];

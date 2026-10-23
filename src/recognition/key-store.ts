@@ -38,7 +38,7 @@ export interface KeyStore {
 
 /** Keychain id per slot: "lowercase alphanumeric with optional dashes". */
 export function secretIdFor(slot: LlmVendor): string {
-  return `goodobsidian-${slot}-api-key`;
+  return `finenotes-x-${slot}-api-key`;
 }
 
 /** Keys in Obsidian's keychain (1.11.4+). */

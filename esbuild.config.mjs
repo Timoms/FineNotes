@@ -6,9 +6,9 @@ import { builtinModules } from "node:module";
 import { copyArtifacts, resolveDeployDir } from "./scripts/deploy-target.mjs";
 
 const banner = `/*
-FineNotes — bundled plugin output. Do not edit directly.
-Source: https://github.com/Joost-8/FineNotes
-FineNotes is licensed under the GNU General Public License v3.0 or later.
+FineNotesX — bundled plugin output. Do not edit directly.
+Source: https://github.com/Timoms/FineNotes
+FineNotesX is licensed under the GNU General Public License v3.0 or later.
 
 ${readFileSync(new URL("./THIRD_PARTY_NOTICES.txt", import.meta.url), "utf8")}
 */`;
@@ -29,12 +29,12 @@ const buildId = production
 // build. In watch mode this fires on every rebuild, giving an edit -> vault
 // (-> iCloud -> iPad) loop.
 const deployPlugin = {
-  name: "finenotes-deploy",
+  name: "finenotes-x-deploy",
   setup(build) {
     build.onEnd((result) => {
       if (!deployDir || result.errors.length > 0) return;
       copyArtifacts(deployDir);
-      console.log(`[finenotes] deployed ${buildId} → ${deployDir}`);
+      console.log(`[finenotes-x] deployed ${buildId} → ${deployDir}`);
     });
   },
 };
@@ -42,7 +42,7 @@ const deployPlugin = {
 // `import source from "worker:./worker"` gives the module bundled on its own
 // as a string, to start as a Web Worker from a Blob URL (src/build.d.ts).
 const inlineWorker = {
-  name: "finenotes-inline-worker",
+  name: "finenotes-x-inline-worker",
   setup(build) {
     build.onResolve({ filter: /^worker:/ }, (args) => ({
       path: resolve(args.resolveDir, args.path.slice("worker:".length)),

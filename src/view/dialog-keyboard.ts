@@ -5,24 +5,24 @@
  * field behaves the same:
  *
  * - While a field has focus, Obsidian's keyboard cap on the app is lifted
- *   (the `goodobsidian-dialog-typing` body class, styles.css), or the app
+ *   (the `finenotes-x-dialog-typing` body class, styles.css), or the app
  *   behind the dialog collapses to black.
  * - The dialog rises just far enough to keep the field's row — and anything
  *   listed under it — above the keyboard, and settles back when typing ends.
  * - The window scrolling iPadOS does to "reveal" a field is undone.
  *
- * The dialog's `modalEl` gets `goodobsidian-keyboard-lift`, whose CSS turns
+ * The dialog's `modalEl` gets `finenotes-x-keyboard-lift`, whose CSS turns
  * the lift into a `translate`.
  *
  * A dialog taller than the room above the keyboard (the Ask AI chat, whose
  * field sits at the bottom under a scrolling thread) passes `fit`: while the
- * keyboard is up, `--goodobsidian-keyboard-room` holds the height left above
+ * keyboard is up, `--finenotes-x-keyboard-room` holds the height left above
  * it, for the dialog's CSS to shrink to, so the whole dialog rises into view
  * instead of only its lower part.
  *
  * A panel that cannot move (the Ask sidebar, which fills the notebook's
  * height) passes `pad` instead: nothing is lifted, and while the keyboard
- * covers the panel's foot, `--goodobsidian-keyboard-pad` holds how much it
+ * covers the panel's foot, `--finenotes-x-keyboard-pad` holds how much it
  * covers, for the panel's CSS to pad its foot by.
  */
 
@@ -30,7 +30,7 @@ import { keyboardHeight } from "./keyboard";
 import { captureScroll, holdScroll, keyboardGone } from "./scroll-hold";
 
 /** Lifts Obsidian's keyboard cap on the app (styles.css), as the New notebook dialog does. */
-const TYPING_BODY_CLASS = "goodobsidian-dialog-typing";
+const TYPING_BODY_CLASS = "finenotes-x-dialog-typing";
 /** How long after a field takes focus the dialog follows the keyboard as it slides in, ms. */
 const FOLLOW_KEYBOARD_MS = 1200;
 const POLL_MS = 50;
@@ -48,16 +48,16 @@ export class DialogKeyboard {
   private capTimer = 0;
   private stopHold: (() => void) | null = null;
 
-  /** The room last written to `--goodobsidian-keyboard-room`, px; 0 while unset. */
+  /** The room last written to `--finenotes-x-keyboard-room`, px; 0 while unset. */
   private room = 0;
-  /** The pad last written to `--goodobsidian-keyboard-pad`, px; 0 while unset. */
+  /** The pad last written to `--finenotes-x-keyboard-pad`, px; 0 while unset. */
   private pad = 0;
 
   constructor(
     private readonly modalEl: HTMLElement,
     private readonly options: { fit?: boolean; pad?: boolean } = {},
   ) {
-    if (!options.pad) modalEl.addClass("goodobsidian-keyboard-lift");
+    if (!options.pad) modalEl.addClass("finenotes-x-keyboard-lift");
   }
 
   /**
@@ -171,7 +171,7 @@ export class DialogKeyboard {
     const next = Math.round(px);
     if (next === this.lift) return;
     this.lift = next;
-    this.modalEl.setCssProps({ "--goodobsidian-dialog-lift": `${next}px` });
+    this.modalEl.setCssProps({ "--finenotes-x-dialog-lift": `${next}px` });
   }
 
   /** The height the dialog may take above the keyboard; 0 lets it have the screen again. */
@@ -179,8 +179,8 @@ export class DialogKeyboard {
     const next = Math.max(0, Math.round(px));
     if (next === this.room) return;
     this.room = next;
-    if (next === 0) this.modalEl.style.removeProperty("--goodobsidian-keyboard-room");
-    else this.modalEl.setCssProps({ "--goodobsidian-keyboard-room": `${next}px` });
+    if (next === 0) this.modalEl.style.removeProperty("--finenotes-x-keyboard-room");
+    else this.modalEl.setCssProps({ "--finenotes-x-keyboard-room": `${next}px` });
   }
 
   /** How much of a `pad` panel's foot the keyboard covers; 0 lets it have its height again. */
@@ -188,8 +188,8 @@ export class DialogKeyboard {
     const next = Math.max(0, Math.round(px));
     if (next === this.pad) return;
     this.pad = next;
-    if (next === 0) this.modalEl.style.removeProperty("--goodobsidian-keyboard-pad");
-    else this.modalEl.setCssProps({ "--goodobsidian-keyboard-pad": `${next}px` });
+    if (next === 0) this.modalEl.style.removeProperty("--finenotes-x-keyboard-pad");
+    else this.modalEl.setCssProps({ "--finenotes-x-keyboard-pad": `${next}px` });
   }
 
   /** Undo the window scrolling iPadOS does to "reveal" a field, while the keyboard comes up. */

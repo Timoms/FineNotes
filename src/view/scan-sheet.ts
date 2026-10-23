@@ -145,12 +145,12 @@ export class ScanSheet extends Modal {
 
   override onOpen(): void {
     this.closed = false;
-    this.modalEl.addClass("goodobsidian-scan-modal");
+    this.modalEl.addClass("finenotes-x-scan-modal");
     this.titleEl.setText("Scan document");
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass("goodobsidian-scan");
-    const main = contentEl.createDiv({ cls: "goodobsidian-scan-main" });
+    contentEl.addClass("finenotes-x-scan");
+    const main = contentEl.createDiv({ cls: "finenotes-x-scan-main" });
     this.buildStage(main);
     this.buildResult(main);
     this.buildBar(contentEl);
@@ -195,18 +195,18 @@ export class ScanSheet extends Modal {
   // --- Building ---------------------------------------------------------------
 
   private buildStage(parent: HTMLElement): void {
-    const stage = parent.createDiv({ cls: "goodobsidian-scan-stage" });
+    const stage = parent.createDiv({ cls: "finenotes-x-scan-stage" });
     this.stageEl = stage;
-    this.photoCanvas = stage.createEl("canvas", { cls: "goodobsidian-scan-photo" });
-    const overlay = stage.createSvg("svg", { cls: "goodobsidian-scan-overlay" });
-    this.maskPath = overlay.createSvg("path", { cls: "goodobsidian-scan-mask" });
-    this.outline = overlay.createSvg("polygon", { cls: "goodobsidian-scan-outline" });
+    this.photoCanvas = stage.createEl("canvas", { cls: "finenotes-x-scan-photo" });
+    const overlay = stage.createSvg("svg", { cls: "finenotes-x-scan-overlay" });
+    this.maskPath = overlay.createSvg("path", { cls: "finenotes-x-scan-mask" });
+    this.outline = overlay.createSvg("polygon", { cls: "finenotes-x-scan-outline" });
     CORNER_NAMES.forEach((name, index) => {
       const handle = stage.createDiv({
-        cls: "goodobsidian-scan-handle",
+        cls: "finenotes-x-scan-handle",
         attr: { "aria-label": name, role: "button" },
       });
-      handle.createDiv({ cls: "goodobsidian-scan-handle-dot" });
+      handle.createDiv({ cls: "finenotes-x-scan-handle-dot" });
       handle.addEventListener("pointerdown", (event) => this.startDrag(event, index));
       handle.addEventListener("pointermove", (event) => this.moveDrag(event));
       handle.addEventListener("pointerup", (event) => this.endDrag(event));
@@ -220,36 +220,36 @@ export class ScanSheet extends Modal {
     // tap on the empty state's buttons must still become a click.
     const claim = (event: TouchEvent): void => {
       const target = event.target;
-      if (target instanceof Element && target.closest(".goodobsidian-scan-handle")) {
+      if (target instanceof Element && target.closest(".finenotes-x-scan-handle")) {
         event.preventDefault();
       }
     };
     stage.addEventListener("touchstart", claim, { passive: false });
     stage.addEventListener("touchmove", claim, { passive: false });
 
-    this.loupeEl = stage.createDiv({ cls: "goodobsidian-scan-loupe is-hidden" });
+    this.loupeEl = stage.createDiv({ cls: "finenotes-x-scan-loupe is-hidden" });
     this.loupeCanvas = this.loupeEl.createEl("canvas");
     this.loupeEl.setCssStyles({ width: `${LOUPE_SIZE}px`, height: `${LOUPE_SIZE}px` });
 
-    this.emptyEl = stage.createDiv({ cls: "goodobsidian-scan-empty" });
-    setIcon(this.emptyEl.createDiv({ cls: "goodobsidian-scan-empty-icon" }), "scan-line");
-    this.emptyText = this.emptyEl.createDiv({ cls: "goodobsidian-scan-empty-text" });
-    const actions = this.emptyEl.createDiv({ cls: "goodobsidian-scan-empty-actions" });
+    this.emptyEl = stage.createDiv({ cls: "finenotes-x-scan-empty" });
+    setIcon(this.emptyEl.createDiv({ cls: "finenotes-x-scan-empty-icon" }), "scan-line");
+    this.emptyText = this.emptyEl.createDiv({ cls: "finenotes-x-scan-empty-text" });
+    const actions = this.emptyEl.createDiv({ cls: "finenotes-x-scan-empty-actions" });
     if (Platform.isMobile) this.button(actions, "camera", "Take photo", () => this.pickPhoto(true));
     const choose = Platform.isMobile ? "Choose photo" : "Choose picture";
     this.button(actions, "image", choose, () => this.pickPhoto(false));
-    this.statusEl = stage.createDiv({ cls: "goodobsidian-scan-status is-hidden" });
+    this.statusEl = stage.createDiv({ cls: "finenotes-x-scan-status is-hidden" });
   }
 
   private buildResult(parent: HTMLElement): void {
-    const result = parent.createDiv({ cls: "goodobsidian-scan-result" });
-    const frame = result.createDiv({ cls: "goodobsidian-scan-preview-frame" });
-    this.previewCanvas = frame.createEl("canvas", { cls: "goodobsidian-scan-preview" });
-    this.captionEl = result.createDiv({ cls: "goodobsidian-scan-caption" });
+    const result = parent.createDiv({ cls: "finenotes-x-scan-result" });
+    const frame = result.createDiv({ cls: "finenotes-x-scan-preview-frame" });
+    this.previewCanvas = frame.createEl("canvas", { cls: "finenotes-x-scan-preview" });
+    this.captionEl = result.createDiv({ cls: "finenotes-x-scan-caption" });
   }
 
   private buildBar(parent: HTMLElement): void {
-    const bar = parent.createDiv({ cls: "goodobsidian-scan-bar" });
+    const bar = parent.createDiv({ cls: "finenotes-x-scan-bar" });
     this.retakeButton = this.button(
       bar,
       Platform.isMobile ? "camera" : "image",
@@ -257,21 +257,21 @@ export class ScanSheet extends Modal {
       () => this.pickPhoto(this.capture),
     );
     this.rotateButton = this.button(bar, "rotate-cw", "Rotate", () => this.rotate());
-    const filters = bar.createDiv({ cls: "goodobsidian-segmented goodobsidian-scan-filters" });
+    const filters = bar.createDiv({ cls: "finenotes-x-segmented finenotes-x-scan-filters" });
     for (const { id, label } of SCAN_FILTERS) {
       const button = filters.createEl("button", { cls: "clickable-icon", text: label });
       button.addEventListener("click", () => this.setFilter(id));
       this.filterButtons.set(id, button);
     }
     this.syncFilterButtons();
-    bar.createDiv({ cls: "goodobsidian-scan-spacer" });
+    bar.createDiv({ cls: "finenotes-x-scan-spacer" });
     if (this.host.multiPage) {
       this.nextButton = this.button(bar, "plus", "Next page", () => this.keepAndNext());
     }
     this.addButton = this.button(bar, "check", "Add page", () => void this.finish());
-    this.addButton.addClass("goodobsidian-scan-primary");
+    this.addButton.addClass("finenotes-x-scan-primary");
     this.addLabel =
-      this.addButton.querySelector(".goodobsidian-scan-button-label") ?? this.addButton;
+      this.addButton.querySelector(".finenotes-x-scan-button-label") ?? this.addButton;
   }
 
   /** An icon-and-label button. `clickable-icon`: Obsidian pads other buttons 20 px on an iPad. */
@@ -281,9 +281,9 @@ export class ScanSheet extends Modal {
     label: string,
     onClick: () => void,
   ): HTMLButtonElement {
-    const button = parent.createEl("button", { cls: "goodobsidian-scan-button clickable-icon" });
-    setIcon(button.createSpan({ cls: "goodobsidian-scan-button-icon" }), icon);
-    button.createSpan({ cls: "goodobsidian-scan-button-label", text: label });
+    const button = parent.createEl("button", { cls: "finenotes-x-scan-button clickable-icon" });
+    setIcon(button.createSpan({ cls: "finenotes-x-scan-button-icon" }), icon);
+    button.createSpan({ cls: "finenotes-x-scan-button-label", text: label });
     button.addEventListener("click", onClick);
     return button;
   }

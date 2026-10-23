@@ -50,7 +50,7 @@ export class LinkSuggestModal extends SuggestModal<PickerItem> {
   ) {
     super(app);
     this.keyboard = new DialogKeyboard(this.modalEl);
-    this.modalEl.addClass("goodobsidian-link-modal");
+    this.modalEl.addClass("finenotes-x-link-modal");
     this.limit = 60;
     this.setPlaceholder("Link to a note, a heading (Note#Heading) or a web address");
     this.emptyStateText = "Type a note's name, or a web address.";
@@ -94,12 +94,12 @@ export class LinkSuggestModal extends SuggestModal<PickerItem> {
   }
 
   renderSuggestion(item: PickerItem, el: HTMLElement): void {
-    el.addClass("goodobsidian-link-choice");
-    setIcon(el.createSpan({ cls: "goodobsidian-link-choice-icon" }), ICONS[item.kind]);
-    const text = el.createDiv({ cls: "goodobsidian-link-choice-text" });
-    const title = text.createDiv({ cls: "goodobsidian-link-choice-title" });
+    el.addClass("finenotes-x-link-choice");
+    setIcon(el.createSpan({ cls: "finenotes-x-link-choice-icon" }), ICONS[item.kind]);
+    const text = el.createDiv({ cls: "finenotes-x-link-choice-text" });
+    const title = text.createDiv({ cls: "finenotes-x-link-choice-title" });
     const sub = (value: string): void => {
-      text.createDiv({ cls: "goodobsidian-link-choice-sub", text: value });
+      text.createDiv({ cls: "finenotes-x-link-choice-sub", text: value });
     };
     switch (item.kind) {
       case "remove":

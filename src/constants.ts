@@ -7,13 +7,13 @@
  */
 
 /** The view type id of the notebook view; saved in workspace layouts. */
-export const VIEW_TYPE_INK = "goodobsidian-view";
+export const VIEW_TYPE_INK = "finenotes-x-view";
 
 /**
- * The plugin id every release before the public one used. Settings saved
- * under it are carried over once when the plugin runs under a new id.
+ * The official plugin id. FineNotesX copies those settings on first launch,
+ * then stores its own independent settings under its fork id.
  */
-export const PREVIOUS_PLUGIN_ID = "goodobsidian";
+export const PREVIOUS_PLUGIN_ID = "finenotes";
 
 /**
  * File name suffixes. A notebook is `Title.notebook.md`, a single page
@@ -186,7 +186,7 @@ export const ICON_NEW_NOTEBOOK = "notebook-pen";
  * The New notebook icon's notebook (outline and spine marks) with an arrow
  * coming in where the pen was, so the two read as a pair.
  */
-export const ICON_IMPORT_NOTEBOOK = "finenotes-notebook-import";
+export const ICON_IMPORT_NOTEBOOK = "finenotes-x-notebook-import";
 
 /**
  * The import icon's drawing for `addIcon`, whose box is 100 × 100: Lucide's

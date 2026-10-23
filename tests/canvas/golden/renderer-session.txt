@@ -2,7 +2,7 @@
 backdrop.getContext 2d {"desynchronized":false}
 dry.getContext 2d {"desynchronized":false}
 wet.getContext 2d {"desynchronized":true}
-wet.classList + goodobsidian-wet-hidden
+wet.classList + finenotes-x-wet-hidden
 # resize and view
 backdrop.width = 780
 backdrop.height = 1400
@@ -674,34 +674,34 @@ wet stroke path2d#b7d139db0d80 at 0.9,0,0,0.9,24,-108 {fillStyle=#16a34a strokeS
 wet stroke path2d#bf19669b3150 at 0.9,0,0,0.9,24,-108 {fillStyle=#16a34a strokeStyle=#16a34a lineWidth=2.2944 lineCap=round lineJoin=round}
 wet stroke path2d#1e8f8aa1a406 at 0.9,0,0,0.9,24,-108 {fillStyle=#16a34a strokeStyle=#16a34a lineWidth=2.2202 lineCap=round lineJoin=round}
 wet stroke path2d#f87f6ea615cb at 0.9,0,0,0.9,24,-108 {fillStyle=#16a34a strokeStyle=#16a34a lineWidth=2.1458 lineCap=round lineJoin=round}
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clip nonzero [R(24,-108 744,-108 744,792 24,792)]
 wet stroke path2d#af2bdea1ac44 at 0.9,0,0,0.9,24,-108 {fillStyle=#ffd400 strokeStyle=#ffd400 lineWidth=12 lineCap=round lineJoin=round globalAlpha=0.4 globalCompositeOperation=multiply}
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clip nonzero [R(24,-108 744,-108 744,792 24,792)]
 wet stroke path2d#a7fc28f51d10 at 0.9,0,0,0.9,24,-108 {fillStyle=#2563eb strokeStyle=#2563eb lineWidth=3 lineCap=round lineJoin=round}
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clip nonzero [R(24,-108 744,-108 744,792 24,792)]
 wet stroke path2d#524f13d9a1a9 at 0.9,0,0,0.9,24,-108 {fillStyle=#16a34a strokeStyle=#16a34a lineWidth=3 lineCap=round lineJoin=round}
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clip nonzero [R(24,-108 744,-108 744,792 24,792)]
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clip nonzero [R(24,828 744,828 744,1728 24,1728)]
 wet stroke path2d#3c1e18df3a83 at 0.9,0,0,0.9,24,828 {lineWidth=2 lineCap=round lineJoin=round}
 wet stroke path2d#aeaabba3393e at 0.9,0,0,0.9,24,828 {lineWidth=2 lineCap=round lineJoin=round}
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 wet clearRect 0,0 780,0 780,1400 0,1400
 # lasso, drafts and clear
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clip nonzero [R(24,-108 744,-108 744,792 24,792)]
 wet fill evenodd [M114,-18 L294,0 L258,162 L132,144 Z] {fillStyle=rgba(120,170,255,0.12)}
 wet stroke [M114,-18 L294,0 L258,162 L132,144 Z] {fillStyle=rgba(120,170,255,0.12) strokeStyle=rgba(120,170,255,0.95) lineWidth=3.3333 lineJoin=round lineDash=[13.3333,8.8889]}
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clip nonzero [R(24,-108 744,-108 744,792 24,792)]
@@ -725,7 +725,7 @@ wet stroke path2d#d62bda50c041 at 0.9,0,0,0.9,51,-112.5 {fillStyle=#1a1a1a strok
 wet stroke path2d#732bd6dc6d01 at 0.9,0,0,0.9,51,-112.5 {fillStyle=#1a1a1a strokeStyle=#1a1a1a lineWidth=2.8632 lineCap=round lineJoin=round}
 wet stroke path2d#a4d6a005953b at 0.9,0,0,0.9,51,-112.5 {fillStyle=#1a1a1a strokeStyle=#1a1a1a lineWidth=2.9544 lineCap=round lineJoin=round}
 wet stroke path2d#a7fc28f51d10 at 0.9,0,0,0.9,51,-112.5 {fillStyle=#2563eb strokeStyle=#2563eb lineWidth=3 lineCap=round lineJoin=round}
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 el2.width = 0
 el2.height = 0
 el3.width = 0
@@ -965,14 +965,14 @@ dry drawImage el9 -> 536,1340 744,1340 744,1728 536,1728 {imageSmoothingEnabled=
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clip nonzero [R(24,-108 744,-108 744,792 24,792)]
 wet image i1 200x120 scale=0.9 at 0.8598,0.266,-0.266,0.8598,511.9778,11.815
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clip nonzero [R(24,-108 744,-108 744,792 24,792)]
 wet image i1 200x120 scale=0.9 at 0.8598,0.266,-0.266,0.8598,493.9778,2.815
 wet fill evenodd [R(493.9778,2.815 665.9384,56.0086 634.0222,159.185 462.0616,105.9914) R(504.7906,28.7696 590.7709,55.3665 571.6212,117.2723 485.6409,90.6754)] {fillStyle=rgba(0, 0, 0, 0.55)}
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 wet clearRect 0,0 780,0 780,1400 0,1400
-wet.classList + goodobsidian-wet-hidden
+wet.classList + finenotes-x-wet-hidden
 el12.width = 0
 el12.height = 0
 el13.width = 0
@@ -1583,7 +1583,7 @@ dry drawImage el36 -> 432,1276 944,1276 944,1788 432,1788 {imageSmoothingEnabled
 wet clearRect 0,0 780,0 780,1400 0,1400
 wet clip nonzero [R(-80,252 1360,252 1360,2052 -80,2052)]
 wet stroke path2d#619094be5f3c at 1.8,0,0,1.8,-80,252 {fillStyle=#2985ab strokeStyle=#2985ab lineWidth=10 lineCap=round lineJoin=round globalAlpha=0.25 globalCompositeOperation=screen}
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 # resize
 backdrop.width = 500
 backdrop.height = 300
@@ -1636,7 +1636,7 @@ el38 stroke path2d#9b533da56a2e at 1,0,0,1,0,0 {fillStyle=#e8e8e8 strokeStyle=#e
 el38 stroke path2d#343c2e1e01e7 at 1,0,0,1,0,0 {fillStyle=#2985ab strokeStyle=#2985ab lineWidth=10 lineCap=round lineJoin=round globalAlpha=0.25 globalCompositeOperation=screen}
 dry drawImage el38 -> 0,24 480,24 480,624 0,624
 wet clearRect 0,0 500,0 500,300 0,300
-wet.classList + goodobsidian-wet-hidden
+wet.classList + finenotes-x-wet-hidden
 # pages side by side
 el29.width = 0
 el29.height = 0
@@ -1924,7 +1924,7 @@ wet clearRect 0,0 500,0 500,300 0,300
 wet clip nonzero [R(120,-50 520,-50 520,450 120,450)]
 wet stroke path2d#9b533da56a2e at 0.5,0,0,0.5,120,-50 {fillStyle=#e8e8e8 strokeStyle=#e8e8e8 lineWidth=4 lineCap=round lineJoin=round}
 wet stroke path2d#343c2e1e01e7 at 0.5,0,0,0.5,120,-50 {fillStyle=#2985ab strokeStyle=#2985ab lineWidth=10 lineCap=round lineJoin=round globalAlpha=0.25 globalCompositeOperation=screen}
-wet.classList - goodobsidian-wet-hidden
+wet.classList - finenotes-x-wet-hidden
 # destroy
 el39.width = 0
 el39.height = 0

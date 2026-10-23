@@ -99,17 +99,17 @@ export class GraphExplorer {
   ) {
     this.draft = structuredClone(graph);
     this.start = viewOf(graph);
-    this.root = host.createDiv({ cls: "goodobsidian-graph-explore" });
+    this.root = host.createDiv({ cls: "finenotes-x-graph-explore" });
     // Obsidian's swipes stay out of the plot, as they do of the page.
     this.root.dataset.ignoreSwipe = "true";
-    this.canvas = this.root.createEl("canvas", { cls: "goodobsidian-graph-explore-canvas" });
+    this.canvas = this.root.createEl("canvas", { cls: "finenotes-x-graph-explore-canvas" });
     this.ctx = this.canvas.getContext("2d");
     const bar = this.root.createDiv({
-      cls: "goodobsidian-selection-bar theme-dark goodobsidian-graph-explore-bar",
+      cls: "finenotes-x-selection-bar theme-dark finenotes-x-graph-explore-bar",
       attr: { role: "toolbar", "aria-label": "Explore graph" },
     });
-    this.readout = bar.createSpan({ cls: "goodobsidian-graph-explore-readout" });
-    bar.createDiv({ cls: "goodobsidian-selection-divider" });
+    this.readout = bar.createSpan({ cls: "finenotes-x-graph-explore-readout" });
+    bar.createDiv({ cls: "finenotes-x-selection-divider" });
     const reset = barButton(bar, "Reset view", "rotate-ccw");
     onTap(reset, () => this.reset());
     const done = barButton(bar, "Done", "check", true);
@@ -450,12 +450,12 @@ function barButton(
   withLabel = false,
 ): HTMLButtonElement {
   const button = bar.createEl("button", {
-    cls: `goodobsidian-selection-button clickable-icon${withLabel ? " has-label" : ""}`,
+    cls: `finenotes-x-selection-button clickable-icon${withLabel ? " has-label" : ""}`,
     attr: { "aria-label": label, title: label },
   });
   if (withLabel) {
-    setIcon(button.createSpan({ cls: "goodobsidian-selection-button-icon" }), icon);
-    button.createSpan({ cls: "goodobsidian-selection-button-label", text: label });
+    setIcon(button.createSpan({ cls: "finenotes-x-selection-button-icon" }), icon);
+    button.createSpan({ cls: "finenotes-x-selection-button-label", text: label });
   } else {
     setIcon(button, icon);
   }

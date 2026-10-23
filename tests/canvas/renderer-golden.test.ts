@@ -298,7 +298,7 @@ describe("the renderer, drawn call by call", () => {
       'wet.getContext 2d {"desynchronized":true}',
     ]);
     const firstDraw = log.lines.findIndex((line) => /^wet (fill|stroke|clearRect)/.test(line));
-    const hidden = log.lines.indexOf("wet.classList + goodobsidian-wet-hidden");
+    const hidden = log.lines.indexOf("wet.classList + finenotes-x-wet-hidden");
     expect(hidden).toBeGreaterThanOrEqual(0);
     expect(hidden).toBeLessThan(firstDraw);
   });

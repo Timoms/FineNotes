@@ -47,7 +47,7 @@ export function screenEyeDropper(win: Window): (new () => ScreenEyeDropper) | nu
 }
 
 /** Controls inside the page's overlay (the lasso's bar and menu): pressing one is not aiming. */
-const CHROME = "button, .goodobsidian-selection-menu, .goodobsidian-selection-bar";
+const CHROME = "button, .finenotes-x-selection-menu, .finenotes-x-selection-bar";
 
 /** How long after a pick the click a mouse makes of it is swallowed. */
 const CLICK_AFTER_PICK_MS = 500;
@@ -219,20 +219,20 @@ export class Eyedropper {
     loupe.toggleClass("is-below", y < 120);
     loupe.setCssStyles({ left: `${Math.round(x)}px`, top: `${Math.round(y)}px` });
     loupe.toggleClass("is-off", !picked);
-    const swatch = loupe.querySelector<HTMLElement>(".goodobsidian-eyedrop-swatch");
-    const label = loupe.querySelector<HTMLElement>(".goodobsidian-eyedrop-hex");
+    const swatch = loupe.querySelector<HTMLElement>(".finenotes-x-eyedrop-swatch");
+    const label = loupe.querySelector<HTMLElement>(".finenotes-x-eyedrop-hex");
     // The swatch *is* the colour: a value, not chrome.
     swatch?.setCssStyles({ backgroundColor: picked?.color ?? "" });
     label?.setText(picked ? picked.color.toUpperCase() : "Off the page");
   }
 
   private makeLoupe(): HTMLElement {
-    const loupe = this.host.layer.createDiv({ cls: "goodobsidian-eyedrop-loupe is-hidden" });
+    const loupe = this.host.layer.createDiv({ cls: "finenotes-x-eyedrop-loupe is-hidden" });
     loupe.setAttribute("aria-hidden", "true");
-    loupe.createDiv({ cls: "goodobsidian-eyedrop-target" });
-    const bubble = loupe.createDiv({ cls: "goodobsidian-eyedrop-bubble" });
-    bubble.createDiv({ cls: "goodobsidian-eyedrop-swatch" });
-    bubble.createDiv({ cls: "goodobsidian-eyedrop-hex" });
+    loupe.createDiv({ cls: "finenotes-x-eyedrop-target" });
+    const bubble = loupe.createDiv({ cls: "finenotes-x-eyedrop-bubble" });
+    bubble.createDiv({ cls: "finenotes-x-eyedrop-swatch" });
+    bubble.createDiv({ cls: "finenotes-x-eyedrop-hex" });
     this.loupe = loupe;
     return loupe;
   }
@@ -244,10 +244,10 @@ export class Eyedropper {
   // --- The bar ---------------------------------------------------------------------
 
   private showBar(): void {
-    const bar = this.host.layer.createDiv({ cls: "goodobsidian-eyedrop-bar" });
+    const bar = this.host.layer.createDiv({ cls: "finenotes-x-eyedrop-bar" });
     bar.setAttribute("role", "status");
-    setIcon(bar.createSpan({ cls: "goodobsidian-eyedrop-bar-icon" }), "pipette");
-    bar.createSpan({ cls: "goodobsidian-eyedrop-bar-text", text: "Tap the page to pick a colour" });
+    setIcon(bar.createSpan({ cls: "finenotes-x-eyedrop-bar-icon" }), "pipette");
+    bar.createSpan({ cls: "finenotes-x-eyedrop-bar-text", text: "Tap the page to pick a colour" });
     if (screenEyeDropper(this.win)) {
       const screen = this.barButton(bar, "monitor", "Pick from the screen", "From screen");
       onTap(screen, () => void this.pickFromScreen());
@@ -264,7 +264,7 @@ export class Eyedropper {
     text?: string,
   ): HTMLButtonElement {
     const button = bar.createEl("button", {
-      cls: "goodobsidian-eyedrop-bar-button clickable-icon",
+      cls: "finenotes-x-eyedrop-bar-button clickable-icon",
       attr: { "aria-label": label, title: label },
     });
     setIcon(button, icon);

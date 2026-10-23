@@ -174,9 +174,9 @@ export class GraphPanel {
     private readonly state: GraphState,
     private readonly host: GraphPanelHost,
   ) {
-    this.el = parent.createDiv({ cls: "goodobsidian-calc-graph" });
-    this.wrap = this.el.createDiv({ cls: "goodobsidian-calc-canvas" });
-    this.list = this.el.createDiv({ cls: "goodobsidian-calc-functions" });
+    this.el = parent.createDiv({ cls: "finenotes-x-calc-graph" });
+    this.wrap = this.el.createDiv({ cls: "finenotes-x-calc-canvas" });
+    this.list = this.el.createDiv({ cls: "finenotes-x-calc-functions" });
     this.canvas = this.wrap.createEl("canvas");
     this.canvas.setAttribute("role", "img");
     this.canvas.setAttribute("aria-label", "Graph");
@@ -184,7 +184,7 @@ export class GraphPanel {
       this.toggleView(),
     );
     this.overlayButton("maximize-2", "Fit the graph", "is-fit", () => this.reset());
-    this.viewPanel = this.wrap.createDiv({ cls: "goodobsidian-calc-view is-hidden" });
+    this.viewPanel = this.wrap.createDiv({ cls: "finenotes-x-calc-view is-hidden" });
     this.recompile();
     this.renderList();
     this.installGestures();
@@ -385,7 +385,7 @@ export class GraphPanel {
     for (const pin of pins) {
       if (!pin.name) continue;
       this.list
-        .querySelector(`[data-pin="${pin.name}"] .goodobsidian-calc-pin-value`)
+        .querySelector(`[data-pin="${pin.name}"] .finenotes-x-calc-pin-value`)
         ?.setText(`${pin.name} = ${listPoint(pin.x, pin.y)}`);
     }
   }
@@ -494,7 +494,7 @@ export class GraphPanel {
 
   private overlayButton(icon: string, label: string, cls: string, run: () => void): void {
     const button = this.wrap.createEl("button", {
-      cls: `clickable-icon goodobsidian-calc-overlay ${cls}`,
+      cls: `clickable-icon finenotes-x-calc-overlay ${cls}`,
       attr: { "aria-label": label, title: label },
     });
     setIcon(button, icon);
@@ -531,7 +531,7 @@ export class GraphPanel {
         (on) => (on ? (spec.piTicks = true) : delete spec.piTicks),
       ],
     ];
-    const chips = panel.createDiv({ cls: "goodobsidian-calc-chips" });
+    const chips = panel.createDiv({ cls: "finenotes-x-calc-chips" });
     for (const [label, on, set] of toggles) {
       this.chip(chips, label, on, () => {
         set(!on);
@@ -540,7 +540,7 @@ export class GraphPanel {
         this.changed();
       });
     }
-    const fields = panel.createDiv({ cls: "goodobsidian-calc-range" });
+    const fields = panel.createDiv({ cls: "finenotes-x-calc-range" });
     const r = this.range();
     const inputs = new Map<keyof GraphRange, HTMLInputElement>();
     for (const [key, label] of [
@@ -549,12 +549,12 @@ export class GraphPanel {
       ["yMin", "y from"],
       ["yMax", "to"],
     ] as const) {
-      const field = fields.createEl("label", { cls: "goodobsidian-calc-field" });
+      const field = fields.createEl("label", { cls: "finenotes-x-calc-field" });
       field.createSpan({ text: label });
       inputs.set(key, this.numberInput(field, r[key], `${key}`));
     }
     const apply = panel.createEl("button", {
-      cls: "clickable-icon goodobsidian-calc-apply",
+      cls: "clickable-icon finenotes-x-calc-apply",
       text: "Set range",
     });
     apply.addEventListener("click", () => {
@@ -587,7 +587,7 @@ export class GraphPanel {
     run: () => void,
   ): HTMLButtonElement {
     const chip = parent.createEl("button", {
-      cls: "clickable-icon goodobsidian-calc-chip",
+      cls: "clickable-icon finenotes-x-calc-chip",
       text: label,
       attr: { "aria-pressed": String(on) },
     });
@@ -598,7 +598,7 @@ export class GraphPanel {
 
   private numberInput(parent: HTMLElement, value: number, label: string): HTMLInputElement {
     const input = parent.createEl("input", {
-      cls: "goodobsidian-calc-number",
+      cls: "finenotes-x-calc-number",
       attr: { type: "text", inputmode: "decimal", "aria-label": label },
     });
     input.value = `${Number(value.toPrecision(6))}`;
@@ -620,12 +620,12 @@ export class GraphPanel {
     this.prepared?.lines.forEach((entry, index) => {
       const line = lines[index];
       if (!line) return;
-      const row = list.createDiv({ cls: "goodobsidian-calc-function" });
+      const row = list.createDiv({ cls: "finenotes-x-calc-function" });
       row.dataset.line = line.id;
       row.toggleClass("is-hidden-line", line.hidden === true);
       row.toggleClass("is-selected", this.state.selected === line.id);
       const dot = row.createEl("button", {
-        cls: "clickable-icon goodobsidian-calc-swatch",
+        cls: "clickable-icon finenotes-x-calc-swatch",
         attr: {
           "aria-label": line.hidden ? "Show this line" : "Hide this line",
           title: line.hidden ? "Show" : "Hide",
@@ -638,20 +638,20 @@ export class GraphPanel {
         this.changedLines();
       });
       const text = row.createEl("button", {
-        cls: "clickable-icon goodobsidian-calc-function-text",
+        cls: "clickable-icon finenotes-x-calc-function-text",
       });
       text.setAttribute("aria-label", `Edit ${line.text}`);
-      this.host.drawMath(text.createDiv({ cls: "goodobsidian-calc-math" }), line.text);
+      this.host.drawMath(text.createDiv({ cls: "finenotes-x-calc-math" }), line.text);
       const plot = entry.compiled.plot;
       if (plot.kind === "error") {
-        text.createDiv({ cls: "goodobsidian-calc-function-error", text: plot.error });
+        text.createDiv({ cls: "finenotes-x-calc-function-error", text: plot.error });
       }
       text.addEventListener("click", () => {
         this.select(line.id);
         this.host.editLine(line.id);
       });
       const more = row.createEl("button", {
-        cls: "clickable-icon goodobsidian-calc-more",
+        cls: "clickable-icon finenotes-x-calc-more",
         attr: {
           "aria-label": "Options for this line",
           "aria-expanded": String(this.openOptions === line.id),
@@ -668,9 +668,9 @@ export class GraphPanel {
       if (line.table && plot.kind === "function" && this.prepared) {
         // The cells are the grid's own children: a row wrapper would need
         // `display: contents`, which the directory's review flags.
-        const table = list.createDiv({ cls: "goodobsidian-calc-table" });
+        const table = list.createDiv({ cls: "finenotes-x-calc-table" });
         const cell = (text: string, head = false): void => {
-          table.createSpan({ cls: `goodobsidian-calc-table-cell${head ? " is-head" : ""}`, text });
+          table.createSpan({ cls: `finenotes-x-calc-table-cell${head ? " is-head" : ""}`, text });
         };
         cell("x", true);
         cell("y", true);
@@ -684,10 +684,10 @@ export class GraphPanel {
     this.renderPins(list);
     // GeoGebra's Input row: an expression still to be typed (a function, an equation, points…).
     const add = list.createEl("button", {
-      cls: "clickable-icon goodobsidian-calc-function goodobsidian-calc-add",
+      cls: "clickable-icon finenotes-x-calc-function finenotes-x-calc-add",
     });
-    setIcon(add.createSpan({ cls: "goodobsidian-calc-add-icon" }), "plus");
-    add.createSpan({ cls: "goodobsidian-calc-add-text", text: "Expression" });
+    setIcon(add.createSpan({ cls: "finenotes-x-calc-add-icon" }), "plus");
+    add.createSpan({ cls: "finenotes-x-calc-add-text", text: "Expression" });
     add.setAttribute("aria-label", "Add an expression");
     add.disabled = lines.length >= MAX_LINES;
     add.addEventListener("click", () => this.host.editLine(null));
@@ -699,7 +699,7 @@ export class GraphPanel {
     index: number,
     isFunction: boolean,
   ): void {
-    const panel = list.createDiv({ cls: "goodobsidian-calc-options goodobsidian-calc-chips" });
+    const panel = list.createDiv({ cls: "finenotes-x-calc-options finenotes-x-calc-chips" });
     const toggle = (
       label: string,
       on: boolean,
@@ -775,7 +775,7 @@ export class GraphPanel {
     remove.addClass("is-danger");
     // Where the tangent and the area sit: numbers to edit.
     const numberField = (label: string, value: number, set: (v: number) => void): void => {
-      const field = panel.createEl("label", { cls: "goodobsidian-calc-field" });
+      const field = panel.createEl("label", { cls: "finenotes-x-calc-field" });
       field.createSpan({ text: label });
       const input = this.numberInput(field, value, label);
       input.addEventListener("change", () => {
@@ -809,13 +809,13 @@ export class GraphPanel {
   }
 
   private renderSlider(list: HTMLElement, slider: GraphSlider): void {
-    const row = list.createDiv({ cls: "goodobsidian-calc-slider" });
+    const row = list.createDiv({ cls: "finenotes-x-calc-slider" });
     row.dataset.slider = slider.name;
-    const top = row.createDiv({ cls: "goodobsidian-calc-slider-top" });
+    const top = row.createDiv({ cls: "finenotes-x-calc-slider-top" });
     const open = this.openBounds === slider.name;
     // The name folds out min, step and max: they are set once, the slider is used often.
     const value = top.createEl("button", {
-      cls: "clickable-icon goodobsidian-calc-slider-value",
+      cls: "clickable-icon finenotes-x-calc-slider-value",
       attr: { "aria-label": `Range of ${slider.name}`, "aria-expanded": String(open) },
     });
     value.addEventListener("click", () => {
@@ -826,7 +826,7 @@ export class GraphPanel {
       value.setText(`${slider.name} = ${Number(slider.value.toPrecision(4))}`);
     show();
     const range = top.createEl("input", {
-      cls: "goodobsidian-calc-slider-range",
+      cls: "finenotes-x-calc-slider-range",
       attr: {
         type: "range",
         min: `${slider.min}`,
@@ -843,7 +843,7 @@ export class GraphPanel {
     });
     range.addEventListener("change", () => this.settled());
     const play = top.createEl("button", {
-      cls: "clickable-icon goodobsidian-calc-play",
+      cls: "clickable-icon finenotes-x-calc-play",
       attr: {
         "aria-label": this.playing === slider.name ? `Stop ${slider.name}` : `Play ${slider.name}`,
       },
@@ -851,13 +851,13 @@ export class GraphPanel {
     setIcon(play, this.playing === slider.name ? "pause" : "play");
     play.addEventListener("click", () => this.togglePlay(slider.name));
     if (!open) return;
-    const bounds = row.createDiv({ cls: "goodobsidian-calc-slider-bounds" });
+    const bounds = row.createDiv({ cls: "finenotes-x-calc-slider-bounds" });
     for (const [key, label] of [
       ["min", "min"],
       ["step", "step"],
       ["max", "max"],
     ] as const) {
-      const field = bounds.createEl("label", { cls: "goodobsidian-calc-field" });
+      const field = bounds.createEl("label", { cls: "finenotes-x-calc-field" });
       field.createSpan({ text: label });
       const input = this.numberInput(field, slider[key], `${slider.name} ${label}`);
       input.addEventListener("change", () => {
@@ -879,17 +879,17 @@ export class GraphPanel {
     for (const pin of spec.pins ?? []) {
       const index = this.lines().findIndex((l) => l.id === pin.line);
       if (index < 0 || !pin.name) continue;
-      const row = list.createDiv({ cls: "goodobsidian-calc-function goodobsidian-calc-pin" });
+      const row = list.createDiv({ cls: "finenotes-x-calc-function finenotes-x-calc-pin" });
       row.dataset.pin = pin.name;
-      const dot = row.createSpan({ cls: "goodobsidian-calc-pin-dot" });
+      const dot = row.createSpan({ cls: "finenotes-x-calc-pin-dot" });
       dot.setCssStyles({ color: this.colorOf(index) });
       const y = this.prepared ? valueOfLine(this.prepared, pin.line, pin.x) : NaN;
       row.createSpan({
-        cls: "goodobsidian-calc-pin-value",
+        cls: "finenotes-x-calc-pin-value",
         text: `${pin.name} = ${Number.isFinite(y) ? listPoint(pin.x, y) : "—"}`,
       });
       const remove = row.createEl("button", {
-        cls: "clickable-icon goodobsidian-calc-more",
+        cls: "clickable-icon finenotes-x-calc-more",
         attr: { "aria-label": `Remove point ${pin.name}` },
       });
       setIcon(remove, "x");
@@ -954,7 +954,7 @@ export class GraphPanel {
     const input = row?.querySelector<HTMLInputElement>("input[type=range]");
     if (input) input.value = `${v}`;
     row
-      ?.querySelector(".goodobsidian-calc-slider-value")
+      ?.querySelector(".finenotes-x-calc-slider-value")
       ?.setText(`${slider.name} = ${Number(v.toPrecision(4))}`);
     this.paintNow();
   }

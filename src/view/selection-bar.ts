@@ -78,7 +78,7 @@ export class SelectionActionBar {
     label: string,
   ) {
     this.el = parent.createDiv({
-      cls: "goodobsidian-selection-bar theme-dark is-hidden",
+      cls: "finenotes-x-selection-bar theme-dark is-hidden",
       attr: { role: "toolbar", "aria-label": label },
     });
     stopPageInput(this.el);
@@ -148,26 +148,26 @@ export class SelectionActionBar {
     this.moreButton = null;
     for (const item of barItems(this.actions)) {
       if (item.kind === "divider") {
-        this.el.createDiv({ cls: "goodobsidian-selection-divider" });
+        this.el.createDiv({ cls: "finenotes-x-selection-divider" });
         continue;
       }
       if (item.kind === "more") {
-        const more = this.button(this.el, "goodobsidian-selection-button is-more", "More");
+        const more = this.button(this.el, "finenotes-x-selection-button is-more", "More");
         iconInto(more, ["more-horizontal", "ellipsis"], "…");
         onTap(more, () => this.toggleMenu());
         this.moreButton = more;
         continue;
       }
       const { action } = item;
-      const button = this.button(this.el, "goodobsidian-selection-button", action.label);
+      const button = this.button(this.el, "finenotes-x-selection-button", action.label);
       if (action.showLabel) {
         button.addClass("has-label");
         iconInto(
-          button.createSpan({ cls: "goodobsidian-selection-button-icon" }),
+          button.createSpan({ cls: "finenotes-x-selection-button-icon" }),
           iconsFor(action.icon),
           "",
         );
-        button.createSpan({ cls: "goodobsidian-selection-button-label", text: action.label });
+        button.createSpan({ cls: "finenotes-x-selection-button-label", text: action.label });
       } else {
         iconInto(button, iconsFor(action.icon), action.label.slice(0, 2));
       }
@@ -206,7 +206,7 @@ export class SelectionActionBar {
       return;
     }
     this.menuEl = this.parent.createDiv({
-      cls: "goodobsidian-selection-menu theme-dark",
+      cls: "finenotes-x-selection-menu theme-dark",
       attr: { role: "menu" },
     });
     stopPageInput(this.menuEl);
@@ -225,51 +225,51 @@ export class SelectionActionBar {
       : undefined;
     if (open?.kind === "submenu") {
       // A sub-panel in place of the menu: a way back, then its rows.
-      const back = this.button(menu, "goodobsidian-selection-row is-back", "Back");
-      iconInto(back.createSpan({ cls: "goodobsidian-selection-row-icon" }), ["chevron-left"], "‹");
-      back.createSpan({ cls: "goodobsidian-selection-row-label", text: open.label });
+      const back = this.button(menu, "finenotes-x-selection-row is-back", "Back");
+      iconInto(back.createSpan({ cls: "finenotes-x-selection-row-icon" }), ["chevron-left"], "‹");
+      back.createSpan({ cls: "finenotes-x-selection-row-label", text: open.label });
       onTap(back, () => {
         this.submenu = null;
         this.renderMenu();
       });
-      menu.createDiv({ cls: "goodobsidian-selection-menu-divider" });
+      menu.createDiv({ cls: "finenotes-x-selection-menu-divider" });
       for (const action of open.actions) this.renderRow(menu, action);
       this.placeMenu();
       return;
     }
     this.submenu = null;
     if (layout.tiles.length > 0) {
-      const strip = menu.createDiv({ cls: "goodobsidian-selection-tiles" });
+      const strip = menu.createDiv({ cls: "finenotes-x-selection-tiles" });
       for (const action of layout.tiles) {
-        const tile = this.button(strip, "goodobsidian-selection-tile", action.label);
+        const tile = this.button(strip, "finenotes-x-selection-tile", action.label);
         iconInto(
-          tile.createSpan({ cls: "goodobsidian-selection-tile-icon" }),
+          tile.createSpan({ cls: "finenotes-x-selection-tile-icon" }),
           iconsFor(action.icon),
           "",
         );
-        tile.createSpan({ cls: "goodobsidian-selection-tile-label", text: action.label });
+        tile.createSpan({ cls: "finenotes-x-selection-tile-label", text: action.label });
         this.decorate(tile, action);
         onTap(tile, () => this.run(action.id, true));
       }
-      if (layout.rows.length > 0) menu.createDiv({ cls: "goodobsidian-selection-menu-divider" });
+      if (layout.rows.length > 0) menu.createDiv({ cls: "finenotes-x-selection-menu-divider" });
     }
     for (const row of layout.rows) {
       if (row.kind === "divider") {
-        menu.createDiv({ cls: "goodobsidian-selection-menu-divider" });
+        menu.createDiv({ cls: "finenotes-x-selection-menu-divider" });
       } else if (row.kind === "segments") {
         this.renderSegments(menu, row.label, row.actions);
       } else if (row.kind === "submenu") {
-        const button = this.button(menu, "goodobsidian-selection-row", row.label);
+        const button = this.button(menu, "finenotes-x-selection-row", row.label);
         button.setAttribute("role", "menuitem");
         button.setAttribute("aria-haspopup", "menu");
         iconInto(
-          button.createSpan({ cls: "goodobsidian-selection-row-icon" }),
+          button.createSpan({ cls: "finenotes-x-selection-row-icon" }),
           iconsFor(row.icon),
           "",
         );
-        button.createSpan({ cls: "goodobsidian-selection-row-label", text: row.label });
+        button.createSpan({ cls: "finenotes-x-selection-row-label", text: row.label });
         iconInto(
-          button.createSpan({ cls: "goodobsidian-selection-row-check is-chevron" }),
+          button.createSpan({ cls: "finenotes-x-selection-row-check is-chevron" }),
           ["chevron-right"],
           "›",
         );
@@ -289,18 +289,18 @@ export class SelectionActionBar {
 
   /** One row of the menu: icon, label, and a check when it is a choice that is on. */
   private renderRow(menu: HTMLElement, action: SelectionAction): void {
-    const button = this.button(menu, "goodobsidian-selection-row", action.label);
+    const button = this.button(menu, "finenotes-x-selection-row", action.label);
     button.setAttribute("role", "menuitem");
     iconInto(
-      button.createSpan({ cls: "goodobsidian-selection-row-icon" }),
+      button.createSpan({ cls: "finenotes-x-selection-row-icon" }),
       iconsFor(action.icon),
       "",
     );
-    button.createSpan({ cls: "goodobsidian-selection-row-label", text: action.label });
+    button.createSpan({ cls: "finenotes-x-selection-row-label", text: action.label });
     if (action.checked !== undefined) {
       button.setAttribute("role", "menuitemcheckbox");
       button.setAttribute("aria-checked", String(action.checked));
-      const check = button.createSpan({ cls: "goodobsidian-selection-row-check" });
+      const check = button.createSpan({ cls: "finenotes-x-selection-row-check" });
       if (action.checked) iconInto(check, ["check"], "✓");
     }
     this.decorate(button, action);
@@ -312,14 +312,14 @@ export class SelectionActionBar {
    * menu open, as a swatch does, so a fill and a line can be tried in turn.
    */
   private renderSegments(menu: HTMLElement, label: string, actions: SelectionAction[]): void {
-    const row = menu.createDiv({ cls: "goodobsidian-selection-segments" });
-    row.createSpan({ cls: "goodobsidian-selection-segments-label", text: label });
+    const row = menu.createDiv({ cls: "finenotes-x-selection-segments" });
+    row.createSpan({ cls: "finenotes-x-selection-segments-label", text: label });
     const group = row.createDiv({
-      cls: "goodobsidian-selection-segment-group",
+      cls: "finenotes-x-selection-segment-group",
       attr: { role: "group", "aria-label": label },
     });
     for (const action of actions) {
-      const button = this.button(group, "goodobsidian-selection-segment", action.label);
+      const button = this.button(group, "finenotes-x-selection-segment", action.label);
       if (action.showLabel) {
         // A value no icon says (an opacity): its words.
         button.addClass("has-label");
@@ -340,15 +340,11 @@ export class SelectionActionBar {
   private renderSwatches(menu: HTMLElement, action: SelectionAction): void {
     const swatches = action.swatches;
     if (!swatches) return;
-    const block = menu.createDiv({ cls: "goodobsidian-selection-swatch-block" });
-    const head = block.createDiv({ cls: "goodobsidian-selection-row is-static" });
-    iconInto(
-      head.createSpan({ cls: "goodobsidian-selection-row-icon" }),
-      iconsFor(action.icon),
-      "",
-    );
-    head.createSpan({ cls: "goodobsidian-selection-row-label", text: action.label });
-    const row = block.createDiv({ cls: "goodobsidian-selection-swatches" });
+    const block = menu.createDiv({ cls: "finenotes-x-selection-swatch-block" });
+    const head = block.createDiv({ cls: "finenotes-x-selection-row is-static" });
+    iconInto(head.createSpan({ cls: "finenotes-x-selection-row-icon" }), iconsFor(action.icon), "");
+    head.createSpan({ cls: "finenotes-x-selection-row-label", text: action.label });
+    const row = block.createDiv({ cls: "finenotes-x-selection-swatches" });
     const current = swatches.current?.toLowerCase() ?? null;
     // One line at first: the first colours (the selection's own among them)
     // and a chevron; the rest, the eyedropper and "+" come with the chevron.
@@ -357,8 +353,8 @@ export class SelectionActionBar {
     for (const color of swatches.colors) {
       // A 44 px target round a smaller disc. The disc *is* the ink colour:
       // a value, not chrome.
-      const swatch = this.button(row, "goodobsidian-selection-swatch", color);
-      swatch.createSpan({ cls: "goodobsidian-selection-swatch-disc" }).setCssStyles({
+      const swatch = this.button(row, "finenotes-x-selection-swatch", color);
+      swatch.createSpan({ cls: "finenotes-x-selection-swatch-disc" }).setCssStyles({
         background: color,
       });
       swatch.toggleClass("is-active", color.toLowerCase() === current);
@@ -373,17 +369,17 @@ export class SelectionActionBar {
       // The eyedropper: the next tap on the page picks the colour.
       const dropper = this.button(
         row,
-        "goodobsidian-selection-swatch is-eyedropper is-extra",
+        "finenotes-x-selection-swatch is-eyedropper is-extra",
         "Pick from the page",
       );
-      setIcon(dropper.createSpan({ cls: "goodobsidian-selection-swatch-disc" }), "pipette");
+      setIcon(dropper.createSpan({ cls: "finenotes-x-selection-swatch-disc" }), "pipette");
       dropper.disabled = !isEnabled(action);
       onTap(dropper, () => {
         const latest = this.actions.find((a) => a.id === action.id);
         if (latest?.swatches?.eyedropper && isEnabled(latest)) latest.swatches.eyedropper();
       });
     }
-    const expand = this.button(row, "goodobsidian-selection-swatch is-expand", "More colours");
+    const expand = this.button(row, "finenotes-x-selection-swatch is-expand", "More colours");
     const syncExpand = (): void => {
       setIcon(expand, this.swatchesOpen ? "chevron-up" : "chevron-down");
       const label = this.swatchesOpen ? "Fewer colours" : "More colours";
@@ -402,13 +398,13 @@ export class SelectionActionBar {
     // "+": a colour of one's own, picked by hue and shade, below the row.
     const plus = this.button(
       row,
-      "goodobsidian-selection-swatch is-custom is-extra",
+      "finenotes-x-selection-swatch is-custom is-extra",
       "Custom colour",
     );
-    plus.createSpan({ cls: "goodobsidian-selection-swatch-disc goodobsidian-color-more" });
+    plus.createSpan({ cls: "finenotes-x-selection-swatch-disc finenotes-x-color-more" });
     plus.disabled = !isEnabled(action);
     row.append(expand);
-    const mixer = block.createDiv({ cls: "goodobsidian-selection-mixer is-hidden" });
+    const mixer = block.createDiv({ cls: "finenotes-x-selection-mixer is-hidden" });
     renderColorMixer(
       mixer,
       swatches.current,

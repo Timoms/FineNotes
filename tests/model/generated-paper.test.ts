@@ -26,7 +26,9 @@ describe("generated paper files", () => {
   });
 
   it("rejects executable or malformed content instead of guessing", () => {
-    expect(parseGeneratedPaper({ format: 1, geometry: {}, backdrop: { kind: "squared" } })).toBeNull();
+    expect(
+      parseGeneratedPaper({ format: 1, geometry: {}, backdrop: { kind: "squared" } }),
+    ).toBeNull();
     expect(
       parseGeneratedPaper({
         format: 1,

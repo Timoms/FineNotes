@@ -53,7 +53,7 @@ export class StickerModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-sticker-modal");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-sticker-modal");
     this.titleEl.setText("Stickers");
     this.render();
   }
@@ -91,10 +91,10 @@ export class StickerModal extends Modal {
     ];
     if (!tabs.some((t) => t.id === this.tab)) this.tab = "arrows";
 
-    const chips = body.createDiv({ cls: "goodobsidian-sticker-tabs", attr: { role: "tablist" } });
+    const chips = body.createDiv({ cls: "finenotes-x-sticker-tabs", attr: { role: "tablist" } });
     for (const t of tabs) {
       const chip = chips.createEl("button", {
-        cls: "goodobsidian-sticker-tab clickable-icon",
+        cls: "finenotes-x-sticker-tab clickable-icon",
         text: t.label,
         attr: { role: "tab", "aria-selected": String(t.id === this.tab) },
       });
@@ -108,7 +108,7 @@ export class StickerModal extends Modal {
 
     const mine = collections.find((c) => `mine:${c.name}` === this.tab);
     if (!mine) this.renderColors(body);
-    const grid = body.createDiv({ cls: "goodobsidian-sticker-grid" });
+    const grid = body.createDiv({ cls: "finenotes-x-sticker-grid" });
     if (mine) {
       for (const file of mine.files) {
         this.cell(grid, file.basename, this.app.vault.getResourcePath(file), () =>
@@ -127,7 +127,7 @@ export class StickerModal extends Modal {
       }
     }
     body.createDiv({
-      cls: "goodobsidian-sticker-hint",
+      cls: "finenotes-x-sticker-hint",
       text: collections.length
         ? `Your own stickers live in “${this.folder}”: one folder per collection.`
         : `Lasso anything and choose “Save as sticker” to start your own collection in “${this.folder}”.`,
@@ -135,15 +135,15 @@ export class StickerModal extends Modal {
   }
 
   private renderColors(body: HTMLElement): void {
-    const row = body.createDiv({ cls: "goodobsidian-sticker-colors" });
+    const row = body.createDiv({ cls: "finenotes-x-sticker-colors" });
     for (const color of PALETTE) {
       if (color === "#ffffff") continue;
       const swatch = row.createEl("button", {
-        cls: "goodobsidian-sticker-swatch clickable-icon",
+        cls: "finenotes-x-sticker-swatch clickable-icon",
         attr: { "aria-label": `Colour ${color}`, "aria-pressed": String(color === this.color) },
       });
       swatch
-        .createSpan({ cls: "goodobsidian-sticker-swatch-disc" })
+        .createSpan({ cls: "finenotes-x-sticker-swatch-disc" })
         .setCssStyles({ backgroundColor: color });
       swatch.toggleClass("is-active", color === this.color);
       swatch.addEventListener("click", () => {
@@ -156,7 +156,7 @@ export class StickerModal extends Modal {
 
   private cell(grid: HTMLElement, label: string, src: string, onPick: () => void): void {
     const button = grid.createEl("button", {
-      cls: "goodobsidian-sticker-cell clickable-icon",
+      cls: "finenotes-x-sticker-cell clickable-icon",
       attr: { "aria-label": label, title: label },
     });
     button.createEl("img", { attr: { src, alt: "", draggable: "false" } });

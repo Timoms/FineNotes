@@ -24,7 +24,7 @@ export class SpellingRows {
     private readonly field: HTMLInputElement,
     fixes: readonly SpellingFix[],
   ) {
-    this.el = createDiv({ cls: "goodobsidian-spelling" });
+    this.el = createDiv({ cls: "finenotes-x-spelling" });
     after.insertAdjacentElement("afterend", this.el);
     for (const fix of fixes) this.row(fix);
     // A word typed over is no longer there to correct.
@@ -33,13 +33,13 @@ export class SpellingRows {
   }
 
   private row(fix: SpellingFix): void {
-    const row = this.el.createDiv({ cls: "goodobsidian-spelling-row" });
+    const row = this.el.createDiv({ cls: "finenotes-x-spelling-row" });
     row.dataset.token = fix.token;
-    row.createSpan({ cls: "goodobsidian-spelling-label", text: "Did you mean" });
+    row.createSpan({ cls: "finenotes-x-spelling-label", text: "Did you mean" });
     fix.words.forEach((word, i) => {
       // `clickable-icon`: Obsidian pads any other button 20 px on iPad.
       const chip = row.createEl("button", {
-        cls: "goodobsidian-wordcheck-chip goodobsidian-spelling-chip clickable-icon",
+        cls: "finenotes-x-wordcheck-chip finenotes-x-spelling-chip clickable-icon",
         text: word,
       });
       chip.toggleClass("is-first", i === 0);
@@ -50,7 +50,7 @@ export class SpellingRows {
         this.field.focus();
       });
     });
-    row.createSpan({ cls: "goodobsidian-spelling-label", text: "?" });
+    row.createSpan({ cls: "finenotes-x-spelling-label", text: "?" });
   }
 
   private prune(): void {

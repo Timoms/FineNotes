@@ -94,14 +94,14 @@ export class TableCellEditor {
   private shown = false;
 
   constructor(layer: HTMLElement, callbacks: CellEditorCallbacks) {
-    this.root = layer.createDiv({ cls: "goodobsidian-table-cell is-hidden" });
+    this.root = layer.createDiv({ cls: "finenotes-x-table-cell is-hidden" });
     this.input = this.root.createEl("textarea", {
-      cls: "goodobsidian-table-cell-input",
+      cls: "finenotes-x-table-cell-input",
       attr: { "aria-label": "Table cell", rows: "1" },
     });
     for (const kind of ["col", "row"] as const) {
       const grip = this.root.createDiv({
-        cls: `goodobsidian-table-grip is-${kind}`,
+        cls: `finenotes-x-table-grip is-${kind}`,
         attr: { "aria-label": kind === "col" ? "Resize column" : "Resize row" },
       });
       grip.addEventListener("pointerdown", (event) => {
@@ -112,7 +112,7 @@ export class TableCellEditor {
       });
     }
     // Dark in every theme, as the lasso's action bar is (Obsidian's own palette class).
-    this.bar = layer.createDiv({ cls: "goodobsidian-table-bar theme-dark is-hidden" });
+    this.bar = layer.createDiv({ cls: "finenotes-x-table-bar theme-dark is-hidden" });
     // No press on the bar starts ink or takes the focus from the cell.
     for (const type of ["pointerdown", "mousedown"]) {
       this.bar.addEventListener(type, (event) => {
@@ -122,14 +122,14 @@ export class TableCellEditor {
     }
     let header: HTMLButtonElement | null = null;
     for (const entry of ACTIONS) {
-      if (entry.action === "delete-row") this.bar.createDiv({ cls: "goodobsidian-table-bar-gap" });
+      if (entry.action === "delete-row") this.bar.createDiv({ cls: "finenotes-x-table-bar-gap" });
       const button = this.bar.createEl("button", {
-        cls: "goodobsidian-table-bar-button clickable-icon",
+        cls: "finenotes-x-table-bar-button clickable-icon",
         attr: { "aria-label": entry.label, title: entry.label },
       });
-      const icon = button.createSpan({ cls: "goodobsidian-table-bar-icon" });
+      const icon = button.createSpan({ cls: "finenotes-x-table-bar-icon" });
       setIcon(icon, entry.icon);
-      button.createSpan({ cls: "goodobsidian-table-bar-text", text: entry.text });
+      button.createSpan({ cls: "finenotes-x-table-bar-text", text: entry.text });
       onPress(button, () => callbacks.onAction(entry.action));
       if (entry.action === "header") header = button;
     }

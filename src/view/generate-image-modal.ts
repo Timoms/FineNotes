@@ -41,17 +41,17 @@ export class GenerateImageModal extends Modal {
 
   override onOpen(): void {
     this.closed = false;
-    this.modalEl.addClass("goodobsidian-genimage-modal", "goodobsidian-dialog");
+    this.modalEl.addClass("finenotes-x-genimage-modal", "finenotes-x-dialog");
     this.titleEl.setText("Generate image");
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.addClass("goodobsidian-ask");
+    contentEl.addClass("finenotes-x-ask");
 
-    const input = contentEl.createEl("textarea", { cls: "goodobsidian-ask-input" });
+    const input = contentEl.createEl("textarea", { cls: "finenotes-x-ask-input" });
     input.placeholder = "Describe the picture — e.g. a labelled diagram of a plant cell";
     input.rows = 4;
 
-    const seg = contentEl.createDiv({ cls: "goodobsidian-segmented" });
+    const seg = contentEl.createDiv({ cls: "finenotes-x-segmented" });
     for (const { id, label } of ASPECTS) {
       const button = seg.createEl("button", { cls: "clickable-icon", text: label });
       button.addEventListener("click", () => {
@@ -64,14 +64,14 @@ export class GenerateImageModal extends Modal {
     this.syncAspect();
 
     contentEl.createDiv({
-      cls: "goodobsidian-ask-note",
+      cls: "finenotes-x-ask-note",
       text:
         `Sends your description to ${this.host.target}. The picture is saved with this ` +
         `note's images and placed on page ${this.host.pageNumber}.`,
     });
-    const status = contentEl.createDiv({ cls: "goodobsidian-ask-status" });
+    const status = contentEl.createDiv({ cls: "finenotes-x-ask-status" });
 
-    const actions = contentEl.createDiv({ cls: "goodobsidian-ask-actions" });
+    const actions = contentEl.createDiv({ cls: "finenotes-x-ask-actions" });
     const cancel = actions.createEl("button", { text: "Cancel" });
     cancel.addEventListener("click", () => this.close());
     const generate = actions.createEl("button", { cls: "mod-cta", text: "Generate" });

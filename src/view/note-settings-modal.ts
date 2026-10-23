@@ -85,7 +85,7 @@ export class NoteSettingsModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-note-settings", "goodobsidian-dialog");
+    this.modalEl.addClass("finenotes-x-note-settings", "finenotes-x-dialog");
     this.titleEl.setText(this.host.single ? "Page settings" : "Notebook settings");
     this.render();
     // A rename is not done when `rename` resolves: a notebook with its own
@@ -119,8 +119,8 @@ export class NoteSettingsModal extends Modal {
 
   /** A titled group of rows: the title above, the rows in one rounded frame. */
   private group(parent: HTMLElement, title: string): HTMLElement {
-    parent.createDiv({ cls: "goodobsidian-ns-group-title", text: title });
-    return parent.createDiv({ cls: "goodobsidian-ns-group" });
+    parent.createDiv({ cls: "finenotes-x-ns-group-title", text: title });
+    return parent.createDiv({ cls: "finenotes-x-ns-group" });
   }
 
   /**
@@ -129,23 +129,23 @@ export class NoteSettingsModal extends Modal {
    */
   private renderSummary(parent: HTMLElement, info: NotebookInfo): void {
     this.shown = { name: info.name, folder: info.folder };
-    const card = parent.createDiv({ cls: "goodobsidian-ns-summary" });
+    const card = parent.createDiv({ cls: "finenotes-x-ns-summary" });
     // The cover in its colour at once; then the real page, title and all, over it.
-    const swatch = card.createDiv({ cls: "goodobsidian-ns-cover" });
+    const swatch = card.createDiv({ cls: "finenotes-x-ns-cover" });
     if (info.cover) swatch.setCssStyles({ backgroundColor: info.cover });
     else swatch.addClass("is-plain");
     const paint = this.host.paintCover;
     if (info.cover && paint) {
-      const canvas = swatch.createEl("canvas", { cls: "goodobsidian-ns-cover-page" });
+      const canvas = swatch.createEl("canvas", { cls: "finenotes-x-ns-cover-page" });
       void paint(canvas, COVER_WIDTH)
         .then((painted) => swatch.toggleClass("is-painted", painted))
         .catch(() => canvas.remove());
     }
 
-    const body = card.createDiv({ cls: "goodobsidian-ns-summary-body" });
-    const nameRow = body.createEl("label", { cls: "goodobsidian-ns-name" });
+    const body = card.createDiv({ cls: "finenotes-x-ns-summary-body" });
+    const nameRow = body.createEl("label", { cls: "finenotes-x-ns-name" });
     const field = nameRow.createEl("input", {
-      cls: "goodobsidian-ns-name-input",
+      cls: "finenotes-x-ns-name-input",
       attr: {
         type: "text",
         "aria-label": this.host.single ? "Rename the page" : "Rename the notebook",
@@ -159,7 +159,7 @@ export class NoteSettingsModal extends Modal {
     };
     fit();
     field.addEventListener("input", fit);
-    setIcon(nameRow.createSpan({ cls: "goodobsidian-ns-name-icon" }), "pencil");
+    setIcon(nameRow.createSpan({ cls: "finenotes-x-ns-name-icon" }), "pencil");
     // Renamed when the field is left or Enter is pressed, not on every key.
     field.addEventListener("change", () => {
       const value = field.value.trim();
@@ -181,9 +181,9 @@ export class NoteSettingsModal extends Modal {
     if (size) facts.push(size);
     const edited = shortDate(info.modified);
     if (edited) facts.push(`edited ${edited}`);
-    body.createDiv({ cls: "goodobsidian-ns-facts", text: facts.join(" · ") });
-    const folder = body.createDiv({ cls: "goodobsidian-ns-facts" });
-    setIcon(folder.createSpan({ cls: "goodobsidian-ns-facts-icon" }), "folder");
+    body.createDiv({ cls: "finenotes-x-ns-facts", text: facts.join(" · ") });
+    const folder = body.createDiv({ cls: "finenotes-x-ns-facts" });
+    setIcon(folder.createSpan({ cls: "finenotes-x-ns-facts-icon" }), "folder");
     folder.createSpan({ text: info.folder || "Vault's top folder" });
   }
 
@@ -193,7 +193,7 @@ export class NoteSettingsModal extends Modal {
     if (!this.host.single) {
       const row = new Setting(group).setName("Scroll direction");
       const seg = row.controlEl.createDiv({
-        cls: "goodobsidian-ns-segmented",
+        cls: "finenotes-x-ns-segmented",
         attr: { role: "radiogroup", "aria-label": "Scroll direction" },
       });
       const current = this.host.scrollDirection();
@@ -202,7 +202,7 @@ export class NoteSettingsModal extends Modal {
         ["horizontal", "Horizontal"],
       ] as const) {
         const button = seg.createEl("button", {
-          cls: "goodobsidian-ns-segment clickable-icon",
+          cls: "finenotes-x-ns-segment clickable-icon",
           text: label,
           attr: { type: "button", role: "radio", "aria-checked": String(value === current) },
         });
@@ -272,14 +272,14 @@ export class NoteSettingsModal extends Modal {
 
   /** When it was made, and the way to every other setting. */
   private renderFooter(parent: HTMLElement, info: NotebookInfo): void {
-    const footer = parent.createDiv({ cls: "goodobsidian-ns-footer" });
+    const footer = parent.createDiv({ cls: "finenotes-x-ns-footer" });
     const created = shortDate(info.created, true);
     footer.createSpan({
-      cls: "goodobsidian-ns-footer-text",
+      cls: "finenotes-x-ns-footer-text",
       text: created ? `Created ${created}` : "",
     });
     const all = footer.createEl("button", {
-      cls: "goodobsidian-ns-all clickable-icon",
+      cls: "finenotes-x-ns-all clickable-icon",
       attr: { type: "button" },
     });
     all.createSpan({ text: "All FineNotes settings" });
@@ -291,7 +291,7 @@ export class NoteSettingsModal extends Modal {
         `All FineNotes settings · FineNotes ${this.host.update} is out`,
       );
     }
-    setIcon(all.createSpan({ cls: "goodobsidian-ns-all-icon" }), "chevron-right");
+    setIcon(all.createSpan({ cls: "finenotes-x-ns-all-icon" }), "chevron-right");
     all.addEventListener("click", () => {
       this.close();
       this.host.openPluginSettings();

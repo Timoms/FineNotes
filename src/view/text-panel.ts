@@ -18,13 +18,13 @@ export class TextPanel {
   private frontmatter = "";
 
   constructor(parent: HTMLElement) {
-    this.el = parent.createDiv({ cls: "goodobsidian-textpanel" });
+    this.el = parent.createDiv({ cls: "finenotes-x-textpanel" });
     this.el.createDiv({
-      cls: "goodobsidian-textpanel-label",
+      cls: "finenotes-x-textpanel-label",
       text: "Text layer: the transcription, your [[links]] and #tags, all searchable",
     });
     this.field = this.el.createEl("textarea", {
-      cls: "goodobsidian-textpanel-input",
+      cls: "finenotes-x-textpanel-input",
       attr: { placeholder: "Type or transcribe here: key points, [[links]], #tags…" },
     });
   }

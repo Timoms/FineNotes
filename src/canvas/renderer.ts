@@ -119,7 +119,7 @@ const CROP_VEIL = "rgba(0, 0, 0, 0.55)";
 const SELECTION_LINE = "rgba(120,170,255,0.95)";
 const SELECTION_FILL = "rgba(120,170,255,0.12)";
 /** The class that hides the wet layer while nothing is being drawn on it. */
-const WET_HIDDEN = "goodobsidian-wet-hidden";
+const WET_HIDDEN = "finenotes-x-wet-hidden";
 
 /** A stroke's look without its points: what the wet layer draws a stroke in progress with. */
 export interface StrokeStyle {

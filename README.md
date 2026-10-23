@@ -1,4 +1,8 @@
-# FineNotes
+# FineNotesX
+
+FineNotesX is the independently installable fork in this repository. Its Obsidian plugin ID is
+`finenotes-x`, so it can be enabled beside the community `finenotes` plugin without sharing plugin
+settings, device state, OAuth callbacks, or keychain entries. Notebook files stay format-compatible.
 
 Handwriting notebooks for any stylus, inspired by Goodnotes: Apple Pencil, Android tablet pens, and pen tablets on Windows, macOS or Linux. Real pages, paper templates, snapping shapes, PDF annotation and pictures, kept as plain files in your vault.
 
@@ -140,6 +144,14 @@ Hope you guys enjoy this and give me some
   that does not work there.
 
 ## Install
+
+### FineNotesX fork
+
+Build or download `main.js`, `manifest.json`, and `styles.css`, then put them in
+`<your vault>/.obsidian/plugins/finenotes-x/`. Reload Obsidian and enable **FineNotesX** under
+Community plugins. Keep the official plugin in `.obsidian/plugins/finenotes/` if you want both.
+
+### Official FineNotes
 
 - **From Obsidian:** open Settings, then Community plugins, then Browse. Search
   for "FineNotes", install it and enable it. Or open the
@@ -695,8 +707,8 @@ npm run lint:review  # Obsidian's plugin-review rules, as CI runs them
 npm run build
 ```
 
-To try a build in a vault, put the plugin folder's path
-(`<vault>/.obsidian/plugins/finenotes`) in a `.deploy-target` file. Every build
+To try this fork in a vault, put the plugin folder's path
+(`<vault>/.obsidian/plugins/finenotes-x`) in a `.deploy-target` file. Every build
 is then copied there.
 
 Bug reports and ideas are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md), or go

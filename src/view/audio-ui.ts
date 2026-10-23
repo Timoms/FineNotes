@@ -50,16 +50,16 @@ export function tapButton(
   run: () => void,
 ): HTMLButtonElement {
   const button = parent.createEl("button", {
-    cls: `goodobsidian-audio-button clickable-icon${options.cls ? ` ${options.cls}` : ""}`,
+    cls: `finenotes-x-audio-button clickable-icon${options.cls ? ` ${options.cls}` : ""}`,
     attr: { "aria-label": options.label, title: options.label },
   });
   iconInto(
-    button.createSpan({ cls: "goodobsidian-audio-button-icon" }),
+    button.createSpan({ cls: "finenotes-x-audio-button-icon" }),
     options.icon,
     options.text ? "" : options.label.slice(0, 1),
   );
   if (options.text) {
-    button.createSpan({ cls: "goodobsidian-audio-button-text", text: options.text });
+    button.createSpan({ cls: "finenotes-x-audio-button-text", text: options.text });
   }
   let armed: number | null = null;
   button.addEventListener("pointerdown", (event) => {
@@ -94,7 +94,7 @@ export function tapButton(
 
 /** Swap a tap button's icon (play ↔ pause). */
 function setButtonIcon(button: HTMLButtonElement, icon: string, label: string): void {
-  const slot = button.querySelector<HTMLElement>(".goodobsidian-audio-button-icon");
+  const slot = button.querySelector<HTMLElement>(".finenotes-x-audio-button-icon");
   if (slot) {
     slot.empty();
     iconInto(slot, icon, label.slice(0, 1));
@@ -112,19 +112,19 @@ export class RecordingPill {
 
   constructor(parent: HTMLElement, onStop: () => void, onDiscard: () => void) {
     this.el = parent.createDiv({
-      cls: "goodobsidian-rec-pill",
+      cls: "finenotes-x-rec-pill",
       attr: { role: "status", "aria-label": "Recording" },
     });
-    this.el.createSpan({ cls: "goodobsidian-rec-dot" });
-    this.timeEl = this.el.createSpan({ cls: "goodobsidian-rec-time", text: formatClock(0) });
+    this.el.createSpan({ cls: "finenotes-x-rec-dot" });
+    this.timeEl = this.el.createSpan({ cls: "finenotes-x-rec-time", text: formatClock(0) });
     tapButton(
       this.el,
-      { icon: "trash-2", label: "Discard recording", cls: "goodobsidian-rec-discard" },
+      { icon: "trash-2", label: "Discard recording", cls: "finenotes-x-rec-discard" },
       onDiscard,
     );
     tapButton(
       this.el,
-      { icon: "square", label: "Stop recording", text: "Stop", cls: "goodobsidian-rec-stop" },
+      { icon: "square", label: "Stop recording", text: "Stop", cls: "finenotes-x-rec-stop" },
       onStop,
     );
   }
@@ -191,30 +191,30 @@ export class AudioPlayerBar {
   ) {
     this.replayOn = hooks.replay === true;
     this.el = parent.createDiv({
-      cls: "goodobsidian-player",
+      cls: "finenotes-x-player",
       attr: { role: "region", "aria-label": "Recording player" },
     });
     this.hintEl = this.el.createDiv({
-      cls: "goodobsidian-player-hint",
+      cls: "finenotes-x-player-hint",
       attr: { "aria-live": "polite" },
       text: STANDING_HINT,
     });
-    const row = this.el.createDiv({ cls: "goodobsidian-player-row" });
+    const row = this.el.createDiv({ cls: "finenotes-x-player-row" });
     this.playButton = tapButton(row, { icon: "play", label: "Play" }, () => this.toggle());
     tapButton(row, { icon: "rotate-ccw", label: "Back 10 seconds" }, () => this.skip(-10000));
-    const middle = row.createDiv({ cls: "goodobsidian-player-middle" });
-    this.titleEl = middle.createDiv({ cls: "goodobsidian-player-title" });
+    const middle = row.createDiv({ cls: "finenotes-x-player-middle" });
+    this.titleEl = middle.createDiv({ cls: "finenotes-x-player-title" });
     this.scrubber = middle.createEl("input", {
-      cls: "goodobsidian-player-scrubber",
+      cls: "finenotes-x-player-scrubber",
       type: "range",
       attr: { min: "0", max: "0", step: "0.1", value: "0", "aria-label": "Position" },
     });
-    this.timeEl = row.createDiv({ cls: "goodobsidian-player-time" });
+    this.timeEl = row.createDiv({ cls: "finenotes-x-player-time" });
     if (hooks.onReplay) {
       // Ink replay: what was not written yet at this moment shows pale.
       this.replayButton = tapButton(
         row,
-        { icon: "pen-line", label: "Replay ink", cls: "goodobsidian-player-replay" },
+        { icon: "pen-line", label: "Replay ink", cls: "finenotes-x-player-replay" },
         () => {
           this.replayOn = !this.replayOn;
           this.renderReplay();
@@ -242,7 +242,7 @@ export class AudioPlayerBar {
       this.seek(Number(this.scrubber.value) * 1000);
     });
 
-    this.audio = this.el.createEl("audio", { cls: "goodobsidian-player-audio" });
+    this.audio = this.el.createEl("audio", { cls: "finenotes-x-player-audio" });
     this.audio.preload = "auto";
     this.audio.addEventListener("timeupdate", () => {
       if (!this.scrubbing) this.renderPosition(this.audio.currentTime * 1000);
@@ -459,18 +459,18 @@ export class RecordingsPanel {
     parent: HTMLElement,
     private readonly actions: RecordingsActions,
   ) {
-    const el = parent.createDiv({ cls: "goodobsidian-recordings" });
+    const el = parent.createDiv({ cls: "finenotes-x-recordings" });
     el.createDiv({
-      cls: "goodobsidian-recordings-hint",
+      cls: "finenotes-x-recordings-hint",
       text: "Play one, then tap your writing to hear what was said as you wrote it.",
     });
-    this.needsEl = el.createDiv({ cls: "goodobsidian-recordings-needs is-hidden" });
-    this.list = el.createDiv({ cls: "goodobsidian-recordings-list" });
-    const foot = el.createDiv({ cls: "goodobsidian-recordings-foot" });
+    this.needsEl = el.createDiv({ cls: "finenotes-x-recordings-needs is-hidden" });
+    this.list = el.createDiv({ cls: "finenotes-x-recordings-list" });
+    const foot = el.createDiv({ cls: "finenotes-x-recordings-foot" });
     this.recordButton = foot.createEl("button", {
-      cls: "goodobsidian-recordings-record clickable-icon",
+      cls: "finenotes-x-recordings-record clickable-icon",
     });
-    this.recordIcon = this.recordButton.createSpan({ cls: "goodobsidian-audio-button-icon" });
+    this.recordIcon = this.recordButton.createSpan({ cls: "finenotes-x-audio-button-icon" });
     this.recordLabel = this.recordButton.createSpan();
     this.recordButton.addEventListener("click", () => this.actions.record());
     this.setRecording(false);
@@ -485,7 +485,7 @@ export class RecordingsPanel {
     this.list.empty();
     if (entries.length === 0) {
       this.list.createDiv({
-        cls: "goodobsidian-recordings-empty",
+        cls: "finenotes-x-recordings-empty",
         text: "No recordings in this note yet.",
       });
     }
@@ -503,17 +503,17 @@ export class RecordingsPanel {
 
   private renderEntry(entry: RecordingEntry, canTranscribe: boolean): void {
     const { recording } = entry;
-    const block = this.list.createDiv({ cls: "goodobsidian-recordings-entry" });
+    const block = this.list.createDiv({ cls: "finenotes-x-recordings-entry" });
     // Remove sits beside the label, apart from Play and Transcribe.
-    const head = block.createDiv({ cls: "goodobsidian-recordings-head" });
-    head.createDiv({ cls: "goodobsidian-recordings-label", text: describeRecording(recording) });
+    const head = block.createDiv({ cls: "finenotes-x-recordings-head" });
+    head.createDiv({ cls: "finenotes-x-recordings-label", text: describeRecording(recording) });
     if (!entry.available) {
       block.createDiv({
-        cls: "goodobsidian-recordings-missing",
+        cls: "finenotes-x-recordings-missing",
         text: `The audio file is missing: ${recording.path}`,
       });
     }
-    const row = block.createDiv({ cls: "goodobsidian-recordings-actions" });
+    const row = block.createDiv({ cls: "finenotes-x-recordings-actions" });
     // `short` is shown beside the icon; without it the button is icon-only.
     const act = (
       icon: string,
@@ -524,11 +524,11 @@ export class RecordingsPanel {
       parent = row,
     ): void => {
       const button = parent.createEl("button", {
-        cls: "goodobsidian-recordings-action clickable-icon",
+        cls: "finenotes-x-recordings-action clickable-icon",
         attr: { "aria-label": label, title: label },
       });
       iconInto(
-        button.createSpan({ cls: "goodobsidian-audio-button-icon" }),
+        button.createSpan({ cls: "finenotes-x-audio-button-icon" }),
         icon,
         short ? "" : label.slice(0, 1),
       );
@@ -540,8 +540,8 @@ export class RecordingsPanel {
     };
     act("play", "Play", "Play", () => this.actions.play(recording), entry.available);
     if (entry.deviceStatus !== undefined) {
-      const status = block.createDiv({ cls: "goodobsidian-recordings-device" });
-      status.createSpan({ cls: "goodobsidian-recordings-device-text", text: entry.deviceStatus });
+      const status = block.createDiv({ cls: "finenotes-x-recordings-device" });
+      status.createSpan({ cls: "finenotes-x-recordings-device-text", text: entry.deviceStatus });
       act("square", "Stop transcribing", "Stop", () => this.actions.stopDevice(), true, status);
     } else {
       // On this device always works; with a key set up as well, ask which.
@@ -568,14 +568,14 @@ export class RecordingsPanel {
               .setIcon("cloud")
               .onClick(() => this.actions.transcribe(recording)),
           );
-          const button = block.querySelector<HTMLElement>(".goodobsidian-recordings-transcribe");
+          const button = block.querySelector<HTMLElement>(".finenotes-x-recordings-transcribe");
           const rect = button?.getBoundingClientRect();
           if (rect) menu.showAtPosition({ x: rect.left, y: rect.bottom });
           else menu.showAtPosition({ x: 0, y: 0 });
         },
         entry.available,
       );
-      row.lastElementChild?.addClass("goodobsidian-recordings-transcribe");
+      row.lastElementChild?.addClass("finenotes-x-recordings-transcribe");
     }
     if (entry.hasTranscript) {
       act("external-link", "Open transcript", "Transcript", () =>

@@ -46,7 +46,7 @@ export function describeElement(el: ElementLike | null): string {
   const tag = el.tagName.toLowerCase();
   const classes = typeof el.className === "string" ? el.className.trim() : "";
   const first = classes.split(/\s+/)[0] ?? "";
-  return first ? `${tag}.${first.replace(/^goodobsidian-/, "")}` : tag;
+  return first ? `${tag}.${first.replace(/^finenotes-x-/, "")}` : tag;
 }
 
 /** The HUD line for a text box's end; `active` is where the focus is a frame later. */

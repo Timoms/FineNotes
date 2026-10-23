@@ -94,7 +94,7 @@ export class MorePanel {
     private readonly page: MorePanelPage,
     private readonly actions: MorePanelActions,
   ) {
-    this.el = document.body.createDiv({ cls: "goodobsidian-more" });
+    this.el = document.body.createDiv({ cls: "finenotes-x-more" });
     this.el.setAttribute("role", "dialog");
     this.el.setAttribute("aria-label", "More");
     this.keyboard = new DialogKeyboard(this.el);
@@ -121,7 +121,7 @@ export class MorePanel {
 
   private render(): void {
     const { page, actions } = this;
-    this.el.createDiv({ cls: "goodobsidian-more-title", text: "More" });
+    this.el.createDiv({ cls: "finenotes-x-more-title", text: "More" });
 
     // The tool bar never scrolls: what did not fit on it is first here.
     const folded = page.folded ?? [];
@@ -138,9 +138,9 @@ export class MorePanel {
     }
 
     const card = this.group();
-    const head = card.createDiv({ cls: "goodobsidian-more-pagehead" });
-    head.createSpan({ cls: "goodobsidian-more-pagename", text: `Page ${page.index + 1}` });
-    const thumb = head.createEl("canvas", { cls: "goodobsidian-more-thumb" });
+    const head = card.createDiv({ cls: "finenotes-x-more-pagehead" });
+    head.createSpan({ cls: "finenotes-x-more-pagename", text: `Page ${page.index + 1}` });
+    const thumb = head.createEl("canvas", { cls: "finenotes-x-more-thumb" });
     actions.paintThumbnail(thumb, page.index, THUMB_WIDTH);
 
     if (page.fixed) {
@@ -230,11 +230,11 @@ export class MorePanel {
   }
 
   private group(): HTMLElement {
-    return this.el.createDiv({ cls: "goodobsidian-more-group" });
+    return this.el.createDiv({ cls: "finenotes-x-more-group" });
   }
 
   private heading(text: string): void {
-    this.el.createDiv({ cls: "goodobsidian-more-heading", text });
+    this.el.createDiv({ cls: "finenotes-x-more-heading", text });
   }
 
   /**
@@ -253,10 +253,10 @@ export class MorePanel {
     },
   ): HTMLButtonElement {
     const button = parent.createEl("button", {
-      cls: `goodobsidian-more-row clickable-icon${options.cls ? ` ${options.cls}` : ""}`,
+      cls: `finenotes-x-more-row clickable-icon${options.cls ? ` ${options.cls}` : ""}`,
     });
-    setIcon(button.createSpan({ cls: "goodobsidian-more-icon" }), options.icon);
-    button.createSpan({ cls: "goodobsidian-more-label", text: options.text });
+    setIcon(button.createSpan({ cls: "finenotes-x-more-icon" }), options.icon);
+    button.createSpan({ cls: "finenotes-x-more-label", text: options.text });
     button.disabled = options.enabled === false;
     button.addEventListener("click", () => {
       if (button.disabled) return;
@@ -269,11 +269,11 @@ export class MorePanel {
   /** "Go to page (1 – N)": tapping it turns the hint into a number field. */
   private goToRow(parent: HTMLElement): void {
     const { total } = this.page;
-    const row = parent.createDiv({ cls: "goodobsidian-more-row is-goto" });
-    setIcon(row.createSpan({ cls: "goodobsidian-more-icon" }), "arrow-right-to-line");
-    row.createSpan({ cls: "goodobsidian-more-label", text: "Go to page" });
+    const row = parent.createDiv({ cls: "finenotes-x-more-row is-goto" });
+    setIcon(row.createSpan({ cls: "finenotes-x-more-icon" }), "arrow-right-to-line");
+    row.createSpan({ cls: "finenotes-x-more-label", text: "Go to page" });
     const input = row.createEl("input", {
-      cls: "goodobsidian-more-goto",
+      cls: "finenotes-x-more-goto",
       type: "text",
       attr: {
         inputmode: "numeric",

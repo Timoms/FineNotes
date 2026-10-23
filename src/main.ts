@@ -133,9 +133,9 @@ import { PAPER_COPY_PREFIX, type PaperEntry, paperName } from "./model/paper-lib
 import { cloneGeneratedBackdrop } from "./model/generated-paper";
 
 /** Where the name a user shares templates under is remembered, on this device. */
-const SHARE_AUTHOR_KEY = "finenotes:share-author";
+const SHARE_AUTHOR_KEY = "finenotes-x:share-author";
 /** The notebooks pages were sent to last, in this device's local storage. */
-const RECENT_TARGETS_KEY = "goodobsidian:move-targets";
+const RECENT_TARGETS_KEY = "finenotes-x:move-targets";
 
 /** Pages were added to a notebook; `undo` takes exactly those pages (or the new notebook) away. */
 export interface TransferReceipt {
@@ -190,7 +190,7 @@ const GRAPE_BRIDGE_DELAY_MS = 8000;
 /** How long after the layout is ready the daily update check runs: off the startup path. */
 const UPDATE_CHECK_DELAY_MS = 20_000;
 /** This device's record of the last update check (update-notice.ts). */
-const UPDATE_KEY = "finenotes:update-check";
+const UPDATE_KEY = "finenotes-x:update-check";
 
 /** How long after load the main thread is watched for stalls (startup-log.ts), and how often. */
 const STARTUP_WATCH_MS = 90_000;
@@ -531,7 +531,7 @@ export default class GoodObsidianPlugin extends Plugin {
     this.addSettingTab(this.settingTab);
 
     // OpenRouter's sign-in page sends the browser back to
-    // obsidian://goodobsidian-openrouter with a one-time code.
+    // obsidian://finenotes-x-openrouter with a one-time code.
     this.registerObsidianProtocolHandler(OPENROUTER_CALLBACK_ACTION, (params) => {
       void this.handleOpenRouterCallback(params);
     });
@@ -836,7 +836,7 @@ export default class GoodObsidianPlugin extends Plugin {
    * on and automatic reading waits for the next start.
    */
   private setUpReadingGuard(): void {
-    const key = "finenotes:device-reading";
+    const key = "finenotes-x:device-reading";
     this.readingGuard = new ReadingGuard(
       {
         load: () => {
@@ -1575,13 +1575,13 @@ export default class GoodObsidianPlugin extends Plugin {
       if (entry.kind === "paper") {
         const library = new VaultPaperLibrary(
           this.app,
-          () => normalizeFolder(this.settings.templateFolder) || "FineNotes templates",
+          () => normalizeFolder(this.settings.templateFolder) || "FineNotesX templates",
           () => undefined,
         );
         const ext = entry.download.split(/[?#]/)[0].split(".").pop() ?? "pdf";
         return await library.addFile(bytes, `${entry.name}.${ext}`);
       }
-      const folder = normalizeFolder(this.settings.templateFolder) || "FineNotes templates";
+      const folder = normalizeFolder(this.settings.templateFolder) || "FineNotesX templates";
       if (!this.app.vault.getFolderByPath(folder)) await this.app.vault.createFolder(folder);
       const name = `${entry.name.replace(/[\\/:*?"<>|#^[\]]+/g, " ").trim() || "Template"}.${TEMPLATE_EXTENSION}`;
       const path = normalizePath(`${folder}/${name}`);
@@ -1700,7 +1700,7 @@ export default class GoodObsidianPlugin extends Plugin {
   ): VaultPaperLibrary {
     return new VaultPaperLibrary(
       this.app,
-      () => normalizeFolder(this.settings.templateFolder) || "FineNotes templates",
+      () => normalizeFolder(this.settings.templateFolder) || "FineNotesX templates",
       paint,
       () => this.openTemplateGallery(),
       (path) => void this.openShareTemplate(path),

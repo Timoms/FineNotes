@@ -2,30 +2,30 @@
  * The page sidebar: GoodNotes' thumbnail panel, opened from the leftmost
  * toolbar button.
  *
- *   .goodobsidian-pagesidebar          (.is-overview: the full-pane grid; .is-selecting)
- *     .goodobsidian-pagesidebar-top
- *       .goodobsidian-pagesidebar-head  (⤢ · Pages / Contents / Files · ✕;
+ *   .finenotes-x-pagesidebar          (.is-overview: the full-pane grid; .is-selecting)
+ *     .finenotes-x-pagesidebar-top
+ *       .finenotes-x-pagesidebar-head  (⤢ · Pages / Contents / Files · ✕;
  *                                         overview: ⤡ or Select all · Pages · Select or Done)
- *       .goodobsidian-pagesidebar-tabs  (Pages | Contents | Files)
- *     .goodobsidian-pagesidebar-pages
- *       .goodobsidian-pagesidebar-filter ("All pages ⌄" / "Bookmarks only ⌄" / "In the contents ⌄")
- *       .goodobsidian-pagesidebar-grid
- *         .goodobsidian-thumb × N    (canvas + ribbon + tick + page number + ⌄ menu)
- *         .goodobsidian-thumb-add    ("+ Add page")
- *       .goodobsidian-pagesidebar-empty (no page passes the filter yet)
- *     .goodobsidian-pagesidebar-contents
- *       .goodobsidian-contents-list
- *         .goodobsidian-contents-row × N  (› fold · title · page number · ⌄ menu)
+ *       .finenotes-x-pagesidebar-tabs  (Pages | Contents | Files)
+ *     .finenotes-x-pagesidebar-pages
+ *       .finenotes-x-pagesidebar-filter ("All pages ⌄" / "Bookmarks only ⌄" / "In the contents ⌄")
+ *       .finenotes-x-pagesidebar-grid
+ *         .finenotes-x-thumb × N    (canvas + ribbon + tick + page number + ⌄ menu)
+ *         .finenotes-x-thumb-add    ("+ Add page")
+ *       .finenotes-x-pagesidebar-empty (no page passes the filter yet)
+ *     .finenotes-x-pagesidebar-contents
+ *       .finenotes-x-contents-list
+ *         .finenotes-x-contents-row × N  (› fold · title · page number · ⌄ menu)
  *           .is-section: a heading inside a page (smaller, muted)
  *           .is-sub: one under its page's title, folding with it
- *       .goodobsidian-contents-empty
- *       .goodobsidian-contents-add  ("Add page N to contents")
- *     .goodobsidian-pagesidebar-files
- *       .goodobsidian-files-kind      (the dropdown: Recordings, Pictures and PDFs, …)
- *       .goodobsidian-pagesidebar-audio (Recordings: filled by the note's audio controller)
- *       .goodobsidian-files-list      (any other kind: a row per file, built when shown)
- *     .goodobsidian-pagesidebar-selectbar (overview, Select: Move · Duplicate · Bookmark · Export · Delete)
- *   .goodobsidian-pagesidebar-spacer  (holds the panel's width while the overview covers the page)
+ *       .finenotes-x-contents-empty
+ *       .finenotes-x-contents-add  ("Add page N to contents")
+ *     .finenotes-x-pagesidebar-files
+ *       .finenotes-x-files-kind      (the dropdown: Recordings, Pictures and PDFs, …)
+ *       .finenotes-x-pagesidebar-audio (Recordings: filled by the note's audio controller)
+ *       .finenotes-x-files-list      (any other kind: a row per file, built when shown)
+ *     .finenotes-x-pagesidebar-selectbar (overview, Select: Move · Duplicate · Bookmark · Export · Delete)
+ *   .finenotes-x-pagesidebar-spacer  (holds the panel's width while the overview covers the page)
  *
  * The Contents tab is the notebook's table of contents: every page given a
  * title (model/contents.ts), in page order, as a heading, with the headings
@@ -359,34 +359,34 @@ export class PageSidebar {
     private readonly callbacks: PageSidebarCallbacks,
     private render: PageSidebarRenderOptions,
   ) {
-    this.el = host.createDiv({ cls: "goodobsidian-pagesidebar is-hidden" });
+    this.el = host.createDiv({ cls: "finenotes-x-pagesidebar is-hidden" });
     this.el.setAttribute("role", "navigation");
     this.el.setAttribute("aria-label", "Pages");
     // Header and tabs stay put while the thumbnails scroll under them.
-    const top = this.el.createDiv({ cls: "goodobsidian-pagesidebar-top" });
-    const head = top.createDiv({ cls: "goodobsidian-pagesidebar-head" });
+    const top = this.el.createDiv({ cls: "finenotes-x-pagesidebar-top" });
+    const head = top.createDiv({ cls: "finenotes-x-pagesidebar-head" });
     this.expandButton = head.createEl("button", {
-      cls: "goodobsidian-pagesidebar-expand clickable-icon",
+      cls: "finenotes-x-pagesidebar-expand clickable-icon",
     });
     this.expandButton.addEventListener("click", () => this.setOverview(!this.overview, true));
     this.selectAllButton = head.createEl("button", {
-      cls: "goodobsidian-pagesidebar-textbutton goodobsidian-pagesidebar-selectall clickable-icon",
+      cls: "finenotes-x-pagesidebar-textbutton finenotes-x-pagesidebar-selectall clickable-icon",
     });
     this.selectAllButton.addEventListener("click", () => this.toggleSelectAll());
-    this.titleEl = head.createDiv({ cls: "goodobsidian-pagesidebar-title", text: "Pages" });
+    this.titleEl = head.createDiv({ cls: "finenotes-x-pagesidebar-title", text: "Pages" });
     const close = head.createEl("button", {
-      cls: "goodobsidian-pagesidebar-close clickable-icon",
+      cls: "finenotes-x-pagesidebar-close clickable-icon",
       attr: { "aria-label": "Close sidebar", title: "Close sidebar" },
     });
     setIcon(close, "x");
     close.addEventListener("click", () => this.callbacks.onClose());
     this.closeButton = close;
     this.selectButton = head.createEl("button", {
-      cls: "goodobsidian-pagesidebar-textbutton goodobsidian-pagesidebar-select clickable-icon",
+      cls: "finenotes-x-pagesidebar-textbutton finenotes-x-pagesidebar-select clickable-icon",
     });
     this.selectButton.addEventListener("click", () => this.setSelecting(!this.selecting));
     const tabs = top.createDiv({
-      cls: "goodobsidian-pagesidebar-tabs",
+      cls: "finenotes-x-pagesidebar-tabs",
       attr: { role: "tablist" },
     });
     for (const [tab, icon] of [
@@ -396,7 +396,7 @@ export class PageSidebar {
     ] as const) {
       const label = TAB_TITLES[tab];
       const button = tabs.createEl("button", {
-        cls: "goodobsidian-pagesidebar-tab clickable-icon",
+        cls: "finenotes-x-pagesidebar-tab clickable-icon",
         attr: { role: "tab", "aria-label": label, title: label },
       });
       setIcon(button, icon);
@@ -404,39 +404,39 @@ export class PageSidebar {
       this.tabButtons.set(tab, button);
     }
     this.tabsEl = tabs;
-    this.pagesEl = this.el.createDiv({ cls: "goodobsidian-pagesidebar-pages" });
+    this.pagesEl = this.el.createDiv({ cls: "finenotes-x-pagesidebar-pages" });
     this.filterChip = this.pagesEl.createEl("button", {
-      cls: "goodobsidian-pagesidebar-filter clickable-icon",
+      cls: "finenotes-x-pagesidebar-filter clickable-icon",
       attr: { "aria-haspopup": "menu" },
     });
     this.filterLabel = this.filterChip.createSpan();
     setIcon(
-      this.filterChip.createSpan({ cls: "goodobsidian-pagesidebar-filter-caret" }),
+      this.filterChip.createSpan({ cls: "finenotes-x-pagesidebar-filter-caret" }),
       "chevron-down",
     );
     this.filterChip.addEventListener("click", () => this.showFilterMenu());
-    this.grid = this.pagesEl.createDiv({ cls: "goodobsidian-pagesidebar-grid" });
-    this.emptyEl = this.pagesEl.createDiv({ cls: "goodobsidian-pagesidebar-empty is-hidden" });
-    this.contentsEl = this.el.createDiv({ cls: "goodobsidian-pagesidebar-contents" });
+    this.grid = this.pagesEl.createDiv({ cls: "finenotes-x-pagesidebar-grid" });
+    this.emptyEl = this.pagesEl.createDiv({ cls: "finenotes-x-pagesidebar-empty is-hidden" });
+    this.contentsEl = this.el.createDiv({ cls: "finenotes-x-pagesidebar-contents" });
     this.contentsList = this.contentsEl.createDiv({
-      cls: "goodobsidian-contents-list",
+      cls: "finenotes-x-contents-list",
       attr: { role: "list" },
     });
     this.contentsEmpty = this.contentsEl.createDiv({
-      cls: "goodobsidian-contents-empty",
+      cls: "finenotes-x-contents-empty",
       text: "Nothing in the contents yet. Give a page a title here, from ⋯ in the toolbar, or from its ⌄ menu, and it starts a section.",
     });
     this.contentsAdd = this.contentsEl.createEl("button", {
-      cls: "goodobsidian-contents-add clickable-icon",
+      cls: "finenotes-x-contents-add clickable-icon",
     });
-    setIcon(this.contentsAdd.createSpan({ cls: "goodobsidian-contents-add-icon" }), "list-plus");
+    setIcon(this.contentsAdd.createSpan({ cls: "finenotes-x-contents-add-icon" }), "list-plus");
     this.contentsAddLabel = this.contentsAdd.createSpan();
     this.contentsAdd.addEventListener("click", () =>
       this.callbacks.onPageAction("contents", this.current, this.contentsAdd),
     );
-    this.filesEl = this.el.createDiv({ cls: "goodobsidian-pagesidebar-files" });
+    this.filesEl = this.el.createDiv({ cls: "finenotes-x-pagesidebar-files" });
     this.kindSelect = this.filesEl.createEl("select", {
-      cls: "dropdown goodobsidian-files-kind",
+      cls: "dropdown finenotes-x-files-kind",
       attr: { "aria-label": "Kind of file" },
     });
     for (const kind of FILE_KINDS) {
@@ -446,13 +446,13 @@ export class PageSidebar {
       this.setFileKind(this.kindSelect.value as FileKind);
       this.callbacks.onFileKind?.(this.fileKind);
     });
-    this.audioEl = this.filesEl.createDiv({ cls: "goodobsidian-pagesidebar-audio" });
+    this.audioEl = this.filesEl.createDiv({ cls: "finenotes-x-pagesidebar-audio" });
     this.filesList = this.filesEl.createDiv({
-      cls: "goodobsidian-files-list is-hidden",
+      cls: "finenotes-x-files-list is-hidden",
       attr: { role: "list" },
     });
     this.selectBar = this.el.createDiv({
-      cls: "goodobsidian-pagesidebar-selectbar is-hidden",
+      cls: "finenotes-x-pagesidebar-selectbar is-hidden",
       attr: { role: "toolbar", "aria-label": "Selected pages" },
     });
     for (const [action, icon, label] of [
@@ -463,12 +463,12 @@ export class PageSidebar {
       ["delete", "trash-2", "Delete"],
     ] as const) {
       const button = this.selectBar.createEl("button", {
-        cls: "goodobsidian-pagesidebar-selectbar-button clickable-icon",
+        cls: "finenotes-x-pagesidebar-selectbar-button clickable-icon",
         attr: { "aria-label": label },
       });
       button.toggleClass("mod-warning", action === "delete");
-      setIcon(button.createSpan({ cls: "goodobsidian-pagesidebar-selectbar-icon" }), icon);
-      button.createSpan({ cls: "goodobsidian-pagesidebar-selectbar-label", text: label });
+      setIcon(button.createSpan({ cls: "finenotes-x-pagesidebar-selectbar-icon" }), icon);
+      button.createSpan({ cls: "finenotes-x-pagesidebar-selectbar-label", text: label });
       button.addEventListener("click", (event) => {
         if (action === "move") this.showMoveMenu(event, button);
         else this.selectionAction(action, button);
@@ -477,7 +477,7 @@ export class PageSidebar {
     }
     // Holds the panel's width while the overview covers the page, so the
     // page underneath keeps its size and place (and needs no relayout).
-    this.spacer = host.createDiv({ cls: "goodobsidian-pagesidebar-spacer is-hidden" });
+    this.spacer = host.createDiv({ cls: "finenotes-x-pagesidebar-spacer is-hidden" });
     // Obsidian's swipe recogniser opens its own sidebars on a sideways swipe:
     // not while a page is dragged across this panel (CLAUDE.md ledger).
     this.el.dataset.ignoreSwipe = "true";
@@ -485,9 +485,9 @@ export class PageSidebar {
     // Every button here carries `clickable-icon`: Obsidian gives any other
     // button a filled background, and on iPad 20 px of side padding, which
     // left a 36 px icon button no room at all for its icon.
-    this.addTile = this.grid.createEl("button", { cls: "goodobsidian-thumb-add clickable-icon" });
+    this.addTile = this.grid.createEl("button", { cls: "finenotes-x-thumb-add clickable-icon" });
     this.addTile.setAttribute("aria-label", "Add page");
-    const plus = this.addTile.createSpan({ cls: "goodobsidian-thumb-add-icon" });
+    const plus = this.addTile.createSpan({ cls: "finenotes-x-thumb-add-icon" });
     setIcon(plus, "plus");
     this.addTile.createSpan({ text: "Add page" });
     this.addTile.addEventListener("click", () => this.callbacks.onAddPage(this.addTile));
@@ -501,7 +501,7 @@ export class PageSidebar {
       shown: () => this.shownThumbs(),
       moving: (index) => this.movingWith(index),
       visibleTop: () =>
-        this.el.querySelector(".goodobsidian-pagesidebar-top")?.getBoundingClientRect().bottom ?? 0,
+        this.el.querySelector(".finenotes-x-pagesidebar-top")?.getBoundingClientRect().bottom ?? 0,
       onDrop: (indexes, gap) => this.callbacks.onMovePages?.(indexes, gap),
       onPenTap: (index, target, event) => this.tapThumb(index, target, event),
     });
@@ -634,7 +634,7 @@ export class PageSidebar {
    */
   private flyIn(snap: PageSnapshot): boolean {
     const slot = this.thumbs[this.current]?.root.querySelector<HTMLElement>(
-      ".goodobsidian-thumb-frame",
+      ".finenotes-x-thumb-frame",
     );
     const host = this.el.parentElement;
     if (!slot || !host) return false;
@@ -643,7 +643,7 @@ export class PageSidebar {
     if (!(to.width > 0) || !(page.width > 0) || !(pane.width > 0)) return false;
     const base = host.getBoundingClientRect();
     const k = image.width / pane.width;
-    const layer = host.createDiv({ cls: "goodobsidian-overview-flight" });
+    const layer = host.createDiv({ cls: "finenotes-x-overview-flight" });
     const place = (el: HTMLElement, box: ClientBox): void =>
       el.setCssStyles({
         left: `${box.left - base.left}px`,
@@ -654,7 +654,7 @@ export class PageSidebar {
 
     // The view as it was, with the page lifted out of it: the desk shows
     // where it lay, as it would under a page picked up.
-    const view = layer.createEl("canvas", { cls: "goodobsidian-overview-flight-view" });
+    const view = layer.createEl("canvas", { cls: "finenotes-x-overview-flight-view" });
     view.width = image.width;
     view.height = image.height;
     const vctx = view.getContext("2d");
@@ -673,7 +673,7 @@ export class PageSidebar {
 
     // The page: its pixels as they were, where all of it showed; else (a
     // page zoomed in past the pane) the thumbnail painter draws all of it.
-    const sheet = layer.createEl("canvas", { cls: "goodobsidian-overview-flight-page" });
+    const sheet = layer.createEl("canvas", { cls: "finenotes-x-overview-flight-page" });
     const whole =
       page.left >= pane.left - 1 &&
       page.top >= pane.top - 1 &&
@@ -850,7 +850,7 @@ export class PageSidebar {
     this.filesList.empty();
     if (rows.length === 0) {
       this.filesList.createDiv({
-        cls: "goodobsidian-files-empty",
+        cls: "finenotes-x-files-empty",
         text: FILE_KIND_EMPTY[kind],
       });
       return;
@@ -858,14 +858,14 @@ export class PageSidebar {
     for (const row of rows) {
       // `clickable-icon` keeps Obsidian's button styling (and its iPad padding) off the row.
       const button = this.filesList.createEl("button", {
-        cls: "goodobsidian-files-row clickable-icon",
+        cls: "finenotes-x-files-row clickable-icon",
         attr: { role: "listitem", title: row.path },
       });
-      setIcon(button.createSpan({ cls: "goodobsidian-files-row-icon" }), FILE_KIND_ICONS[kind]);
-      const text = button.createSpan({ cls: "goodobsidian-files-row-text" });
-      text.createSpan({ cls: "goodobsidian-files-row-name", text: fileName(row.path) });
+      setIcon(button.createSpan({ cls: "finenotes-x-files-row-icon" }), FILE_KIND_ICONS[kind]);
+      const text = button.createSpan({ cls: "finenotes-x-files-row-text" });
+      text.createSpan({ cls: "finenotes-x-files-row-name", text: fileName(row.path) });
       if (row.detail) {
-        text.createSpan({ cls: "goodobsidian-files-row-detail", text: row.detail });
+        text.createSpan({ cls: "finenotes-x-files-row-detail", text: row.detail });
       }
       button.addEventListener("click", () => this.callbacks.onOpenFile?.(kind, row));
     }
@@ -1119,7 +1119,7 @@ export class PageSidebar {
         rows[child.at] = { row, heading: node.at };
         return row;
       });
-      const fold = heading.querySelector<HTMLElement>(".goodobsidian-contents-fold");
+      const fold = heading.querySelector<HTMLElement>(".finenotes-x-contents-fold");
       fold?.addEventListener("click", () => {
         const shut = !this.folded.has(pageId);
         if (shut) this.folded.add(pageId);
@@ -1145,14 +1145,14 @@ export class PageSidebar {
    */
   private contentsRow(entry: ContentsEntry, folded: boolean | null, sub = false): HTMLElement {
     const row = this.contentsList.createDiv({
-      cls: "goodobsidian-contents-row",
+      cls: "finenotes-x-contents-row",
       attr: { role: "listitem" },
     });
     row.toggleClass("is-section", entry.section !== undefined);
     row.toggleClass("is-sub", sub);
     if (folded !== null) {
       const fold = row.createEl("button", {
-        cls: "goodobsidian-contents-fold clickable-icon",
+        cls: "finenotes-x-contents-fold clickable-icon",
         attr: {
           "aria-label": "Show or hide this page's headings",
           "aria-expanded": String(!folded),
@@ -1161,18 +1161,18 @@ export class PageSidebar {
       fold.toggleClass("is-folded", folded);
       setIcon(fold, "chevron-down");
     } else if (!sub) {
-      row.createSpan({ cls: "goodobsidian-contents-fold-space" });
+      row.createSpan({ cls: "finenotes-x-contents-fold-space" });
     }
-    const go = row.createEl("button", { cls: "goodobsidian-contents-entry clickable-icon" });
-    go.createSpan({ cls: "goodobsidian-contents-title", text: entry.title });
-    go.createSpan({ cls: "goodobsidian-contents-page", text: String(entry.index + 1) });
+    const go = row.createEl("button", { cls: "finenotes-x-contents-entry clickable-icon" });
+    go.createSpan({ cls: "finenotes-x-contents-title", text: entry.title });
+    go.createSpan({ cls: "finenotes-x-contents-page", text: String(entry.index + 1) });
     go.setAttribute("aria-label", `${entry.title}, page ${entry.index + 1}`);
     const section = entry.section;
     go.addEventListener("click", () => {
       if (section) this.callbacks.onSelectSection?.(entry.index, section);
       else this.callbacks.onSelectPage(entry.index);
     });
-    const more = row.createEl("button", { cls: "goodobsidian-contents-more clickable-icon" });
+    const more = row.createEl("button", { cls: "finenotes-x-contents-more clickable-icon" });
     setIcon(more, "chevron-down");
     more.setAttribute("aria-label", "Contents entry options");
     more.addEventListener("click", (event) => {
@@ -1216,22 +1216,22 @@ export class PageSidebar {
   }
 
   private createThumb(): ThumbView {
-    const root = createDiv({ cls: "goodobsidian-thumb" });
+    const root = createDiv({ cls: "finenotes-x-thumb" });
     this.grid.insertBefore(root, this.addTile);
-    const frame = root.createEl("button", { cls: "goodobsidian-thumb-frame clickable-icon" });
-    const canvas = frame.createEl("canvas", { cls: "goodobsidian-thumb-canvas" });
+    const frame = root.createEl("button", { cls: "finenotes-x-thumb-frame clickable-icon" });
+    const canvas = frame.createEl("canvas", { cls: "finenotes-x-thumb-canvas" });
     // GoodNotes' ribbon at the top right of every page: an outline, filled
     // red when the page is bookmarked. A tap on it toggles the bookmark.
-    const ribbon = frame.createSpan({ cls: "goodobsidian-thumb-ribbon is-outline" });
+    const ribbon = frame.createSpan({ cls: "finenotes-x-thumb-ribbon is-outline" });
     setIcon(ribbon, "bookmark");
     // The overview's Select mode: a tick at the page's corner.
-    setIcon(frame.createSpan({ cls: "goodobsidian-thumb-check" }), "check");
-    const footer = root.createDiv({ cls: "goodobsidian-thumb-footer" });
-    const label = footer.createSpan({ cls: "goodobsidian-thumb-number" });
-    const name = footer.createEl("button", { cls: "goodobsidian-thumb-name clickable-icon" });
-    const title = name.createSpan({ cls: "goodobsidian-thumb-title" });
-    const count = name.createSpan({ cls: "goodobsidian-thumb-count" });
-    const more = footer.createEl("button", { cls: "goodobsidian-thumb-more clickable-icon" });
+    setIcon(frame.createSpan({ cls: "finenotes-x-thumb-check" }), "check");
+    const footer = root.createDiv({ cls: "finenotes-x-thumb-footer" });
+    const label = footer.createSpan({ cls: "finenotes-x-thumb-number" });
+    const name = footer.createEl("button", { cls: "finenotes-x-thumb-name clickable-icon" });
+    const title = name.createSpan({ cls: "finenotes-x-thumb-title" });
+    const count = name.createSpan({ cls: "finenotes-x-thumb-count" });
+    const more = footer.createEl("button", { cls: "finenotes-x-thumb-more clickable-icon" });
     setIcon(more, "chevron-down");
     more.setAttribute("aria-label", "Page options");
 
@@ -1274,7 +1274,7 @@ export class PageSidebar {
       const active = index === this.current;
       view.root.toggleClass("is-current", active);
       view.root
-        .querySelector(".goodobsidian-thumb-frame")
+        .querySelector(".finenotes-x-thumb-frame")
         ?.setAttribute("aria-current", active ? "page" : "false");
     });
     this.syncCurrentEntry();
@@ -1295,7 +1295,7 @@ export class PageSidebar {
     this.contentsRows.forEach(({ row }, i) => {
       row.toggleClass("is-current", i === at);
       row
-        .querySelector(".goodobsidian-contents-entry")
+        .querySelector(".finenotes-x-contents-entry")
         ?.setAttribute("aria-current", i === at ? "location" : "false");
     });
   }
@@ -1400,7 +1400,7 @@ export class PageSidebar {
       return;
     }
     // The ribbon lies inside the page's button: a tap on it bookmarks.
-    if (target.closest(".goodobsidian-thumb-ribbon")) {
+    if (target.closest(".finenotes-x-thumb-ribbon")) {
       const ribbon = this.thumbs[index]?.ribbon;
       if (ribbon) this.callbacks.onPageAction("bookmark", index, ribbon);
       return;
@@ -1548,7 +1548,7 @@ export class PageSidebar {
     for (const view of this.thumbs) {
       const on = this.selecting && view.page !== null && this.selected.has(view.page);
       view.root.toggleClass("is-selected", on);
-      const frame = view.root.querySelector(".goodobsidian-thumb-frame");
+      const frame = view.root.querySelector(".finenotes-x-thumb-frame");
       if (this.selecting) frame?.setAttribute("aria-pressed", String(on));
       else frame?.removeAttribute("aria-pressed");
     }
@@ -1596,8 +1596,8 @@ export class PageSidebar {
       const marked = count > 0 && [...this.selected].every((page) => page.bookmarked === true);
       const label = marked ? "Remove bookmark" : "Bookmark";
       bookmark.setAttribute("aria-label", label);
-      bookmark.querySelector(".goodobsidian-pagesidebar-selectbar-label")?.setText(label);
-      const icon = bookmark.querySelector<HTMLElement>(".goodobsidian-pagesidebar-selectbar-icon");
+      bookmark.querySelector(".finenotes-x-pagesidebar-selectbar-label")?.setText(label);
+      const icon = bookmark.querySelector<HTMLElement>(".finenotes-x-pagesidebar-selectbar-icon");
       if (icon) setIcon(icon, marked ? "bookmark-minus" : "bookmark");
     }
   }

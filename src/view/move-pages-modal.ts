@@ -65,30 +65,30 @@ export class MovePagesModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-move-modal");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-move-modal");
     this.titleEl.setText("Move to another notebook");
     const body = this.contentEl;
-    body.addClass("goodobsidian-ask");
+    body.addClass("finenotes-x-ask");
 
     const mode = body.createDiv({
-      cls: "goodobsidian-move-mode",
+      cls: "finenotes-x-move-mode",
       attr: { role: "group", "aria-label": "Move or copy" },
     });
     this.moveButton = mode.createEl("button", {
-      cls: "goodobsidian-move-mode-button clickable-icon",
+      cls: "finenotes-x-move-mode-button clickable-icon",
       text: "Move",
     });
     this.copyButton = mode.createEl("button", {
-      cls: "goodobsidian-move-mode-button clickable-icon",
+      cls: "finenotes-x-move-mode-button clickable-icon",
       text: "Copy",
     });
     this.moveButton.addEventListener("click", () => this.setCopy(false));
     this.copyButton.addEventListener("click", () => this.setCopy(true));
 
-    const row = body.createDiv({ cls: "goodobsidian-move-search-row" });
-    setIcon(row.createSpan({ cls: "goodobsidian-move-search-icon" }), "search");
+    const row = body.createDiv({ cls: "finenotes-x-move-search-row" });
+    setIcon(row.createSpan({ cls: "finenotes-x-move-search-icon" }), "search");
     const search = row.createEl("input", {
-      cls: "goodobsidian-move-search",
+      cls: "finenotes-x-move-search",
       type: "text",
       attr: {
         placeholder: "Find a notebook",
@@ -111,12 +111,12 @@ export class MovePagesModal extends Modal {
     });
 
     this.list = body.createDiv({
-      cls: "goodobsidian-move-list",
+      cls: "finenotes-x-move-list",
       attr: { role: "listbox", "aria-label": "Notebooks" },
     });
-    this.note = body.createDiv({ cls: "goodobsidian-ask-note goodobsidian-move-note" });
+    this.note = body.createDiv({ cls: "finenotes-x-ask-note finenotes-x-move-note" });
 
-    const actions = body.createDiv({ cls: "goodobsidian-ask-actions" });
+    const actions = body.createDiv({ cls: "finenotes-x-ask-actions" });
     actions.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
     this.confirm = actions.createEl("button", { cls: "mod-cta" });
     this.confirm.addEventListener("click", () => this.submit());
@@ -162,18 +162,18 @@ export class MovePagesModal extends Modal {
     const matches = this.matches();
     for (const target of matches.slice(0, SHOWN)) {
       const row = list.createEl("button", {
-        cls: "goodobsidian-move-row clickable-icon",
+        cls: "finenotes-x-move-row clickable-icon",
         attr: { role: "option", "aria-selected": String(this.picked === target) },
       });
-      setIcon(row.createSpan({ cls: "goodobsidian-move-row-icon" }), "book");
-      const text = row.createSpan({ cls: "goodobsidian-move-row-text" });
-      text.createSpan({ cls: "goodobsidian-move-row-title", text: target.title });
+      setIcon(row.createSpan({ cls: "finenotes-x-move-row-icon" }), "book");
+      const text = row.createSpan({ cls: "finenotes-x-move-row-text" });
+      text.createSpan({ cls: "finenotes-x-move-row-title", text: target.title });
       const folder = target.path.includes("/")
         ? target.path.slice(0, target.path.lastIndexOf("/"))
         : "";
-      if (folder) text.createSpan({ cls: "goodobsidian-move-row-folder", text: folder });
+      if (folder) text.createSpan({ cls: "finenotes-x-move-row-folder", text: folder });
       if (this.options.recent[0] === target.path) {
-        row.createSpan({ cls: "goodobsidian-move-row-tag", text: "Last used" });
+        row.createSpan({ cls: "finenotes-x-move-row-tag", text: "Last used" });
       }
       row.toggleClass("is-picked", this.picked === target);
       row.addEventListener("click", () => {
@@ -187,11 +187,11 @@ export class MovePagesModal extends Modal {
     }
     if (matches.length > SHOWN) {
       list.createDiv({
-        cls: "goodobsidian-move-more",
+        cls: "finenotes-x-move-more",
         text: `${matches.length - SHOWN} more. Keep typing to narrow the list.`,
       });
     } else if (matches.length === 0 && this.query.trim() !== "") {
-      list.createDiv({ cls: "goodobsidian-move-more", text: "No notebook by that name." });
+      list.createDiv({ cls: "finenotes-x-move-more", text: "No notebook by that name." });
     }
     this.renderNewRow(list);
   }
@@ -200,21 +200,21 @@ export class MovePagesModal extends Modal {
   private renderNewRow(list: HTMLElement): void {
     const picked = this.picked === "new";
     const row = list.createDiv({
-      cls: "goodobsidian-move-new",
+      cls: "finenotes-x-move-new",
       attr: { role: "option", "aria-selected": String(picked) },
     });
     row.toggleClass("is-picked", picked);
-    const head = row.createEl("button", { cls: "goodobsidian-move-row clickable-icon" });
-    setIcon(head.createSpan({ cls: "goodobsidian-move-row-icon" }), "plus");
-    head.createSpan({ cls: "goodobsidian-move-row-title", text: "New notebook" });
+    const head = row.createEl("button", { cls: "finenotes-x-move-row clickable-icon" });
+    setIcon(head.createSpan({ cls: "finenotes-x-move-row-icon" }), "plus");
+    head.createSpan({ cls: "finenotes-x-move-row-title", text: "New notebook" });
     head.addEventListener("click", () => {
       this.picked = "new";
       this.renderList();
-      this.list?.querySelector<HTMLInputElement>(".goodobsidian-move-new-field")?.focus();
+      this.list?.querySelector<HTMLInputElement>(".finenotes-x-move-new-field")?.focus();
     });
     if (!picked) return;
     const field = row.createEl("input", {
-      cls: "goodobsidian-move-new-field",
+      cls: "finenotes-x-move-new-field",
       type: "text",
       attr: {
         placeholder: "Notebook title",

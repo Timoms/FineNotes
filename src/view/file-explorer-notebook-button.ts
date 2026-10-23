@@ -27,7 +27,7 @@ export class FileExplorerNotebookButton {
     for (const bar of bars) {
       if (this.buttons.has(bar)) continue;
       const button = bar.createEl("button", {
-        cls: "clickable-icon nav-action-button goodobsidian-new-notebook",
+        cls: "clickable-icon nav-action-button finenotes-x-new-notebook",
         attr: { type: "button", "aria-label": "New notebook", title: "New notebook" },
       });
       setIcon(button, ICON_NEW_NOTEBOOK);

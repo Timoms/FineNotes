@@ -169,23 +169,23 @@ export class DownloadCard {
     private readonly actions: DownloadCardActions,
     parent: HTMLElement = document.body,
   ) {
-    this.el = parent.createDiv({ cls: "goodobsidian-download-card" });
+    this.el = parent.createDiv({ cls: "finenotes-x-download-card" });
     this.el.setAttribute("role", "dialog");
     this.el.setAttribute("aria-live", "polite");
-    setIcon(this.el.createDiv({ cls: "goodobsidian-download-card-icon" }), "download");
-    const text = this.el.createDiv({ cls: "goodobsidian-download-card-text" });
-    this.titleEl = text.createDiv({ cls: "goodobsidian-download-card-title" });
-    this.detailEl = text.createDiv({ cls: "goodobsidian-download-card-detail" });
-    const track = text.createDiv({ cls: "goodobsidian-download-card-track" });
-    this.barEl = track.createDiv({ cls: "goodobsidian-download-card-bar" });
-    this.actionsEl = this.el.createDiv({ cls: "goodobsidian-download-card-actions" });
+    setIcon(this.el.createDiv({ cls: "finenotes-x-download-card-icon" }), "download");
+    const text = this.el.createDiv({ cls: "finenotes-x-download-card-text" });
+    this.titleEl = text.createDiv({ cls: "finenotes-x-download-card-title" });
+    this.detailEl = text.createDiv({ cls: "finenotes-x-download-card-detail" });
+    const track = text.createDiv({ cls: "finenotes-x-download-card-track" });
+    this.barEl = track.createDiv({ cls: "finenotes-x-download-card-bar" });
+    this.actionsEl = this.el.createDiv({ cls: "finenotes-x-download-card-actions" });
     this.unsubscribe = store.subscribe(() => this.render());
     this.render();
   }
 
   private button(text: string, run: () => void, cta = false): void {
     const button = this.actionsEl.createEl("button", {
-      cls: `goodobsidian-download-card-button clickable-icon${cta ? " is-cta" : ""}`,
+      cls: `finenotes-x-download-card-button clickable-icon${cta ? " is-cta" : ""}`,
       text,
     });
     button.addEventListener("click", run);

@@ -47,20 +47,24 @@ export class PaperGeneratorModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-paper-generator-modal", "goodobsidian-dialog");
+    this.modalEl.addClass("finenotes-x-paper-generator-modal", "finenotes-x-dialog");
     this.titleEl.setText("Paper generator");
     this.contentEl.empty();
-    const layout = this.contentEl.createDiv({ cls: "goodobsidian-paper-generator" });
-    const previewWrap = layout.createDiv({ cls: "goodobsidian-paper-generator-preview" });
-    const previewTools = previewWrap.createDiv({ cls: "goodobsidian-paper-generator-preview-tools" });
+    const layout = this.contentEl.createDiv({ cls: "finenotes-x-paper-generator" });
+    const previewWrap = layout.createDiv({ cls: "finenotes-x-paper-generator-preview" });
+    const previewTools = previewWrap.createDiv({
+      cls: "finenotes-x-paper-generator-preview-tools",
+    });
     this.previewButton(previewTools, "minus", "Zoom out", () => this.zoomBy(-0.25));
-    this.zoomLabel = previewTools.createSpan({ cls: "goodobsidian-paper-generator-zoom" });
+    this.zoomLabel = previewTools.createSpan({ cls: "finenotes-x-paper-generator-zoom" });
     this.previewButton(previewTools, "plus", "Zoom in", () => this.zoomBy(0.25));
     this.previewButton(previewTools, "maximize-2", "Reset preview", () => this.resetPreview());
-    const previewStage = previewWrap.createDiv({ cls: "goodobsidian-paper-generator-preview-stage" });
+    const previewStage = previewWrap.createDiv({
+      cls: "finenotes-x-paper-generator-preview-stage",
+    });
     this.preview = previewStage.createEl("canvas");
     this.bindPreview(previewStage);
-    const controls = layout.createDiv({ cls: "goodobsidian-paper-generator-controls" });
+    const controls = layout.createDiv({ cls: "finenotes-x-paper-generator-controls" });
 
     this.text(controls, "Name", this.state.name, (value) => (this.state.name = value));
     const page = this.group(controls, "Page");
@@ -116,9 +120,17 @@ export class PaperGeneratorModal extends Modal {
 
     const margins = this.group(controls, "Margins (mm)");
     for (const side of ["top", "right", "bottom", "left"] as const) {
-      this.number(margins, side[0].toUpperCase() + side.slice(1), this.state.margins[side], 0, 100, 1, (value) => {
-        this.state.margins[side] = value;
-      });
+      this.number(
+        margins,
+        side[0].toUpperCase() + side.slice(1),
+        this.state.margins[side],
+        0,
+        100,
+        1,
+        (value) => {
+          this.state.margins[side] = value;
+        },
+      );
     }
 
     const sections = this.group(controls, "Comment section");
@@ -165,7 +177,7 @@ export class PaperGeneratorModal extends Modal {
     });
 
     const footer = controls.createDiv({
-      cls: "goodobsidian-templates-footer goodobsidian-paper-generator-footer",
+      cls: "finenotes-x-templates-footer finenotes-x-paper-generator-footer",
     });
     footer.createEl("button", { text: "Cancel" }).addEventListener("click", () => this.close());
     const save = footer.createEl("button", { cls: "mod-cta", text: "Save paper" });
@@ -235,16 +247,17 @@ export class PaperGeneratorModal extends Modal {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(k, 0, 0, k, 0, 0);
-    drawSynthetic(ctx, paper.backdrop, paper.geometry, LIGHT_PAPER, Math.max(1, 0.5 / (cssWidth / paper.geometry.width)));
+    drawSynthetic(
+      ctx,
+      paper.backdrop,
+      paper.geometry,
+      LIGHT_PAPER,
+      Math.max(1, 0.5 / (cssWidth / paper.geometry.width)),
+    );
     this.placePreview();
   }
 
-  private previewButton(
-    parent: HTMLElement,
-    icon: string,
-    label: string,
-    run: () => void,
-  ): void {
+  private previewButton(parent: HTMLElement, icon: string, label: string, run: () => void): void {
     const button = parent.createEl("button", {
       cls: "clickable-icon",
       attr: { "aria-label": label, title: label },
@@ -308,24 +321,34 @@ export class PaperGeneratorModal extends Modal {
   }
 
   private group(parent: HTMLElement, title: string): HTMLElement {
-    const details = parent.createEl("details", { cls: "goodobsidian-paper-generator-group" });
+    const details = parent.createEl("details", { cls: "finenotes-x-paper-generator-group" });
     details.open = true;
     details.createEl("summary", { text: title });
     return details.createDiv();
   }
 
   private row(parent: HTMLElement, label: string): HTMLElement {
-    const row = parent.createDiv({ cls: "goodobsidian-paper-generator-row" });
+    const row = parent.createDiv({ cls: "finenotes-x-paper-generator-row" });
     row.createSpan({ text: label });
     return row;
   }
 
-  private text(parent: HTMLElement, label: string, value: string, change: (value: string) => void): void {
+  private text(
+    parent: HTMLElement,
+    label: string,
+    value: string,
+    change: (value: string) => void,
+  ): void {
     const input = this.row(parent, label).createEl("input", { type: "text", value });
     input.addEventListener("input", () => change(input.value));
   }
 
-  private color(parent: HTMLElement, label: string, value: string, change: (value: string) => void): void {
+  private color(
+    parent: HTMLElement,
+    label: string,
+    value: string,
+    change: (value: string) => void,
+  ): void {
     const input = this.row(parent, label).createEl("input", { type: "color", value });
     input.addEventListener("input", () => {
       change(input.value);
@@ -333,7 +356,15 @@ export class PaperGeneratorModal extends Modal {
     });
   }
 
-  private number(parent: HTMLElement, label: string, value: number, min: number, max: number, step: number, change: (value: number) => void): void {
+  private number(
+    parent: HTMLElement,
+    label: string,
+    value: number,
+    min: number,
+    max: number,
+    step: number,
+    change: (value: number) => void,
+  ): void {
     const input = this.row(parent, label).createEl("input", {
       type: "number",
       attr: { value: String(value), min: String(min), max: String(max), step: String(step) },
@@ -352,7 +383,7 @@ export class PaperGeneratorModal extends Modal {
     right: readonly [string, number],
     change: (left: number, right: number) => void,
   ): void {
-    const pair = this.row(parent, label).createDiv({ cls: "goodobsidian-paper-generator-pair" });
+    const pair = this.row(parent, label).createDiv({ cls: "finenotes-x-paper-generator-pair" });
     const input = ([name, value]: readonly [string, number]): HTMLInputElement =>
       pair.createEl("input", {
         type: "number",
@@ -378,7 +409,13 @@ export class PaperGeneratorModal extends Modal {
     rightInput.addEventListener("input", update);
   }
 
-  private select(parent: HTMLElement, label: string, options: string[][], value: string, change: (value: string) => void): void {
+  private select(
+    parent: HTMLElement,
+    label: string,
+    options: string[][],
+    value: string,
+    change: (value: string) => void,
+  ): void {
     const select = this.row(parent, label).createEl("select");
     for (const [id, name] of options) {
       const option = select.createEl("option", { value: id, text: name });
@@ -398,7 +435,14 @@ function stateOf(initial: { name: string; paper: GeneratedPaperFile } | null): G
   const margins = insetsInMm(backdrop?.margins);
   const zone = backdrop?.blankZones?.[0];
   const sides = new Set(backdrop?.dividers?.map((divider) => divider.side));
-  const dividerSide = sides.has("left") && sides.has("right") ? "both" : sides.has("left") ? "left" : sides.has("right") ? "right" : "none";
+  const dividerSide =
+    sides.has("left") && sides.has("right")
+      ? "both"
+      : sides.has("left")
+        ? "left"
+        : sides.has("right")
+          ? "right"
+          : "none";
   const leftDivider = backdrop?.dividers?.find((divider) => divider.side === "left");
   const rightDivider = backdrop?.dividers?.find((divider) => divider.side === "right");
   return {
@@ -407,7 +451,10 @@ function stateOf(initial: { name: string; paper: GeneratedPaperFile } | null): G
     landscape: size?.landscape ?? false,
     paper: backdrop?.paperColor ?? "#ffffff",
     texture: backdrop?.texture ?? "plain",
-    ruling: backdrop?.kind === "squared" || backdrop?.kind === "dotted" || backdrop?.kind === "blank" ? backdrop.kind : "ruled-wide",
+    ruling:
+      backdrop?.kind === "squared" || backdrop?.kind === "dotted" || backdrop?.kind === "blank"
+        ? backdrop.kind
+        : "ruled-wide",
     spacingMm: pageToMm(backdrop?.spacing ?? mmToPage(8)),
     rule: backdrop?.color ?? "#b8cde8",
     margins,

@@ -15,7 +15,7 @@ if (!dir) {
   console.error(
     "No deploy target set.\n" +
       "Create a `.deploy-target` file containing the plugin folder path, e.g.\n" +
-      "  <vault>/.obsidian/plugins/finenotes\n" +
+      "  <vault>/.obsidian/plugins/finenotes-x\n" +
       "or set OBSIDIAN_PLUGIN_DIR in the environment.",
   );
   process.exit(1);

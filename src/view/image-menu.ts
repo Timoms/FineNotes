@@ -180,10 +180,10 @@ export class ImageMenuPopover {
     private readonly context: ImageMenuContext,
     title = "Insert image",
   ) {
-    this.el = document.body.createDiv({ cls: "goodobsidian-addpage goodobsidian-imagemenu" });
+    this.el = document.body.createDiv({ cls: "finenotes-x-addpage finenotes-x-imagemenu" });
     this.el.setAttribute("role", "menu");
     this.el.setAttribute("aria-label", title);
-    this.el.createDiv({ cls: "goodobsidian-addpage-title", text: title });
+    this.el.createDiv({ cls: "finenotes-x-addpage-title", text: title });
     for (const entry of entries) this.addRow(entry);
     this.place();
     this.installDismiss();
@@ -203,10 +203,10 @@ export class ImageMenuPopover {
   private addRow(entry: ImageMenuEntry): void {
     // `clickable-icon`: Obsidian pads every other button 20 px on an iPad.
     const row = this.el.createEl("button", {
-      cls: "goodobsidian-addpage-row goodobsidian-imagemenu-row clickable-icon",
+      cls: "finenotes-x-addpage-row finenotes-x-imagemenu-row clickable-icon",
     });
     row.setAttribute("role", "menuitem");
-    setIcon(row.createSpan({ cls: "goodobsidian-addpage-row-icon" }), entry.icon);
+    setIcon(row.createSpan({ cls: "finenotes-x-addpage-row-icon" }), entry.icon);
     row.createSpan({ text: entry.label });
     row.addEventListener("click", () => {
       this.close();

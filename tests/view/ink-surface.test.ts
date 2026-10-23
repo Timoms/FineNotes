@@ -1809,8 +1809,8 @@ describe("pens and shortcuts (FineNotes#25)", () => {
       expect(classes.get("is-ink-cursor")).toBe(true);
       expect(classes.get("is-pen-cursor")).toBe(false);
       expect(props).toHaveLength(1);
-      const hover = props[0]["--goodobsidian-pen-cursor"];
-      const down = props[0]["--goodobsidian-pen-cursor-drawing"];
+      const hover = props[0]["--finenotes-x-pen-cursor"];
+      const down = props[0]["--finenotes-x-pen-cursor-drawing"];
       expect(hover).toMatch(/^url\("data:image\/svg\+xml,.*"\) \d+ \d+, crosshair$/);
       expect(decodeURIComponent(hover)).toContain("fill='#2563eb'");
       expect(decodeURIComponent(down)).toContain("r='1'");
@@ -1839,7 +1839,7 @@ describe("pens and shortcuts (FineNotes#25)", () => {
       (surface.toolState as { tool: string }).tool = "laser";
       run(surface, "syncPenCursor");
       expect(props).toHaveLength(5);
-      expect(decodeURIComponent(props[4]["--goodobsidian-pen-cursor"])).toContain("#ff3b30");
+      expect(decodeURIComponent(props[4]["--finenotes-x-pen-cursor"])).toContain("#ff3b30");
     });
 
     it("shows the ink as a dark page shows it", () => {
@@ -1848,7 +1848,7 @@ describe("pens and shortcuts (FineNotes#25)", () => {
         paper: { night: true, paper: "#383838", keepPdf: false },
       });
       run(surface, "setPenCursor", "ink");
-      const svg = decodeURIComponent(props[0]["--goodobsidian-pen-cursor"]);
+      const svg = decodeURIComponent(props[0]["--finenotes-x-pen-cursor"]);
       expect(svg).not.toContain("fill='#1a1a1a'");
     });
 

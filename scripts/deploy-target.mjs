@@ -6,7 +6,7 @@
  *   2. the trimmed contents of a gitignored `.deploy-target` file at repo root
  *
  * The target is the plugin folder itself, e.g.
- *   <vault>/.obsidian/plugins/finenotes
+ *   <vault>/.obsidian/plugins/finenotes-x
  *
  * For iCloud-stored vaults this path lives under
  *   ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/<Vault>/...

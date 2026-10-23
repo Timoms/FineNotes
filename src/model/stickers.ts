@@ -434,7 +434,7 @@ export function stickerFileName(sticker: Sticker, color: string): string {
 }
 
 /** Where the user's sticker collections live until they choose another folder. */
-export const DEFAULT_STICKER_FOLDER = "FineNotes stickers";
+export const DEFAULT_STICKER_FOLDER = "FineNotesX stickers";
 
 /** The stickers folder as set, or the default for a blank or unreadable one; no slashes at the ends. */
 export function stickerFolderOf(value: unknown): string {

@@ -40,7 +40,7 @@ export class PdfImportModal extends Modal {
 
   override onOpen(): void {
     this.titleEl.setText("Import PDF");
-    this.modalEl.addClass("goodobsidian-dialog");
+    this.modalEl.addClass("finenotes-x-dialog");
     this.contentEl.createEl("p", {
       text: `${this.name} · ${this.total} pages. Added after the current page; the original PDF is preserved.`,
     });

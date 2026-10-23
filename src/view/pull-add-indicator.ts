@@ -30,21 +30,21 @@ export class PullAddIndicator {
   private visible = false;
 
   constructor(host: HTMLElement) {
-    this.ghostEl = host.createDiv({ cls: "goodobsidian-pull-add-ghost is-hidden" });
+    this.ghostEl = host.createDiv({ cls: "finenotes-x-pull-add-ghost is-hidden" });
     this.ghostEl.setAttribute("aria-hidden", "true");
-    this.el = host.createDiv({ cls: "goodobsidian-pull-add is-hidden" });
+    this.el = host.createDiv({ cls: "finenotes-x-pull-add is-hidden" });
     this.el.setAttribute("aria-hidden", "true");
-    const ring = this.el.createDiv({ cls: "goodobsidian-pull-add-ring" });
+    const ring = this.el.createDiv({ cls: "finenotes-x-pull-add-ring" });
     const svg = ring.createSvg("svg", {
       attr: { width: RING, height: RING, viewBox: `0 0 ${RING} ${RING}` },
     });
     const c = RING / 2;
     svg.createSvg("circle", {
-      cls: "goodobsidian-pull-add-track",
+      cls: "finenotes-x-pull-add-track",
       attr: { cx: c, cy: c, r: RADIUS },
     });
     this.progressEl = svg.createSvg("circle", {
-      cls: "goodobsidian-pull-add-progress",
+      cls: "finenotes-x-pull-add-progress",
       attr: {
         cx: c,
         cy: c,
@@ -54,9 +54,9 @@ export class PullAddIndicator {
         transform: `rotate(-90 ${c} ${c})`,
       },
     });
-    setIcon(ring.createDiv({ cls: "goodobsidian-pull-add-icon" }), "file-plus");
-    this.arrowEl = this.el.createDiv({ cls: "goodobsidian-pull-add-arrow" });
-    this.labelEl = this.el.createDiv({ cls: "goodobsidian-pull-add-label" });
+    setIcon(ring.createDiv({ cls: "finenotes-x-pull-add-icon" }), "file-plus");
+    this.arrowEl = this.el.createDiv({ cls: "finenotes-x-pull-add-arrow" });
+    this.labelEl = this.el.createDiv({ cls: "finenotes-x-pull-add-label" });
   }
 
   /**

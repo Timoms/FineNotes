@@ -82,8 +82,8 @@ interface Drag {
 }
 
 /** A thumbnail's page frame (the button), and the thumbnail it belongs to. */
-const FRAME = ".goodobsidian-thumb-frame";
-const THUMB = ".goodobsidian-thumb";
+const FRAME = ".finenotes-x-thumb-frame";
+const THUMB = ".finenotes-x-thumb";
 
 export class PageDrag {
   private press: Press | null = null;
@@ -310,7 +310,7 @@ export class PageDrag {
     const ghost = liftedCopy(frame, rect, indexes.length, others);
     const body = press.root.doc.body;
     body.appendChild(ghost);
-    const bar = body.createDiv({ cls: "goodobsidian-thumb-drop is-hidden" });
+    const bar = body.createDiv({ cls: "finenotes-x-thumb-drop is-hidden" });
     for (const root of sources) root.addClass("is-drag-source");
     this.scroller.addClass("is-dragging-page");
     this.drag = {
@@ -430,7 +430,7 @@ function liftedCopy(
   /** The frames of the other pages moving too: the first few show as sheets underneath. */
   others: readonly HTMLElement[] = [],
 ): HTMLElement {
-  const ghost = createDiv({ cls: "goodobsidian-thumb-ghost" });
+  const ghost = createDiv({ cls: "finenotes-x-thumb-ghost" });
   ghost.setCssStyles({
     width: `${rect.width}px`,
     height: `${rect.height}px`,
@@ -441,18 +441,18 @@ function liftedCopy(
   const under = others.slice(0, MAX_SHEETS);
   under.forEach((other, i) => {
     const depth = under.length - i;
-    const sheet = copyCanvas(ghost, other, "goodobsidian-thumb-ghost-sheet");
+    const sheet = copyCanvas(ghost, other, "finenotes-x-thumb-ghost-sheet");
     sheet.setCssStyles({
       transform: `translate(${depth * 7}px, ${depth * 6}px) rotate(${depth % 2 === 0 ? -1 : 1}deg)`,
     });
   });
   if (count > 1 && under.length === 0) {
-    copyCanvas(ghost, frame, "goodobsidian-thumb-ghost-sheet").setCssStyles({
+    copyCanvas(ghost, frame, "finenotes-x-thumb-ghost-sheet").setCssStyles({
       transform: "translate(7px, 7px) rotate(4deg)",
     });
   }
-  copyCanvas(ghost, frame, "goodobsidian-thumb-ghost-canvas");
-  if (count > 1) ghost.createSpan({ cls: "goodobsidian-thumb-ghost-count", text: String(count) });
+  copyCanvas(ghost, frame, "finenotes-x-thumb-ghost-canvas");
+  if (count > 1) ghost.createSpan({ cls: "finenotes-x-thumb-ghost-count", text: String(count) });
   return ghost;
 }
 

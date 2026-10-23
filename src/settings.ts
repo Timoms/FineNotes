@@ -314,10 +314,9 @@ const DESC = {
     "On a computer, the pointer over the page while a pen, the highlighter or the laser is " +
     "in hand: a dot in the ink colour as wide as the pen writes, a small crosshair, or the arrow.",
   checkForUpdates:
-    "Once a day, FineNotes reads the number of its newest release from GitHub " +
-    "(github.com/Joost-8/FineNotes) and puts a dot on the toolbar's gear when it is newer. " +
-    "Nothing about you or your notes is sent. Updating is still Obsidian's: its Update " +
-    "button, under Community plugins.",
+    "Once a day, FineNotesX reads the number of its newest fork release from GitHub " +
+    "(github.com/Timoms/FineNotes) and puts a dot on the toolbar's gear when it is newer. " +
+    "Nothing about you or your notes is sent. The Update button opens the fork's latest release.",
   debugHud:
     "Print the raw pen and touch events over the page: their order, coalesced samples, gaps " +
     "in time and stroke counts. Turn it on when reporting strokes that go missing or break.",
@@ -340,7 +339,7 @@ const IMAGE_VENDOR_LABELS: Record<ImageVendorChoice, string> = {
   openrouter: "OpenRouter",
 };
 
-const REPO_URL = "https://github.com/Joost-8/FineNotes";
+const REPO_URL = "https://github.com/Timoms/FineNotes";
 
 /** Where FineNotes' people are: the repository's Discussions and issues, and its accounts. */
 export const COMMUNITY_LINKS = {
@@ -430,8 +429,8 @@ function stateTone(state: AssetState): ModelTone {
 function modelStatus(setting: Setting, status: string, tone: ModelTone): void {
   const desc = setting.descEl;
   desc.empty();
-  const line = desc.createDiv({ cls: `goodobsidian-model-status is-${tone}` });
-  line.createSpan({ cls: "goodobsidian-model-dot" });
+  const line = desc.createDiv({ cls: `finenotes-x-model-status is-${tone}` });
+  line.createSpan({ cls: "finenotes-x-model-dot" });
   line.createSpan({ text: status });
 }
 
@@ -459,10 +458,10 @@ interface MenuEntry {
 }
 
 /** The class every folding section carries; `is-folded` beside it hides its rows. */
-const SECTION_CLS = "goodobsidian-section";
+const SECTION_CLS = "finenotes-x-section";
 
 /** A row that has its ⓘ already. */
-const INFO_CLS = "goodobsidian-has-info";
+const INFO_CLS = "finenotes-x-has-info";
 
 /**
  * A saved pen row's strip of paper, px (styles.css sizes it the same): tall
@@ -475,13 +474,13 @@ const PEN_SAMPLE = { width: 112, height: 28 } as const;
  * place, and closes it again. A tap on it is not a tap on its row.
  */
 function infoToggle(buttonParent: HTMLElement, textParent: HTMLElement, text: string): void {
-  const button = buttonParent.createSpan({ cls: "goodobsidian-info clickable-icon" });
+  const button = buttonParent.createSpan({ cls: "finenotes-x-info clickable-icon" });
   setIcon(button, "info");
   button.setAttribute("role", "button");
   button.setAttribute("tabindex", "0");
   button.setAttribute("aria-label", "More about this");
   button.setAttribute("aria-expanded", "false");
-  const more = textParent.createDiv({ cls: "goodobsidian-info-text is-hidden", text });
+  const more = textParent.createDiv({ cls: "finenotes-x-info-text is-hidden", text });
   const flip = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
@@ -519,7 +518,7 @@ function block(draw: (el: HTMLElement) => void, visible: Visible = true): Settin
     visible,
     render: (setting) => {
       setting.settingEl.empty();
-      setting.settingEl.addClass("goodobsidian-plain-row");
+      setting.settingEl.addClass("finenotes-x-plain-row");
       draw(setting.settingEl);
     },
   };
@@ -539,8 +538,8 @@ function removeOwn(parent: HTMLElement, cls: string): void {
 /** A note that shows only while it is true: one line, the rest behind its ⓘ. */
 function callout({ title, detail }: Callout, visible: Visible): SettingDefinition {
   return block((el) => {
-    const box = el.createDiv({ cls: "goodobsidian-callout" });
-    const line = box.createDiv({ cls: "goodobsidian-callout-title", text: title });
+    const box = el.createDiv({ cls: "finenotes-x-callout" });
+    const line = box.createDiv({ cls: "finenotes-x-callout-title", text: title });
     if (detail) infoToggle(line, box, detail);
   }, visible);
 }
@@ -694,28 +693,28 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
     const group = chevron.closest<HTMLElement>(".setting-group");
     if (!header || !group) return;
     button.setIcon("chevron-right");
-    chevron.addClass("goodobsidian-fold-chevron");
-    header.addClass("goodobsidian-fold-header");
+    chevron.addClass("finenotes-x-fold-chevron");
+    header.addClass("finenotes-x-fold-header");
     const nameEl = header.querySelector<HTMLElement>(".setting-item-name");
-    if (nameEl && !nameEl.querySelector(".goodobsidian-section-icon")) {
-      const iconEl = nameEl.createSpan({ cls: "goodobsidian-section-icon" });
+    if (nameEl && !nameEl.querySelector(".finenotes-x-section-icon")) {
+      const iconEl = nameEl.createSpan({ cls: "finenotes-x-section-icon" });
       setIcon(iconEl, icon);
       nameEl.prepend(iconEl);
     }
     const control = chevron.parentElement;
     if (control) {
-      removeOwn(control, "goodobsidian-section-status");
-      const statusEl = control.createSpan({ cls: "goodobsidian-section-status" });
+      removeOwn(control, "finenotes-x-section-status");
+      const statusEl = control.createSpan({ cls: "finenotes-x-section-status" });
       control.prepend(statusEl);
       const show = (): void => {
         statusEl.empty();
         for (const part of status()) {
           const el = statusEl.createSpan({
-            cls: `goodobsidian-status-part${part.tone ? ` is-${part.tone}` : ""}`,
+            cls: `finenotes-x-status-part${part.tone ? ` is-${part.tone}` : ""}`,
           });
-          if (part.tone) el.createSpan({ cls: "goodobsidian-model-dot" });
+          if (part.tone) el.createSpan({ cls: "finenotes-x-model-dot" });
           if (part.color) {
-            el.createSpan({ cls: "goodobsidian-status-swatch" }).setCssStyles({
+            el.createSpan({ cls: "finenotes-x-status-swatch" }).setCssStyles({
               backgroundColor: part.color,
             });
           }
@@ -905,11 +904,11 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
   private topRows(): SettingDefinition[] {
     const update = this.plugin.updates.available;
     const updateRow = block((el) => {
-      const box = el.createDiv({ cls: "goodobsidian-callout goodobsidian-update-callout" });
-      const line = box.createDiv({ cls: "goodobsidian-callout-title" });
-      line.createSpan({ text: `FineNotes ${update ?? ""} is out` });
+      const box = el.createDiv({ cls: "finenotes-x-callout finenotes-x-update-callout" });
+      const line = box.createDiv({ cls: "finenotes-x-callout-title" });
+      line.createSpan({ text: `FineNotesX ${update ?? ""} is out` });
       const open = line.createEl("button", { cls: "mod-cta", text: "Update" });
-      open.setAttribute("aria-label", "Open FineNotes in Community plugins to update it");
+      open.setAttribute("aria-label", "Open the latest FineNotesX release");
       open.addEventListener("click", () => window.open(PLUGIN_PAGE_URL));
     });
     const shown = (): boolean =>
@@ -919,10 +918,10 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
       // Only while one is out: the tab is rebuilt when checking is switched.
       ...(update !== null ? [updateRow] : []),
       block((el) => {
-        const box = el.createDiv({ cls: "goodobsidian-callout" });
-        const line = box.createDiv({ cls: "goodobsidian-callout-title", text: title });
+        const box = el.createDiv({ cls: "finenotes-x-callout" });
+        const line = box.createDiv({ cls: "finenotes-x-callout-title", text: title });
         infoToggle(line, box, detail);
-        const close = line.createSpan({ cls: "goodobsidian-callout-close clickable-icon" });
+        const close = line.createSpan({ cls: "finenotes-x-callout-close clickable-icon" });
         setIcon(close, "x");
         close.setAttribute("role", "button");
         close.setAttribute("aria-label", "Dismiss");
@@ -1172,17 +1171,17 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
    * puts the row's name back, so the name is emptied first.
    */
   private drawSavedPen(setting: Setting, pen: SavedPen, index: number): void {
-    setting.setClass("goodobsidian-saved-pen-row");
+    setting.setClass("finenotes-x-saved-pen-row");
     const name = setting.nameEl;
     const doc = name.ownerDocument;
     name.empty();
     const label = `Pen ${index + 1}: ${savedPenLabel(pen)}`;
-    const mark = name.createEl("button", { cls: "goodobsidian-saved-pen-mark clickable-icon" });
+    const mark = name.createEl("button", { cls: "finenotes-x-saved-pen-mark clickable-icon" });
     mark.setAttribute("aria-label", label);
     mark.setAttribute("title", label);
-    mark.createSpan({ cls: "goodobsidian-saved-pen-key", text: String(index + 1) });
+    mark.createSpan({ cls: "finenotes-x-saved-pen-key", text: String(index + 1) });
     mark.append(penGlyph(pen.type, pen.color, doc));
-    const paper = mark.createSpan({ cls: "goodobsidian-size-preview goodobsidian-pen-sample" });
+    const paper = mark.createSpan({ cls: "finenotes-x-size-preview finenotes-x-pen-sample" });
     paper.toggleClass("is-highlighter", pen.type === "highlighter");
     paper.toggleClass("is-light-ink", relativeLuminance(pen.color) > 0.75);
     paper.append(
@@ -1257,10 +1256,10 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
   private drawCompanionActions(setting: Setting): void {
     const current = companionActionsOf(this.plugin.settings.companionActions);
     const selected = new Set<CompanionAction>(current);
-    const wrap = setting.controlEl.createDiv({ cls: "goodobsidian-companion-settings" });
+    const wrap = setting.controlEl.createDiv({ cls: "finenotes-x-companion-settings" });
     for (const action of COMPANION_ACTIONS) {
       const button = wrap.createEl("button", {
-        cls: "goodobsidian-companion-setting clickable-icon",
+        cls: "finenotes-x-companion-setting clickable-icon",
         text: action.label,
         attr: { "aria-pressed": String(selected.has(action.id)) },
       });
@@ -1337,7 +1336,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
           controlRow(
             "Templates folder",
             "",
-            { type: "text", key: "templateFolder", placeholder: "FineNotes templates" },
+            { type: "text", key: "templateFolder", placeholder: "FineNotesX templates" },
             ["template", "folder", "share"],
           ),
           "Where notebook templates live. Generated papers and imported paper templates are kept in its Papers subfolder.",
@@ -1639,15 +1638,15 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
       render: (setting) => {
         const row = setting.settingEl;
         row.empty();
-        row.addClass("goodobsidian-plain-row", "goodobsidian-settings-footer");
+        row.addClass("finenotes-x-plain-row", "finenotes-x-settings-footer");
         // Each link in its own colour: FineNotes' two with an icon, the
         // accounts in their brands' colours.
         const link = (label: string, url: string, icon?: string): void => {
           const key = label.toLowerCase().split(" ")[0];
           const button = row.createEl("button", {
-            cls: `goodobsidian-footer-link clickable-icon is-${key}`,
+            cls: `finenotes-x-footer-link clickable-icon is-${key}`,
           });
-          if (icon) setIcon(button.createSpan({ cls: "goodobsidian-footer-icon" }), icon);
+          if (icon) setIcon(button.createSpan({ cls: "finenotes-x-footer-icon" }), icon);
           button.createSpan({ text: label });
           button.addEventListener("click", () => window.open(url));
         };
@@ -1688,7 +1687,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
       [
         block((el) =>
           el.createDiv({
-            cls: "goodobsidian-models-intro",
+            cls: "finenotes-x-models-intro",
             text: "They run here: nothing they read or hear leaves this device.",
           }),
         ),
@@ -1911,7 +1910,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
    * Re-download and Remove; nothing while it downloads.
    */
   private drawDownload(setting: Setting, store: AssetStore): void {
-    setting.settingEl.addClass("goodobsidian-model-head");
+    setting.settingEl.addClass("finenotes-x-model-head");
     const show = (): void => {
       const state = store.state;
       modelStatus(setting, stateText(store.asset, state), stateTone(state));
@@ -2012,7 +2011,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
    * learned yet; its ⋯ goes back to the previous model and deletes it.
    */
   private drawLearnedModel(setting: Setting): void {
-    setting.settingEl.addClass("goodobsidian-model-head");
+    setting.settingEl.addClass("finenotes-x-model-head");
     const learning = this.learningState;
     if (!learning) {
       this.loadLearning();
@@ -2052,8 +2051,8 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
    * leaves it running.
    */
   private drawLearnRow(setting: Setting): void {
-    setting.settingEl.addClass("goodobsidian-learn-step");
-    removeOwn(setting.settingEl, "goodobsidian-sheet-chips");
+    setting.settingEl.addClass("finenotes-x-learn-step");
+    removeOwn(setting.settingEl, "finenotes-x-sheet-chips");
     const learning = this.learningState;
     if (!learning) {
       this.loadLearning();
@@ -2076,12 +2075,12 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
       if (!enough) b.setCta();
     });
     setting.addButton((learn) => {
-      learn.buttonEl.addClass("goodobsidian-learn-button");
+      learn.buttonEl.addClass("finenotes-x-learn-button");
       learn.onClick(() => void learner.start());
       if (enough) learn.setCta();
       const stop = setting.controlEl.createEl("button", {
         text: "Stop",
-        cls: "goodobsidian-learn-stop",
+        cls: "finenotes-x-learn-stop",
       });
       const show = (): void => {
         const progress = learner.progress;
@@ -2122,24 +2121,24 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
       show();
     });
     if (learning.sheets.length === 0) return;
-    const list = setting.settingEl.createDiv({ cls: "goodobsidian-sheet-chips" });
+    const list = setting.settingEl.createDiv({ cls: "finenotes-x-sheet-chips" });
     for (const sheet of learning.sheets) {
       const use = sheetUse(sheet, record);
       const done = sheet.written >= sheet.prompts;
       const chip = list.createEl("button", {
-        cls: `goodobsidian-sheet-chip clickable-icon${use === "used" ? " is-used" : ""}`,
+        cls: `finenotes-x-sheet-chip clickable-icon${use === "used" ? " is-used" : ""}`,
       });
       chip.setAttribute("aria-label", `${sheet.title}: ${sheetText(sheet, use)}`);
       setIcon(
-        chip.createSpan({ cls: "goodobsidian-sheet-mark" }),
+        chip.createSpan({ cls: "finenotes-x-sheet-mark" }),
         use === "used" ? "circle-check" : done || sheet.written > 0 ? "circle-dot" : "circle",
       );
       chip.createSpan({
-        cls: "goodobsidian-sheet-title",
+        cls: "finenotes-x-sheet-title",
         text: sheet.set ? `Sheet ${sheet.set}` : sheet.title,
       });
       chip.createSpan({
-        cls: "goodobsidian-sheet-state",
+        cls: "finenotes-x-sheet-state",
         text: `${sheet.written}/${sheet.prompts}`,
       });
       chip.addEventListener("click", () => {
@@ -2191,7 +2190,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
    */
   private drawCustomColors(setting: Setting): void {
     setting.addText((text) => {
-      text.inputEl.addClass("goodobsidian-color-list");
+      text.inputEl.addClass("finenotes-x-color-list");
       text
         .setPlaceholder("#ff8800, #00ccaa")
         .setValue(shownValue(this.plugin.settings, "customColors") as string);
@@ -2216,9 +2215,9 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
    * is true; the stored width stays the last valid one.
    */
   private drawPaperWidth(setting: Setting): void {
-    removeOwn(setting.descEl, "goodobsidian-field-error");
+    removeOwn(setting.descEl, "finenotes-x-field-error");
     const error = setting.descEl.createDiv({
-      cls: "goodobsidian-field-error is-hidden",
+      cls: "finenotes-x-field-error is-hidden",
       text: PAPER_WIDTH_ERROR,
     });
     setting.addText((text) => {
@@ -2237,7 +2236,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
 
   private drawEndpointUrl(setting: Setting): void {
     // Full width, so a long URL stays readable on a phone.
-    setting.setClass("goodobsidian-wide-text");
+    setting.setClass("finenotes-x-wide-text");
     setting.addText((text) => {
       text.setPlaceholder("http://localhost:11434/v1").setValue(this.plugin.settings.llmBaseUrl);
       text.onChange(async (typed) => {
@@ -2298,7 +2297,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
     const set = this.plugin.apiKeyFor(slot) !== "";
     const optional = VENDORS[slot].userEndpoint;
     setting.controlEl.createSpan({
-      cls: `goodobsidian-key-status${set ? " is-set" : ""}`,
+      cls: `finenotes-x-key-status${set ? " is-set" : ""}`,
       text: set ? "Set" : optional ? "Not set (optional)" : "Not set",
     });
     setting.addButton((button) => {

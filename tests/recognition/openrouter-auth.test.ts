@@ -47,9 +47,9 @@ describe("the S256 code challenge", () => {
 
 describe("OpenRouter's endpoints", () => {
   it("sends the user to openrouter.ai/auth with the callback and the challenge", () => {
-    expect(OPENROUTER_CALLBACK_ACTION).toBe("goodobsidian-openrouter");
+    expect(OPENROUTER_CALLBACK_ACTION).toBe("finenotes-x-openrouter");
     expect(buildOpenRouterAuthUrl("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")).toBe(
-      "https://openrouter.ai/auth?callback_url=obsidian%3A%2F%2Fgoodobsidian-openrouter" +
+      "https://openrouter.ai/auth?callback_url=obsidian%3A%2F%2Ffinenotes-x-openrouter" +
         "&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256",
     );
   });

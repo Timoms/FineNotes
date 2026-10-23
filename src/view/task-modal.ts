@@ -36,17 +36,17 @@ export class TaskModal extends Modal {
 
   override onOpen(): void {
     const editing = this.current !== undefined;
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-contents-modal");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-contents-modal");
     this.titleEl.setText(editing ? "Edit task" : "Make a task");
     const body = this.contentEl;
-    body.addClass("goodobsidian-ask");
+    body.addClass("finenotes-x-ask");
     body.createDiv({
-      cls: "goodobsidian-ask-note",
+      cls: "finenotes-x-ask-note",
       text: "A box goes beside the ink, and the task is listed in the note, where the Tasks plugin finds it.",
     });
-    const row = body.createDiv({ cls: "goodobsidian-contents-field-row" });
+    const row = body.createDiv({ cls: "finenotes-x-contents-field-row" });
     const field = row.createEl("input", {
-      cls: "goodobsidian-contents-field",
+      cls: "finenotes-x-contents-field",
       type: "text",
       attr: {
         placeholder: "What to do",
@@ -64,7 +64,7 @@ export class TaskModal extends Modal {
     });
     this.keyboard.watch(field, row);
 
-    const actions = body.createDiv({ cls: "goodobsidian-ask-actions" });
+    const actions = body.createDiv({ cls: "finenotes-x-ask-actions" });
     const cancel = actions.createEl("button", { text: "Cancel" });
     cancel.addEventListener("click", () => this.close());
     const done = actions.createEl("button", { cls: "mod-cta", text: editing ? "Save" : "Add" });

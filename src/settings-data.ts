@@ -338,7 +338,7 @@ export const DEFAULT_SETTINGS: GoodObsidianSettings = {
   transcriptsFolder: "",
   chatsFolder: "",
   exportsFolder: "",
-  templateFolder: "FineNotes templates",
+  templateFolder: "FineNotesX templates",
   templateGalleryUrl: "",
   recentColors: [],
   pressureWidth: false,

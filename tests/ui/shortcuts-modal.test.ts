@@ -35,18 +35,18 @@ describe("the shortcuts pop-up", () => {
     const modal = open(false);
     expect(modal.shown).toBe(true);
     expect(modal.titleEl.text).toBe("Keyboard and stylus shortcuts");
-    expect(modal.modalEl.hasClass("goodobsidian-shortcuts-modal")).toBe(true);
+    expect(modal.modalEl.hasClass("finenotes-x-shortcuts-modal")).toBe(true);
     expect(
-      modal.contentEl.findAll("goodobsidian-shortcut-group-title").map((el) => el.text),
+      modal.contentEl.findAll("finenotes-x-shortcut-group-title").map((el) => el.text),
     ).toEqual(SHORTCUT_GROUPS.map((group) => group.title));
-    expect(modal.contentEl.findAll("goodobsidian-shortcut")).toHaveLength(
+    expect(modal.contentEl.findAll("finenotes-x-shortcut")).toHaveLength(
       SHORTCUT_GROUPS.reduce((n, group) => n + group.shortcuts.length, 0),
     );
   });
 
   it("names Ctrl, or ⌘ on a Mac or an iPad", () => {
     const keysOf = (modal: Modal) =>
-      modal.contentEl.findAll("goodobsidian-key").map((el) => el.text);
+      modal.contentEl.findAll("finenotes-x-key").map((el) => el.text);
     expect(keysOf(open(false))).toContain("Ctrl");
     expect(keysOf(open(false))).not.toContain("⌘");
     expect(keysOf(open(true))).toContain("⌘");

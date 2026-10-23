@@ -12,19 +12,19 @@ import type { PdfRenderArea } from "../canvas/pdf-raster";
  *
  * What it puts inside the host element:
  *
- *   .goodobsidian-surface          position:relative, clips
+ *   .finenotes-x-surface          position:relative, clips
  *     canvas.backdrop           paper, rules/grid, PDF rasters, page edges
  *     canvas.dry                committed ink, clipped per page
  *     canvas.wet                the in-progress stroke
- *     .goodobsidian-scroll         transparent overlay; owns scrolling + input
- *       .goodobsidian-paper        spacer that defines the scroll range
- *         .goodobsidian-textboxes  page text boxes (DOM)
- *         .goodobsidian-lock-badges  a lock on each locked picture (lasso only)
- *         .goodobsidian-image-ui   the selected image's frame, handles and rotate knob
- *         .goodobsidian-crop-ui    crop mode: the whole picture's box and the crop frame
- *         .goodobsidian-selection-ui  the lasso selection's frame, the action bar, its menu
- *     .goodobsidian-pageindicator  "3 of 18"
- *     .goodobsidian-hud            pointer diagnostics (debug only)
+ *     .finenotes-x-scroll         transparent overlay; owns scrolling + input
+ *       .finenotes-x-paper        spacer that defines the scroll range
+ *         .finenotes-x-textboxes  page text boxes (DOM)
+ *         .finenotes-x-lock-badges  a lock on each locked picture (lasso only)
+ *         .finenotes-x-image-ui   the selected image's frame, handles and rotate knob
+ *         .finenotes-x-crop-ui    crop mode: the whole picture's box and the crop frame
+ *         .finenotes-x-selection-ui  the lasso selection's frame, the action bar, its menu
+ *     .finenotes-x-pageindicator  "3 of 18"
+ *     .finenotes-x-hud            pointer diagnostics (debug only)
  *
  * ## Coordinates — read this before changing anything here
  *
@@ -847,7 +847,7 @@ const TYPING_KEYBOARD_WATCH_MS = 250;
  * collapsed the page to zero height on iPad (the keyboard covers the lower
  * part of the page instead, as in GoodNotes).
  */
-const TEXT_EDITING_BODY_CLASS = "goodobsidian-text-editing";
+const TEXT_EDITING_BODY_CLASS = "finenotes-x-text-editing";
 /** How often a pending release of the editing class checks the keyboard again. */
 const TEXT_CLASS_POLL_MS = 50;
 /**
@@ -1697,19 +1697,19 @@ export class InkSurface {
     this.toolSeen = toolState.tool;
     this.drawingTool = drawingToolOf("pen", toolState.tool);
 
-    this.surfaceEl = host.createDiv({ cls: "goodobsidian-surface" });
+    this.surfaceEl = host.createDiv({ cls: "finenotes-x-surface" });
     this.ruler = new RulerOverlay(this.surfaceEl);
     // The three layers, bottom to top: paper, committed ink, the stroke being drawn.
     const [backdropCanvas, dryCanvas, wetCanvas] = (["backdrop", "dry", "wet"] as const).map(
       (layer) =>
         this.surfaceEl.createEl("canvas", {
-          cls: `goodobsidian-canvas goodobsidian-canvas-${layer}`,
+          cls: `finenotes-x-canvas finenotes-x-canvas-${layer}`,
         }),
     );
-    this.scrollEl = this.surfaceEl.createDiv({ cls: "goodobsidian-scroll" });
-    this.paperEl = this.scrollEl.createDiv({ cls: "goodobsidian-paper" });
-    this.textBoxesEl = this.paperEl.createDiv({ cls: "goodobsidian-textboxes" });
-    this.textDraftEl = this.textBoxesEl.createDiv({ cls: "goodobsidian-textbox-draft is-hidden" });
+    this.scrollEl = this.surfaceEl.createDiv({ cls: "finenotes-x-scroll" });
+    this.paperEl = this.scrollEl.createDiv({ cls: "finenotes-x-paper" });
+    this.textBoxesEl = this.paperEl.createDiv({ cls: "finenotes-x-textboxes" });
+    this.textDraftEl = this.textBoxesEl.createDiv({ cls: "finenotes-x-textbox-draft is-hidden" });
     // Obsidian mobile's one swipe recogniser (sidebars, File properties, the
     // pull-down action) ignores any touch inside an element carrying
     // `data-ignore-swipe` — its own graph view and sliders use it. Every
@@ -1718,19 +1718,19 @@ export class InkSurface {
     // bubbling path, so the stopPropagation below also holds, but not for a
     // touch on a text box, which that guard lets through.)
     this.surfaceEl.dataset.ignoreSwipe = "true";
-    this.indicatorEl = this.surfaceEl.createDiv({ cls: "goodobsidian-pageindicator is-idle" });
+    this.indicatorEl = this.surfaceEl.createDiv({ cls: "finenotes-x-pageindicator is-idle" });
     // Page tabs along the right edge, a binder's dividers: chrome, not ink.
-    this.tabStripEl = this.surfaceEl.createDiv({ cls: "goodobsidian-page-tabs is-hidden" });
+    this.tabStripEl = this.surfaceEl.createDiv({ cls: "finenotes-x-page-tabs is-hidden" });
     this.tabStripEl.dataset.ignoreSwipe = "true";
     // A readout, not a control: a button there would sit under a resting palm
     // the moment a two-finger zoom gives way to writing.
-    this.zoomReadoutEl = this.surfaceEl.createDiv({ cls: "goodobsidian-zoomreadout is-idle" });
+    this.zoomReadoutEl = this.surfaceEl.createDiv({ cls: "finenotes-x-zoomreadout is-idle" });
     this.zoomReadoutEl.setAttribute("aria-hidden", "true");
     this.thumbYEl = this.surfaceEl.createDiv({
-      cls: "goodobsidian-scrollthumb is-vertical is-idle",
+      cls: "finenotes-x-scrollthumb is-vertical is-idle",
     });
     this.thumbXEl = this.surfaceEl.createDiv({
-      cls: "goodobsidian-scrollthumb is-horizontal is-idle",
+      cls: "finenotes-x-scrollthumb is-horizontal is-idle",
     });
     // On a computer the thumbs can be dragged (any pointer: a mouse, a
     // graphics tablet's pen). On a tablet they stay a readout like the zoom
@@ -1781,12 +1781,12 @@ export class InkSurface {
 
     this.pullAdd = new PullAddIndicator(this.surfaceEl);
     // The Text tool's hint, a pill at the bottom of the surface as in GoodNotes.
-    this.textHintEl = this.surfaceEl.createDiv({ cls: "goodobsidian-text-hint is-hidden" });
+    this.textHintEl = this.surfaceEl.createDiv({ cls: "finenotes-x-text-hint is-hidden" });
     this.textHintEl.setAttribute("role", "status");
-    iconInto(this.textHintEl.createSpan({ cls: "goodobsidian-text-hint-icon" }), "info", "i");
-    this.textHintLabel = this.textHintEl.createSpan({ cls: "goodobsidian-text-hint-label" });
+    iconInto(this.textHintEl.createSpan({ cls: "finenotes-x-text-hint-icon" }), "info", "i");
+    this.textHintLabel = this.textHintEl.createSpan({ cls: "finenotes-x-text-hint-label" });
     const hintClose = this.textHintEl.createEl("button", {
-      cls: "goodobsidian-text-hint-close clickable-icon",
+      cls: "finenotes-x-text-hint-close clickable-icon",
       attr: { "aria-label": "Dismiss this tip" },
     });
     iconInto(hintClose, "x", "×");
@@ -1798,19 +1798,15 @@ export class InkSurface {
       dismiss?.();
     });
     // GoodNotes' "Content outside of the page" toast, bottom centre.
-    this.offPageEl = this.surfaceEl.createDiv({ cls: "goodobsidian-offpage is-hidden" });
+    this.offPageEl = this.surfaceEl.createDiv({ cls: "finenotes-x-offpage is-hidden" });
     this.offPageEl.setAttribute("role", "status");
-    iconInto(
-      this.offPageEl.createSpan({ cls: "goodobsidian-offpage-icon" }),
-      "alert-triangle",
-      "!",
-    );
+    iconInto(this.offPageEl.createSpan({ cls: "finenotes-x-offpage-icon" }), "alert-triangle", "!");
     this.offPageEl.createSpan({
-      cls: "goodobsidian-offpage-label",
+      cls: "finenotes-x-offpage-label",
       text: "Part of this stroke is outside the page",
     });
     const offPageUndo = this.offPageEl.createEl("button", {
-      cls: "goodobsidian-offpage-undo clickable-icon",
+      cls: "finenotes-x-offpage-undo clickable-icon",
       text: "Undo",
     });
     offPageUndo.addEventListener("pointerdown", (event) => event.preventDefault());
@@ -1820,12 +1816,12 @@ export class InkSurface {
       if (command && this.history.isLatest(command)) this.undo();
     });
     // The text a highlight snapped to, with Copy, where the off-page notice shows.
-    this.textCopyEl = this.surfaceEl.createDiv({ cls: "goodobsidian-text-copy is-hidden" });
+    this.textCopyEl = this.surfaceEl.createDiv({ cls: "finenotes-x-text-copy is-hidden" });
     this.textCopyEl.setAttribute("role", "status");
-    iconInto(this.textCopyEl.createSpan({ cls: "goodobsidian-text-copy-icon" }), "highlighter", "");
-    this.textCopyLabel = this.textCopyEl.createSpan({ cls: "goodobsidian-text-copy-label" });
+    iconInto(this.textCopyEl.createSpan({ cls: "finenotes-x-text-copy-icon" }), "highlighter", "");
+    this.textCopyLabel = this.textCopyEl.createSpan({ cls: "finenotes-x-text-copy-label" });
     const textCopyButton = this.textCopyEl.createEl("button", {
-      cls: "goodobsidian-text-copy-button clickable-icon",
+      cls: "finenotes-x-text-copy-button clickable-icon",
       text: "Copy",
     });
     onTap(textCopyButton, () => {
@@ -1833,30 +1829,30 @@ export class InkSurface {
       this.hideTextCopy();
       this.copyText(text);
     });
-    this.hudEl = this.surfaceEl.createDiv({ cls: "goodobsidian-hud" });
-    this.eraserCursorEl = this.paperEl.createDiv({ cls: "goodobsidian-eraser-cursor is-hidden" });
+    this.hudEl = this.surfaceEl.createDiv({ cls: "finenotes-x-hud" });
+    this.eraserCursorEl = this.paperEl.createDiv({ cls: "finenotes-x-eraser-cursor is-hidden" });
     // Over the ink and under the text boxes, in screen px: the laser's trail.
     this.laserCanvas = this.surfaceEl.createEl("canvas", {
-      cls: "goodobsidian-canvas goodobsidian-canvas-laser",
+      cls: "finenotes-x-canvas finenotes-x-canvas-laser",
     });
     this.surfaceEl.insertBefore(this.laserCanvas, this.scrollEl);
     this.setDebug(options.debug);
 
     // A lock badge on each locked picture, under the selection chrome. The
     // badges take no presses: a tap-and-hold on the picture reaches the page.
-    this.lockBadgesEl = this.paperEl.createDiv({ cls: "goodobsidian-lock-badges is-hidden" });
+    this.lockBadgesEl = this.paperEl.createDiv({ cls: "finenotes-x-lock-badges is-hidden" });
     this.commentMarkersEl = this.paperEl.createDiv({
-      cls: "goodobsidian-comment-markers is-hidden",
+      cls: "finenotes-x-comment-markers is-hidden",
     });
     // A ribbon beside each heading listed in the contents. Takes no presses either.
     this.sectionRibbonsEl = this.paperEl.createDiv({
-      cls: "goodobsidian-section-ribbons is-hidden",
+      cls: "finenotes-x-section-ribbons is-hidden",
     });
     // With the by-line lasso, a mark beside each line where a press and a
     // drag inserts space. Drawn over the ink, so writing in the margin
     // cannot hide it; it takes no presses (the margin under it does).
     this.spaceHandlesEl = this.paperEl.createDiv({
-      cls: "goodobsidian-space-handles is-hidden",
+      cls: "finenotes-x-space-handles is-hidden",
     });
 
     // The selected image's chrome, above the text boxes, after GoodNotes:
@@ -1870,42 +1866,42 @@ export class InkSurface {
       "--gob-image-rotate-offset": `${ROTATE_HANDLE_OFFSET_PX}px`,
       "--gob-image-knob": `${ROTATE_KNOB_RADIUS_PX * 2}px`,
     };
-    this.imageUiEl = this.paperEl.createDiv({ cls: "goodobsidian-image-ui is-hidden" });
+    this.imageUiEl = this.paperEl.createDiv({ cls: "finenotes-x-image-ui is-hidden" });
     this.imageUiEl.setCssProps(chromeSizes);
-    this.imageFrameEl = this.imageUiEl.createDiv({ cls: "goodobsidian-image-frame" });
+    this.imageFrameEl = this.imageUiEl.createDiv({ cls: "finenotes-x-image-frame" });
     for (const corner of IMAGE_CORNERS) {
-      this.imageFrameEl.createDiv({ cls: `goodobsidian-image-handle is-corner is-${corner}` });
+      this.imageFrameEl.createDiv({ cls: `finenotes-x-image-handle is-corner is-${corner}` });
     }
     for (const edge of IMAGE_EDGES) {
-      this.imageFrameEl.createDiv({ cls: `goodobsidian-image-handle is-edge is-${edge}` });
+      this.imageFrameEl.createDiv({ cls: `finenotes-x-image-handle is-edge is-${edge}` });
     }
-    const knob = this.imageFrameEl.createDiv({ cls: "goodobsidian-image-rotate" });
-    iconInto(knob.createDiv({ cls: "goodobsidian-image-rotate-knob" }), "refresh-cw", "↻");
+    const knob = this.imageFrameEl.createDiv({ cls: "finenotes-x-image-rotate" });
+    iconInto(knob.createDiv({ cls: "finenotes-x-image-rotate-knob" }), "refresh-cw", "↻");
     this.imageFrameEl.addEventListener("pointerdown", this.onImagePointerDown);
 
     // Crop mode: a box over the whole picture, which takes every press on
     // it, with the crop frame and its handles inside.
-    this.cropUiEl = this.paperEl.createDiv({ cls: "goodobsidian-crop-ui is-hidden" });
+    this.cropUiEl = this.paperEl.createDiv({ cls: "finenotes-x-crop-ui is-hidden" });
     this.cropUiEl.setCssProps(chromeSizes);
-    this.cropPictureEl = this.cropUiEl.createDiv({ cls: "goodobsidian-crop-picture" });
-    this.cropFrameEl = this.cropPictureEl.createDiv({ cls: "goodobsidian-crop-frame" });
+    this.cropPictureEl = this.cropUiEl.createDiv({ cls: "finenotes-x-crop-picture" });
+    this.cropFrameEl = this.cropPictureEl.createDiv({ cls: "finenotes-x-crop-frame" });
     for (const handle of [...IMAGE_CORNERS, ...IMAGE_EDGES]) {
       const kind = handle.length === 2 ? "is-corner" : "is-edge";
-      this.cropFrameEl.createDiv({ cls: `goodobsidian-crop-handle ${kind} is-${handle}` });
+      this.cropFrameEl.createDiv({ cls: `finenotes-x-crop-handle ${kind} is-${handle}` });
     }
     this.cropPictureEl.addEventListener("pointerdown", this.onCropPointerDown);
 
     // The lasso selection's frame (a press inside it drags the selection),
     // then the action bar and its menu, above everything else on the page.
     this.palette = options.palette ?? PALETTE;
-    this.selectionUiEl = this.paperEl.createDiv({ cls: "goodobsidian-selection-ui" });
+    this.selectionUiEl = this.paperEl.createDiv({ cls: "finenotes-x-selection-ui" });
     this.selectionFrameEl = this.selectionUiEl.createDiv({
-      cls: "goodobsidian-selection-frame is-hidden",
+      cls: "finenotes-x-selection-frame is-hidden",
     });
     // A freehand lasso's selection is drawn by the loop the pen drew, rounded
     // off, not by a box (see `smoothLoop`); the frame keeps taking the drags.
     const outline = activeDocument.createElementNS(SVG_NS, "svg");
-    outline.setAttribute("class", "goodobsidian-selection-outline");
+    outline.setAttribute("class", "finenotes-x-selection-outline");
     outline.setAttribute("aria-hidden", "true");
     this.selectionPathEl = activeDocument.createElementNS(SVG_NS, "path");
     outline.append(this.selectionPathEl);
@@ -1914,11 +1910,11 @@ export class InkSurface {
     // drawn as a picture's corner handles are, from the same sizes.
     this.selectionUiEl.setCssProps(chromeSizes);
     for (const corner of IMAGE_CORNERS) {
-      this.selectionFrameEl.createDiv({ cls: `goodobsidian-image-handle is-corner is-${corner}` });
+      this.selectionFrameEl.createDiv({ cls: `finenotes-x-image-handle is-corner is-${corner}` });
     }
     // And a rotate knob below it on a stem, as below a picture.
-    const groupKnob = this.selectionFrameEl.createDiv({ cls: "goodobsidian-image-rotate" });
-    iconInto(groupKnob.createDiv({ cls: "goodobsidian-image-rotate-knob" }), "refresh-cw", "↻");
+    const groupKnob = this.selectionFrameEl.createDiv({ cls: "finenotes-x-image-rotate" });
+    iconInto(groupKnob.createDiv({ cls: "finenotes-x-image-rotate-knob" }), "refresh-cw", "↻");
     this.selectionFrameEl.addEventListener("pointerdown", this.onSelectionPointerDown);
     this.actionBar = new SelectionActionBar(this.selectionUiEl, "Selection");
     // With the lasso, a text box is something to select, not to type in.
@@ -2209,11 +2205,11 @@ export class InkSurface {
     this.tabEls = [];
     for (const tab of tabs) {
       const el = this.tabStripEl.createEl("button", {
-        cls: "goodobsidian-page-tab clickable-icon",
+        cls: "finenotes-x-page-tab clickable-icon",
         attr: { "aria-label": `Open ${tab.label}`, title: tab.label },
       });
       el.setCssStyles({ backgroundColor: tab.color });
-      el.createSpan({ cls: "goodobsidian-page-tab-label", text: tab.label });
+      el.createSpan({ cls: "finenotes-x-page-tab-label", text: tab.label });
       onTap(el, () => this.goToPage(tab.index));
       this.tabEls.push({ el, index: tab.index });
     }
@@ -2869,8 +2865,8 @@ export class InkSurface {
     const hover = cursorFor(tool, shown, width, { highlighterAlpha });
     const down = cursorFor(tool, shown, width, { highlighterAlpha, drawing: true });
     this.surfaceEl.setCssProps({
-      "--goodobsidian-pen-cursor": cursorCss(hover, "crosshair"),
-      "--goodobsidian-pen-cursor-drawing": cursorCss(down, "crosshair"),
+      "--finenotes-x-pen-cursor": cursorCss(hover, "crosshair"),
+      "--finenotes-x-pen-cursor-drawing": cursorCss(down, "crosshair"),
     });
   }
 
@@ -4010,7 +4006,7 @@ export class InkSurface {
           if (box.offset < from || box.offset >= at) continue;
           view.shown.appendText(segment.text.slice(done, box.offset - from));
           const check = view.shown.createSpan({
-            cls: "goodobsidian-textbox-check",
+            cls: "finenotes-x-textbox-check",
             text: segment.text.charAt(box.offset - from),
             attr: { role: "checkbox", "aria-checked": String(box.done) },
           });
@@ -4023,7 +4019,7 @@ export class InkSurface {
       }
       links++;
       const link = view.shown.createSpan({
-        cls: "goodobsidian-textbox-link",
+        cls: "finenotes-x-textbox-link",
         text: segment.text,
         attr: { "aria-label": target },
       });
@@ -4170,22 +4166,22 @@ export class InkSurface {
 
   private createTextBoxView(pageId: string, textBox: TextBoxElement, key: string): TextBoxView {
     const root = this.textBoxesEl.createDiv({
-      cls: "goodobsidian-page-textbox",
+      cls: "finenotes-x-page-textbox",
       attr: { "data-textbox-key": key },
     });
     const input = root.createEl("textarea", {
-      cls: "goodobsidian-page-textbox-input",
+      cls: "finenotes-x-page-textbox-input",
       attr: { "aria-label": "Page text box", rows: "1" },
     });
     const moveHandle = root.createDiv({
-      cls: "goodobsidian-page-textbox-handle is-move",
+      cls: "finenotes-x-page-textbox-handle is-move",
       attr: { "aria-label": "Move text box" },
     });
     const resizeHandle = root.createDiv({
-      cls: "goodobsidian-page-textbox-handle is-resize",
+      cls: "finenotes-x-page-textbox-handle is-resize",
       attr: { "aria-label": "Resize text box" },
     });
-    const shown = root.createDiv({ cls: "goodobsidian-page-textbox-view" });
+    const shown = root.createDiv({ cls: "finenotes-x-page-textbox-view" });
     input.value = textBox.text;
     const view: TextBoxView = {
       root,
@@ -5892,7 +5888,7 @@ export class InkSurface {
     const r = (n: number): number => Math.round(n);
     const canvas = this.surfaceEl.querySelector("canvas");
     const active = document.activeElement;
-    const focus = active?.classList.contains("goodobsidian-page-textbox-input")
+    const focus = active?.classList.contains("finenotes-x-page-textbox-input")
       ? "textbox"
       : (active?.tagName.toLowerCase() ?? "-");
     return (
@@ -8747,7 +8743,7 @@ export class InkSurface {
         for (const column of spaceHandles(lines, page.geometry.width)) {
           let el = this.spaceHandleEls[used];
           if (!el) {
-            el = this.spaceHandlesEl.createDiv({ cls: "goodobsidian-space-handle" });
+            el = this.spaceHandlesEl.createDiv({ cls: "finenotes-x-space-handle" });
             this.spaceHandleEls.push(el);
           }
           el.removeClass("is-hidden");
@@ -8794,7 +8790,7 @@ export class InkSurface {
       for (const section of page?.sections ?? []) {
         let ribbon = this.sectionRibbons[used];
         if (!ribbon) {
-          ribbon = this.sectionRibbonsEl.createDiv({ cls: "goodobsidian-section-ribbon" });
+          ribbon = this.sectionRibbonsEl.createDiv({ cls: "finenotes-x-section-ribbon" });
           iconInto(ribbon, "bookmark", "▾");
           this.sectionRibbons.push(ribbon);
         }
@@ -8834,7 +8830,7 @@ export class InkSurface {
         if (!bounds) continue;
         let mark = this.linkMarks[used];
         if (!mark) {
-          mark = this.sectionRibbonsEl.createDiv({ cls: "goodobsidian-link-mark" });
+          mark = this.sectionRibbonsEl.createDiv({ cls: "finenotes-x-link-mark" });
           this.linkMarks.push(mark);
         }
         mark.removeClass("is-hidden");
@@ -8869,7 +8865,7 @@ export class InkSurface {
         let mark = this.taskMarks[used];
         if (!mark) {
           mark = this.sectionRibbonsEl.createDiv({
-            cls: "goodobsidian-task-mark",
+            cls: "finenotes-x-task-mark",
             attr: { role: "checkbox" },
           });
           this.bindTaskMark(mark);
@@ -8970,7 +8966,7 @@ export class InkSurface {
         if (!bounds) continue;
         let mark = this.searchMarks[used];
         if (!mark) {
-          mark = this.sectionRibbonsEl.createDiv({ cls: "goodobsidian-search-mark" });
+          mark = this.sectionRibbonsEl.createDiv({ cls: "finenotes-x-search-mark" });
           this.searchMarks.push(mark);
         }
         const pad = SEARCH_MARK_PAD / scale;
@@ -9057,7 +9053,7 @@ export class InkSurface {
         if (!bounds) continue;
         let mark = this.wordMarks[used];
         if (!mark) {
-          mark = this.sectionRibbonsEl.createDiv({ cls: "goodobsidian-word-flag" });
+          mark = this.sectionRibbonsEl.createDiv({ cls: "finenotes-x-word-flag" });
           this.wordMarks.push(mark);
         }
         mark.removeClass("is-hidden");
@@ -9212,7 +9208,7 @@ export class InkSurface {
         let marker = this.commentMarkers[i];
         if (!marker) {
           marker = this.commentMarkersEl.createEl("button", {
-            cls: "goodobsidian-comment-marker clickable-icon",
+            cls: "finenotes-x-comment-marker clickable-icon",
           });
           iconInto(marker, "message-square", "•");
           // The pool slot, not the comment: what it stands for is read at tap time.
@@ -9257,7 +9253,7 @@ export class InkSurface {
           });
           let badge = this.lockBadges[used];
           if (!badge) {
-            badge = this.lockBadgesEl.createDiv({ cls: "goodobsidian-lock-badge" });
+            badge = this.lockBadgesEl.createDiv({ cls: "finenotes-x-lock-badge" });
             iconInto(badge, "lock", "•");
             this.lockBadges.push(badge);
           }
@@ -11443,7 +11439,7 @@ function now(): number {
 
 /** Whether an event's target is a page text box, or inside one. */
 function onTextBox(target: EventTarget | null): boolean {
-  return (target as Element | null)?.closest(".goodobsidian-page-textbox") != null;
+  return (target as Element | null)?.closest(".finenotes-x-page-textbox") != null;
 }
 
 /** Everything on a page the lasso could pick up: a locked picture stays put. */
@@ -11469,7 +11465,7 @@ function selectedCount(sel: ElementLists): number {
 }
 
 function onSelectionMenu(target: EventTarget | null): boolean {
-  return (target as Element | null)?.closest(".goodobsidian-selection-menu") != null;
+  return (target as Element | null)?.closest(".finenotes-x-selection-menu") != null;
 }
 
 /** Whether an event's target takes typing of its own: a field, or anything editable. */

@@ -42,7 +42,7 @@ export class WordPopover {
   ) {
     WordPopover.current?.close();
     WordPopover.current = this;
-    this.el = document.body.createDiv({ cls: "goodobsidian-addpage goodobsidian-wordcheck" });
+    this.el = document.body.createDiv({ cls: "finenotes-x-addpage finenotes-x-wordcheck" });
     this.el.setAttribute("role", "menu");
     this.el.setAttribute("aria-label", `Read as “${content.read}”`);
     this.build(content);
@@ -64,14 +64,14 @@ export class WordPopover {
   }
 
   private build(content: WordPopoverContent): void {
-    this.el.createDiv({ cls: "goodobsidian-wordcheck-read", text: `Read as “${content.read}”` });
+    this.el.createDiv({ cls: "finenotes-x-wordcheck-read", text: `Read as “${content.read}”` });
     if (content.chips.length > 0) {
-      this.el.createDiv({ cls: "goodobsidian-wordcheck-caption", text: "Did you mean" });
-      const chips = this.el.createDiv({ cls: "goodobsidian-wordcheck-chips" });
+      this.el.createDiv({ cls: "finenotes-x-wordcheck-caption", text: "Did you mean" });
+      const chips = this.el.createDiv({ cls: "finenotes-x-wordcheck-chips" });
       content.chips.forEach((word, i) => {
         // `clickable-icon`: Obsidian pads any other button 20 px on iPad.
         const chip = chips.createEl("button", {
-          cls: "goodobsidian-wordcheck-chip clickable-icon",
+          cls: "finenotes-x-wordcheck-chip clickable-icon",
           text: word,
         });
         chip.toggleClass("is-first", i === 0);
@@ -81,19 +81,19 @@ export class WordPopover {
           content.onChip(word);
         });
       });
-      this.el.createDiv({ cls: "goodobsidian-addpage-divider" });
+      this.el.createDiv({ cls: "finenotes-x-addpage-divider" });
     }
-    const rows = this.el.createDiv({ cls: "goodobsidian-wordcheck-rows" });
+    const rows = this.el.createDiv({ cls: "finenotes-x-wordcheck-rows" });
     for (const item of content.rows) {
       const row = rows.createEl("button", {
-        cls: "goodobsidian-addpage-row goodobsidian-aimenu-row clickable-icon",
+        cls: "finenotes-x-addpage-row finenotes-x-aimenu-row clickable-icon",
       });
       row.setAttribute("role", "menuitem");
-      const icon = row.createSpan({ cls: "goodobsidian-addpage-row-icon" });
+      const icon = row.createSpan({ cls: "finenotes-x-addpage-row-icon" });
       setIcon(icon, item.icon);
-      const text = row.createSpan({ cls: "goodobsidian-aimenu-text" });
-      text.createSpan({ cls: "goodobsidian-aimenu-label", text: item.label });
-      if (item.sub) text.createSpan({ cls: "goodobsidian-aimenu-reason", text: item.sub });
+      const text = row.createSpan({ cls: "finenotes-x-aimenu-text" });
+      text.createSpan({ cls: "finenotes-x-aimenu-label", text: item.label });
+      if (item.sub) text.createSpan({ cls: "finenotes-x-aimenu-reason", text: item.sub });
       row.addEventListener("click", () => {
         this.close();
         item.run();

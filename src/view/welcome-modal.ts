@@ -32,7 +32,7 @@ export class WelcomeModal extends Modal {
   }
 
   override onOpen(): void {
-    this.modalEl.addClass("goodobsidian-dialog", "goodobsidian-welcome");
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-welcome");
     this.titleEl.setText(WELCOME_TITLE);
     const el = this.contentEl;
     el.createEl("p", {
@@ -62,7 +62,7 @@ export class WelcomeModal extends Modal {
       this.actions.newNotebook,
     );
     el.createEl("p", {
-      cls: "goodobsidian-welcome-hint",
+      cls: "finenotes-x-welcome-hint",
       text: "To see this again, run the command “FineNotes: Show the welcome”.",
     });
   }
