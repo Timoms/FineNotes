@@ -17,6 +17,14 @@ here="$(cd "$(dirname "$0")" && pwd)"
 : "${EMSDK:?set EMSDK to an emsdk checkout}"
 : "${WHISPER_DIR:?set WHISPER_DIR to a whisper.cpp checkout}"
 
+# Resolve paths before CMake changes its source/build directory context.
+EMSDK="$(cd "$EMSDK" && pwd)"
+WHISPER_DIR="$(cd "$WHISPER_DIR" && pwd)"
+if [[ ! -f "$WHISPER_DIR/CMakeLists.txt" || ! -f "$WHISPER_DIR/include/whisper.h" ]]; then
+  echo "WHISPER_DIR does not point to a whisper.cpp checkout: $WHISPER_DIR" >&2
+  exit 1
+fi
+
 git -C "$WHISPER_DIR" fetch -q --depth 1 origin "$WHISPER_COMMIT" 2>/dev/null || true
 git -C "$WHISPER_DIR" checkout -q "$WHISPER_COMMIT"
 # whisper.cpp forces -pthread for Emscripten; a threaded module needs

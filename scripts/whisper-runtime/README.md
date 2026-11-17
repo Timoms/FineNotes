@@ -31,6 +31,12 @@ It checks whisper.cpp out at the pinned commit and writes
 `out/fn-whisper.js`, printing its size and SHA-256. The same commit and emsdk
 give the same bytes.
 
+`WHISPER_DIR` must point to the whisper.cpp repository root (the directory
+containing `CMakeLists.txt` and `include/whisper.h`). The build script resolves
+relative paths from the directory where you run it. Direct CMake invocations
+accept either the environment variable or `-DWHISPER_DIR=/absolute/path/to/whisper.cpp`;
+relative paths there are resolved from this runtime's source directory.
+
 ## Licences
 
 whisper.cpp and ggml: MIT. The Whisper models (OpenAI) and their ggml

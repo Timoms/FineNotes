@@ -1,6 +1,20 @@
 cmake_minimum_required(VERSION 3.16)
 project(fn_whisper C CXX)
 
+# Accept both build.sh's -D option and a direct CMake invocation with the
+# documented environment variable. An unset variable otherwise makes the
+# binary-directory argument "whisper" look like the source directory.
+if(NOT WHISPER_DIR AND DEFINED ENV{WHISPER_DIR})
+  set(WHISPER_DIR "$ENV{WHISPER_DIR}")
+endif()
+if(NOT WHISPER_DIR)
+  message(FATAL_ERROR "Set WHISPER_DIR to a whisper.cpp checkout (environment variable or -DWHISPER_DIR=/absolute/path/to/whisper.cpp).")
+endif()
+get_filename_component(WHISPER_DIR "${WHISPER_DIR}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
+if(NOT EXISTS "${WHISPER_DIR}/CMakeLists.txt" OR NOT EXISTS "${WHISPER_DIR}/include/whisper.h")
+  message(FATAL_ERROR "WHISPER_DIR does not point to a whisper.cpp checkout: ${WHISPER_DIR}")
+endif()
+
 # whisper.cpp, checked out by build.sh at the pinned commit, built without
 # threads (see the patch in build.sh) and with WebAssembly SIMD.
 set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -12,7 +26,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 # Emscripten's toolchain says x86, and ggml then builds its generic kernels
 # without SIMD; "wasm32" selects ggml-cpu/arch/wasm.
 set(CMAKE_SYSTEM_PROCESSOR wasm32)
-add_subdirectory(${WHISPER_DIR} whisper EXCLUDE_FROM_ALL)
+add_subdirectory("${WHISPER_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/whisper" EXCLUDE_FROM_ALL)
 
 add_executable(fn-whisper fn_whisper.c)
 target_link_libraries(fn-whisper PRIVATE whisper)
