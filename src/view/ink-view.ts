@@ -23,7 +23,17 @@ import { STICKERS, stickerFileName, stickerFolderOf, stickerSvg } from "../model
 import { STICKY_NOTE_COLORS, stickyNoteFileName, stickyNoteSvg } from "../model/sticky-notes";
 import { readShapeToolStyle } from "../model/shape-style";
 import { notebookKeyScope } from "./notebook-keys";
-import { Notice, Platform, TextFileView, TFile, type WorkspaceLeaf, normalizePath } from "obsidian";
+import { rememberWheelColor } from "../model/color-wheel";
+import { WritingControls } from "./writing-controls";
+import {
+  Modal,
+  Notice,
+  Platform,
+  TextFileView,
+  TFile,
+  type WorkspaceLeaf,
+  normalizePath,
+} from "obsidian";
 import {
   AUTO_RECOGNIZE_IDLE_MS,
   DEVICE_READ_IDLE_MS,
@@ -269,7 +279,6 @@ import { exportBaseName } from "../export/page-range";
 import { normalizeFolder, stripInkSuffix, uniqueFileName } from "../model/new-notebook";
 import { TEMPLATE_EXTENSION, buildTemplatePackage } from "../import/template-package";
 import { SaveTemplateModal, type TemplateDetails } from "./template-ui";
-import { MorePanel } from "./more-panel";
 import { ShortcutsModal } from "../ui/shortcuts-modal";
 import { ContentsTitleModal } from "./contents-title-modal";
 import { TaskModal } from "./task-modal";
@@ -289,6 +298,8 @@ import {
   type SelectionAction,
 } from "./page-sidebar";
 import { PEN_TYPES, Toolbar, type ToolbarState, penOfState, penTypeFor } from "./toolbar";
+import { ToolbarEditorModal } from "./toolbar-editor-modal";
+import { type MoreActionId, toolbarItemsOf } from "../model/toolbar-items";
 import { penInksOf } from "../model/pen-inks";
 import { penStabilizationOf } from "../model/pen-stabilization";
 import { addSavedPen, openingTool, savedPenOf, savedPensOf } from "../model/saved-pens";
@@ -459,9 +470,11 @@ export class InkView extends TextFileView {
   private surface: InkSurface | null = null;
   private toolbar: Toolbar | null = null;
   private companion: FloatingPenMenu | null = null;
+  private writingControls: WritingControls | null = null;
+  /** Latest Pencil tip in client px, including hover; the squeeze menu opens here. */
+  private pencilTip: { x: number; y: number } | null = null;
   private sidebar: PageSidebar | null = null;
   /** The ⋯ panel, while open. */
-  private morePanel: MorePanel | null = null;
   /** The keyboard shortcuts pop-up, while it shows. */
   private shortcuts: ShortcutsModal | null = null;
   private addPagePopover: { popover: AddPagePopover; anchor: HTMLElement } | null = null;
@@ -897,6 +910,8 @@ export class InkView extends TextFileView {
     window.clearTimeout(this.quietTimer);
     this.quietTimer = 0;
     this.saver.stop();
+    this.writingControls?.destroy();
+    this.writingControls = null;
     this.surface?.destroy();
     this.surface = null;
     this.toolbar?.destroy();
@@ -909,8 +924,6 @@ export class InkView extends TextFileView {
     this.chatPanel?.destroy();
     this.chatPanel = null;
     this.sidebar = null;
-    this.morePanel?.close();
-    this.morePanel = null;
     this.shortcuts?.close();
     this.shortcuts = null;
     this.addPagePopover?.popover.close();
@@ -992,8 +1005,35 @@ export class InkView extends TextFileView {
     this.companion?.setActions(companionActionsOf(actions));
   }
 
+  setShowScrollControls(show: boolean): void {
+    this.writingControls?.setShowArrows(show);
+  }
+
+  /** Settings changed: reorder and hide the mounted toolbar immediately. */
+  setToolbarItems(items: unknown): void {
+    this.toolbar?.setToolbarItems(toolbarItemsOf(items));
+  }
+
+  /** Toggle the radial Pencil menu at the latest tip position. */
+  private customizeMenuWasVisible = false;
+  private customizePreviewActive = false;
+
+  togglePencilMenu(): boolean {
+    const open = this.companion?.toggleAt(this.pencilTip) ?? false;
+    this.toolbar?.setPenMenuActive(open);
+    return open;
+  }
+
   private runCompanionAction(action: CompanionAction): void {
-    if (action === "stickers" || action === "sticky") return;
+    if (action === "distraction-free") {
+      this.writingControls?.setDistractionFree(!this.writingControls.distractionFree);
+      return;
+    }
+    if (action === "prevent-scrolling") {
+      this.writingControls?.setScrollLocked(!this.writingControls.scrollLocked);
+      return;
+    }
+    if (action === "stickers" || action === "sticky" || action === "color") return;
     if (action === "ruler") {
       const active = this.surface?.toggleRuler() ?? false;
       this.toolbar?.setRulerActive(active);
@@ -1064,6 +1104,9 @@ export class InkView extends TextFileView {
     const surface = this.surface;
     if (!surface) return;
     const theme = this.shownPaper();
+    this.contentEl.toggleClass("theme-dark", theme.night === true);
+    this.contentEl.toggleClass("theme-light", theme.night !== true);
+    this.toolbar?.refreshIntelligentTheme();
     if (surface.paperTheme === theme) return;
     surface.setPaperTheme(theme);
     this.updateSidebarRendering();
@@ -1271,7 +1314,10 @@ export class InkView extends TextFileView {
     this.aiMenu = null;
     if (open?.isOpen) {
       open.close();
-      if (open.anchorEl === anchor) return;
+      if (open.anchorEl === anchor) {
+        this.toolbar?.closeIntelligentTool("ai");
+        return;
+      }
     }
     const doc = this.doc;
     const items = buildAiMenu({
@@ -1283,14 +1329,22 @@ export class InkView extends TextFileView {
       transcribing: this.plugin.speech.running?.percent,
     });
     const setup = this.plugin.aiSetup();
+    const container = this.toolbar?.openIntelligentTool("ai", "AI", () => {
+      this.aiMenu?.close();
+      this.aiMenu = null;
+    });
     this.aiMenu = new AiMenuPopover(
       anchor,
       items,
-      (id) => this.aiActions()[id]?.(),
+      (id) => {
+        this.toolbar?.closeIntelligentTool("ai");
+        this.aiActions()[id]?.();
+      },
       aiKeyFolded(setup),
       (id, on) => {
         if (id === "check-words") void this.plugin.setWordChecking(on);
       },
+      container,
     );
   }
 
@@ -1314,9 +1368,16 @@ export class InkView extends TextFileView {
     this.mathSymbols = null;
     if (open?.isOpen) {
       open.close();
+      this.toolbar?.closeIntelligentTool("math-symbols");
       return;
     }
-    this.mathSymbols = new MathSymbolPopover(this.contentEl, {
+    const container =
+      this.toolbar?.openIntelligentTool("math-symbols", "Math symbols", () => {
+        this.mathSymbols?.close();
+        this.mathSymbols = null;
+      }) ?? this.contentEl;
+    this.mathSymbols = new MathSymbolPopover(container, {
+      onOpenChange: (open) => this.toolbar?.setActionActive("math-symbols", open),
       place: (symbol, at) => void this.insertMathSymbol(symbol, at),
       practice: () => void this.plugin.createPracticeFile(SYMBOL_PRACTICE_SET),
       loadPlace: () => this.mathSymbolPlace,
@@ -2493,6 +2554,8 @@ export class InkView extends TextFileView {
     const root = this.contentEl;
     root.empty();
     root.addClass("finenotes-x-view");
+    root.toggleClass("theme-dark", this.shownPaper().night === true);
+    root.toggleClass("theme-light", this.shownPaper().night !== true);
 
     // Ink colours are absolute: pages are paper-white whatever Obsidian's
     // theme, so the default ink must not follow the theme either (dark ink
@@ -2513,7 +2576,12 @@ export class InkView extends TextFileView {
         // The toolbar writes colour and size into the shared tool state,
         // which is where the surface reads them; the pen is remembered for
         // the next notebook (FineNotes#24).
-        onColorChange: () => {
+        onColorChange: (color) => {
+          this.settings.recentPenColors = rememberWheelColor(
+            this.settings.recentPenColors ?? this.settings.recentColors,
+            color,
+          );
+          void this.plugin.saveSettings();
           this.surface?.refreshPenCursor();
           this.rememberPen();
         },
@@ -2566,12 +2634,24 @@ export class InkView extends TextFileView {
         onPenStabilization: (all) => this.plugin.savePenStabilization(all),
         onTextToolChange: (style, pinned, dragSize) =>
           this.plugin.saveTextTool(style, pinned, dragSize),
+        onLock: () => {
+          this.surface?.startLockRectangle();
+          this.toolbar?.setState(this.toolState);
+        },
+        onPaste: () => this.surface?.pasteFromClipboard(),
         onInsertImage: (anchor) => this.openImageMenu(anchor),
         onInsertPdf: (anchor) => this.openImageMenu(anchor, true),
         onAi: (anchor) => this.openAiMenu(anchor),
         onCalculator: () => this.toggleCalculator(),
         onMathSymbols: () => this.toggleMathSymbols(),
+        favoriteColors: () => this.settings.recentPenColors ?? this.settings.recentColors,
+        favoritePins: () => this.settings.colorWheelPins,
+        onFavoritePins: (pins) => {
+          this.settings.colorWheelPins = pins;
+          void this.plugin.saveSettings();
+        },
         onRuler: () => this.surface?.toggleRuler() ?? false,
+        onPenMenu: () => this.togglePencilMenu(),
         onRulerSettings: (settings) => {
           this.surface?.setRulerSettings(settings);
           this.plugin.saveRulerSettings(settings);
@@ -2581,7 +2661,27 @@ export class InkView extends TextFileView {
         onSettings: () => this.openNoteSettings(),
         onShare: () => this.exportPdf(),
         onSearch: () => void this.openSearch(),
-        onMore: (anchor) => this.toggleMorePanel(anchor),
+        onStripAction: (id, anchor) => this.runStripAction(id, anchor),
+        stripActionEnabled: (id) => this.stripActionEnabled(id),
+        toolbarItems: () => this.settings.toolbarItems,
+        onEditToolbar: () =>
+          new ToolbarEditorModal(
+            this.app,
+            this.settings.toolbarItems,
+            (items) => {
+              this.plugin.saveToolbarItems(items);
+            },
+            (visible) => {
+              if (visible && !this.customizePreviewActive) {
+                this.customizePreviewActive = true;
+                this.customizeMenuWasVisible = this.writingControls?.menuVisible ?? false;
+                this.writingControls?.setMenuVisible(true);
+              } else if (!visible && this.customizePreviewActive) {
+                this.customizePreviewActive = false;
+                this.writingControls?.setMenuVisible(this.customizeMenuWasVisible);
+              }
+            },
+          ).open(),
         onPillPlaced: () => this.surface?.placeToasts(),
       },
       {
@@ -2689,7 +2789,10 @@ export class InkView extends TextFileView {
         onSaveSticker: (png, width, height) => void this.saveSticker(png, width, height),
         onEditGraph: (pageId, graph) => this.editGraph(pageId, graph),
         onChange: (pages) => {
-          if (this.surface) this.sidebar?.setDocument(this.surface.document);
+          if (this.surface) {
+            this.sidebar?.setDocument(this.surface.document);
+            this.writingControls?.setScrollDirection(scrollDirectionOf(this.surface.document));
+          }
           // Undoing or redoing "Convert to notebook" flips `single`.
           this.syncSingle();
           // …and undo can take a recording off the note, or bring one back.
@@ -2702,6 +2805,13 @@ export class InkView extends TextFileView {
         // The zoom or the screen changed: keep PDF pages as sharp as the ink.
         onStatus: () => this.matchPdfResolution(),
         onPen: (down) => this.penActivity(down),
+        onDrawingStart: () => {
+          if (["pen", "highlighter", "shape"].includes(this.toolState.tool))
+            this.toolbar?.dismissDrawingPopouts();
+        },
+        onPenPosition: (x, y) => {
+          this.pencilTip = { x, y };
+        },
         isLocked: () => this.isProtected(),
         returnToPenOnReselect: () => this.settings.returnToPenOnReselect === true,
         returnToPenAfterUse: () => this.settings.returnToPenAfterUse === true,
@@ -2717,6 +2827,10 @@ export class InkView extends TextFileView {
         onToolChange: (tool) => {
           this.toolbar?.setState(this.toolState);
           if (tool === "text" && this.surface) this.plugin.offerTextHint(this.surface);
+        },
+        onRulerSettingsChange: (settings) => {
+          this.toolbar?.setRulerSettings(settings);
+          this.plugin.saveRulerSettings(settings);
         },
         onPageChange: (index) => {
           this.sidebar?.setCurrentPage(index);
@@ -2761,7 +2875,35 @@ export class InkView extends TextFileView {
     const rulerSettings = parseRulerSettings(this.settings.ruler);
     this.surface.setRulerSettings(rulerSettings);
     this.toolbar.setRulerSettings(rulerSettings);
+    this.writingControls = new WritingControls(
+      root,
+      this.surface.surfaceEl,
+      this.settings.showScrollControls !== false,
+      {
+        lockTouch: (locked) => this.surface?.setTouchNavigationLocked(locked),
+        scroll: (direction) => this.surface?.scrollWithArrows(direction),
+        fitPage: () => this.surface?.fitCurrentPage(),
+        changed: (fitSheet) => {
+          this.toolbar?.setActionActive("no-touch", this.writingControls?.scrollLocked === true);
+          this.toolbar?.setActionActive(
+            "fullscreen",
+            this.writingControls?.distractionFree === true,
+          );
+          this.companion?.refresh();
+          this.relayout();
+          if (fitSheet && this.writingControls?.distractionFree) this.surface?.fitCurrentPage();
+        },
+      },
+      this.toolbar.fullscreenControlHost,
+    );
+    this.writingControls.setScrollDirection(scrollDirectionOf(this.doc));
     this.companion = new FloatingPenMenu(this.surface.surfaceEl, this.settings.companionActions, {
+      isActive: (action) =>
+        action === "distraction-free"
+          ? this.writingControls?.distractionFree
+          : action === "prevent-scrolling"
+            ? this.writingControls?.scrollLocked
+            : undefined,
       run: (action) => this.runCompanionAction(action),
       stickers: () =>
         STICKERS.slice(0, 24).map((sticker) => ({
@@ -2772,6 +2914,14 @@ export class InkView extends TextFileView {
       pickSticker: (id) => void this.insertQuickSticker(id),
       stickyNotes: () => STICKY_NOTE_COLORS.map((color) => ({ color, svg: stickyNoteSvg(color) })),
       placeSticky: (color, at) => void this.insertQuickSticky(color, at),
+      hideAfterSelection: () => this.settings.hideCompanionAfterSelection === true,
+      activeColor: () => this.toolState.color,
+      dragColor: (pointerId, clientX, clientY, done) =>
+        this.surface?.dragColorFromPage(pointerId, clientX, clientY, (color) => {
+          if (color) this.toolbar?.applyPickedColor(color);
+          done();
+        }),
+      onOpenChange: (open) => this.toolbar?.setPenMenuActive(open),
     });
     this.surface.toastChrome = () => this.toolbar?.chromeSpans() ?? [];
     this.surface.setNotebookTitle(this.notebookTitle());
@@ -4304,63 +4454,98 @@ export class InkView extends TextFileView {
 
   // --- The ⋯ panel -----------------------------------------------------------
 
-  /**
-   * GoodNotes' ⋯ sheet, for the page being read. A second tap on ⋯ closes it.
-   * Everything it offers goes through `pageAction`, so it is undoable and
-   * refused on a protected note exactly as the sidebar's page menu is.
-   */
-  private toggleMorePanel(anchor: HTMLElement): void {
-    const open = this.morePanel;
-    this.morePanel = null;
-    if (open?.isOpen) {
-      open.close();
-      if (open.anchorEl === anchor) return;
-    }
+  private stripActionEnabled(id: MoreActionId): boolean {
+    const page = this.surface?.document.pages[this.surface.currentPage];
+    if (!page) return false;
+    if (["duplicate-page", "delete-page"].includes(id) && (this.isSinglePage || this.isPractice))
+      return false;
+    if (
+      ["page-template", "save-template", "page-title", "bookmark-page"].includes(id) &&
+      this.isPractice
+    )
+      return false;
+    if (id === "clear-page" && !page.strokes.length) return false;
+    return true;
+  }
+
+  private runStripAction(id: MoreActionId, anchor: HTMLElement): void {
     const surface = this.surface;
-    if (!surface) return;
-    const doc = surface.document;
-    const index = Math.max(0, Math.min(doc.pages.length - 1, surface.currentPage));
-    const page = doc.pages[index];
-    if (!page) return;
-    const act = (action: PageAction, at: number, button: HTMLElement = anchor): void =>
-      this.pageAction(action, at, button);
-    this.morePanel = new MorePanel(
-      anchor,
-      {
-        index,
-        total: doc.pages.length,
-        bookmarked: page.bookmarked === true,
-        titled: page.title !== undefined,
-        cover: page.backdrop.kind !== "pdf" && isCoverRuling(page.backdrop.kind),
-        single: this.isSinglePage,
-        fixed: this.isPractice,
-        clearable: page.strokes.length > 0,
-        darkPages: surface.paperTheme.night === true,
-        folded: this.toolbar?.foldedItems() ?? [],
-      },
-      {
-        paintThumbnail: (canvas, at, width) => this.sidebar?.paintThumbnail(canvas, at, width),
-        toggleBookmark: (at) => act("bookmark", at),
-        editTitle: (at) => act("contents", at),
-        copyLink: (at) => act("copy-link", at),
-        duplicate: (at) => act("duplicate", at),
-        // A cover opens its picker on ⋯ itself: the row it was chosen from is gone.
-        saveAsTemplate: (at) => void this.savePageAsTemplate(at),
-        changeTemplate: (at) => {
-          const target = doc.pages[at];
-          const cover =
-            !!target && target.backdrop.kind !== "pdf" && isCoverRuling(target.backdrop.kind);
-          act(cover ? "change-cover" : "change-template", at);
-        },
-        goToPage: (at) => surface.goToPage(at, true),
-        clear: (at) => act("clear", at),
-        remove: (at) => act("delete", at),
-        toggleDarkPages: () =>
-          void this.plugin.setPageAppearance(surface.paperTheme.night ? "light" : "dark"),
-        showShortcuts: () => this.toggleShortcuts(),
-        copyHomeLink: () => this.copyHomeLink(),
-      },
-    );
+    if (!surface || !this.stripActionEnabled(id)) return;
+    const index = surface.currentPage;
+    const page = surface.document.pages[index];
+    const actions: Partial<Record<MoreActionId, PageAction>> = {
+      "bookmark-page": "bookmark",
+      "page-title": "contents",
+      "copy-page-link": "copy-link",
+      "duplicate-page": "duplicate",
+      "clear-page": "clear",
+      "delete-page": "delete",
+      "page-template":
+        page.backdrop.kind !== "pdf" && isCoverRuling(page.backdrop.kind)
+          ? "change-cover"
+          : "change-template",
+    };
+    const action = actions[id];
+    if (action) {
+      this.pageAction(action, index, anchor);
+      return;
+    }
+    switch (id) {
+      case "save-template":
+        void this.savePageAsTemplate(index);
+        break;
+      case "dark-pages":
+        void this.plugin.setPageAppearance(surface.paperTheme.night ? "light" : "dark");
+        break;
+      case "shortcuts":
+        this.toggleShortcuts();
+        break;
+      case "home-link":
+        this.copyHomeLink();
+        break;
+      case "collapse-menu":
+        this.writingControls?.setMenuVisible(false);
+        return;
+      case "fullscreen":
+        this.runCompanionAction("distraction-free");
+        break;
+      case "no-touch":
+        this.runCompanionAction("prevent-scrolling");
+        break;
+      case "go-to-page": {
+        const modal = new Modal(this.app);
+        modal.contentEl.createEl("h2", { text: "Go to page" });
+        const input = modal.contentEl.createEl("input", {
+          type: "number",
+          value: String(index + 1),
+          attr: {
+            min: "1",
+            max: String(surface.document.pages.length),
+            "aria-label": "Page number",
+          },
+        });
+        const go = (): void => {
+          const n = Number(input.value);
+          if (!Number.isInteger(n) || n < 1 || n > surface.document.pages.length) {
+            input.setCustomValidity("Enter a page number in this notebook.");
+            input.reportValidity();
+            return;
+          }
+          surface.goToPage(n - 1, true);
+          modal.close();
+        };
+        modal.contentEl
+          .createEl("button", { text: "Go", cls: "mod-cta" })
+          .addEventListener("click", go);
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") go();
+        });
+        modal.open();
+        input.focus();
+        input.select();
+        break;
+      }
+    }
   }
 
   /**
@@ -4409,21 +4594,38 @@ export class InkView extends TextFileView {
     this.addPagePopover = null;
     if (open?.popover.isOpen) {
       open.popover.close();
-      if (open.anchor === anchor) return;
+      if (open.anchor === anchor) {
+        this.toolbar?.closeIntelligentTool("add-page");
+        return;
+      }
     }
     if (this.isProtected() || this.refuseSinglePage()) return;
     const at = Math.max(0, Math.min(this.doc.pages.length - 1, ref));
     const page = this.doc.pages[at];
     if (!page) return;
-    const popover = new AddPagePopover(anchor, {
-      // A cover is not paper: next to one, offer the notebook's paper.
-      current: paperTemplateFor(this.doc.pages, at),
-      geometry: page.geometry,
-      recent: this.loadRecentTemplates(),
-      position,
-      onPick: (backdrop, at) => this.addTemplatePage(backdrop, page.geometry, at, ref),
-      onMore: (at) => this.openTemplatePicker("add", ref, at),
+    const container = this.toolbar?.openIntelligentTool("add-page", "Add page", () => {
+      this.addPagePopover?.popover.close();
+      this.addPagePopover = null;
     });
+    const popover = new AddPagePopover(
+      anchor,
+      {
+        // A cover is not paper: next to one, offer the notebook's paper.
+        current: paperTemplateFor(this.doc.pages, at),
+        geometry: page.geometry,
+        recent: this.loadRecentTemplates(),
+        position,
+        onPick: (backdrop, at) => {
+          this.toolbar?.closeIntelligentTool("add-page");
+          this.addTemplatePage(backdrop, page.geometry, at, ref);
+        },
+        onMore: (at) => {
+          this.toolbar?.closeIntelligentTool("add-page");
+          this.openTemplatePicker("add", ref, at);
+        },
+      },
+      container,
+    );
     this.addPagePopover = { popover, anchor };
   }
 
@@ -4618,26 +4820,37 @@ export class InkView extends TextFileView {
     this.coverPopover = null;
     if (open?.popover.isOpen) {
       open.popover.close();
-      if (open.anchor === anchor) return;
+      if (open.anchor === anchor) {
+        this.toolbar?.closeIntelligentTool("cover");
+        return;
+      }
     }
     if (this.isProtected()) return;
     const page = this.doc.pages[index];
     if (!page || page.backdrop.kind === "pdf" || !isCoverRuling(page.backdrop.kind)) return;
-    const popover = new CoverPopover(anchor, {
-      backdrop: page.backdrop,
-      geometry: page.geometry,
-      onPick: (backdrop) => {
-        if (!this.surface || this.isProtected()) return;
-        const now = page.backdrop;
-        const same =
-          now.kind !== "pdf" &&
-          now.kind === backdrop.kind &&
-          now.paperColor === backdrop.paperColor;
-        if (same) return;
-        const command = changeCover(page, backdrop);
-        if (command) this.surface.applyCommand(command);
-      },
+    const container = this.toolbar?.openIntelligentTool("cover", "Change cover", () => {
+      this.coverPopover?.popover.close();
+      this.coverPopover = null;
     });
+    const popover = new CoverPopover(
+      anchor,
+      {
+        backdrop: page.backdrop,
+        geometry: page.geometry,
+        onPick: (backdrop) => {
+          if (!this.surface || this.isProtected()) return;
+          const now = page.backdrop;
+          const same =
+            now.kind !== "pdf" &&
+            now.kind === backdrop.kind &&
+            now.paperColor === backdrop.paperColor;
+          if (same) return;
+          const command = changeCover(page, backdrop);
+          if (command) this.surface.applyCommand(command);
+        },
+      },
+      container,
+    );
     this.coverPopover = { popover, anchor };
   }
 
@@ -4670,7 +4883,10 @@ export class InkView extends TextFileView {
     this.imageMenu = null;
     if (open?.popover.isOpen) {
       open.popover.close();
-      if (open.anchor === anchor) return;
+      if (open.anchor === anchor) {
+        this.toolbar?.closeIntelligentTool("image");
+        return;
+      }
     }
     if (this.isProtected() || !this.file) return;
     const entries = pdf
@@ -4684,11 +4900,27 @@ export class InkView extends TextFileView {
           },
         ]
       : imageMenuEntries();
+    const container = this.toolbar?.openIntelligentTool(
+      "image",
+      pdf ? "Insert PDF" : "Insert image",
+      () => {
+        this.imageMenu?.popover.close();
+        this.imageMenu = null;
+      },
+    );
     const popover = new ImageMenuPopover(
       anchor,
-      entries,
+      entries.map((entry) => ({
+        ...entry,
+        run: (context: ImageMenuContext) => {
+          this.toolbar?.closeIntelligentTool("image");
+          const run: (ctx: ImageMenuContext) => void = entry.run;
+          run(context);
+        },
+      })),
       this.imageMenuContext(),
       pdf ? "Insert PDF" : "Insert image",
+      container,
     );
     this.imageMenu = { popover, anchor };
   }

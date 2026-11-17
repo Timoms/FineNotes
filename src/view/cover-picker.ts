@@ -188,8 +188,10 @@ export class CoverPopover {
   private readonly dispose: Array<() => void> = [];
   private closed = false;
 
-  constructor(anchor: HTMLElement, options: CoverPopoverOptions) {
-    this.el = document.body.createDiv({ cls: "finenotes-x-addpage finenotes-x-coverpopover" });
+  constructor(anchor: HTMLElement, options: CoverPopoverOptions, dock?: HTMLElement) {
+    this.el = (dock ?? document.body).createDiv({
+      cls: "finenotes-x-addpage finenotes-x-coverpopover",
+    });
     this.el.setAttribute("role", "dialog");
     this.el.setAttribute("aria-label", "Change cover");
     this.el.createDiv({ cls: "finenotes-x-addpage-title", text: "Change cover" });
@@ -204,6 +206,7 @@ export class CoverPopover {
         if (design !== "none") options.onPick({ kind: design, paperColor });
       },
     });
+    if (dock) return;
     placePopover(this.el, anchor, POPOVER_WIDTH);
     this.dispose.push(
       installPopoverDismiss(

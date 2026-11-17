@@ -14,16 +14,26 @@ describe("PDF toolbar button", () => {
       callbacks: { onInsertImage: vi.fn(), onInsertPdf: importPdf },
       // A group makes the tool indicator as its first child.
       barEl: { createDiv: () => ({ createDiv: () => ({}) }) },
-      addToolButton: vi.fn(),
+      addToolButton: vi.fn(() => ({ addClass: vi.fn(), dataset: {} })),
+      itemButtons: new Map(),
       foldable: [],
       watchCrowding: vi.fn(),
+      applyToolbarItems: vi.fn(),
       barButton: (
         parent: unknown,
         _icon: string,
         label: string,
         handler?: (button: unknown) => void,
       ) => {
-        const button = { label, parent, handler, addClass: vi.fn() };
+        const button = {
+          label,
+          parent,
+          handler,
+          addClass: vi.fn(),
+          setAttribute: vi.fn(),
+          addEventListener: vi.fn(),
+          dataset: {},
+        };
         buttons.push(button);
         return button;
       },
@@ -36,5 +46,60 @@ describe("PDF toolbar button", () => {
     expect(pdf.addClass).not.toHaveBeenCalledWith("clickable-icon");
     pdf.handler?.(pdf);
     expect(importPdf).toHaveBeenCalledWith(pdf);
+  });
+});
+
+describe("Toolbar action state", () => {
+  it("marks the active tool action", () => {
+    const toggleClass = vi.fn(),
+      setAttribute = vi.fn();
+    const toolbar = Object.assign(Object.create(Toolbar.prototype) as object, {
+      itemButtons: new Map([["pen", { toggleClass, setAttribute }]]),
+    }) as unknown as InstanceType<typeof Toolbar>;
+    toolbar.setActionActive("pen", true);
+    expect(toggleClass).toHaveBeenLastCalledWith("is-active", true);
+    expect(setAttribute).toHaveBeenLastCalledWith("aria-pressed", "true");
+    toolbar.setActionActive("pen", false);
+    expect(toggleClass).toHaveBeenLastCalledWith("is-active", false);
+    expect(setAttribute).toHaveBeenLastCalledWith("aria-pressed", "false");
+  });
+});
+
+describe("calculator and pencil-menu active state", () => {
+  it("sets and clears both highlights and accessible pressed states", () => {
+    const calculator = { toggleClass: vi.fn(), setAttribute: vi.fn() };
+    const pencil = { toggleClass: vi.fn(), setAttribute: vi.fn() };
+    const toolbar = Object.assign(Object.create(Toolbar.prototype) as object, {
+      itemButtons: new Map([["calculator", calculator]]),
+      penMenuButton: pencil,
+    }) as unknown as InstanceType<typeof Toolbar>;
+    for (const active of [true, false]) {
+      toolbar.setCalculatorActive(active);
+      toolbar.setPenMenuActive(active);
+      for (const button of [calculator, pencil]) {
+        expect(button.toggleClass).toHaveBeenLastCalledWith("is-active", active);
+        expect(button.setAttribute).toHaveBeenLastCalledWith("aria-pressed", String(active));
+      }
+    }
+  });
+});
+
+describe("math symbols and writing-mode buttons", () => {
+  it("reflects active states for each action, including controls placed in More", () => {
+    const ids = ["math-symbols", "no-touch", "fullscreen"] as const;
+    const buttons = new Map(ids.map((id) => [id, { toggleClass: vi.fn(), setAttribute: vi.fn() }]));
+    const toolbar = Object.assign(Object.create(Toolbar.prototype) as object, {
+      itemButtons: buttons,
+    }) as unknown as InstanceType<typeof Toolbar>;
+    for (const id of ids) {
+      for (const active of [true, false]) {
+        toolbar.setActionActive(id, active);
+        expect(buttons.get(id)!.toggleClass).toHaveBeenLastCalledWith("is-active", active);
+        expect(buttons.get(id)!.setAttribute).toHaveBeenLastCalledWith(
+          "aria-pressed",
+          String(active),
+        );
+      }
+    }
   });
 });

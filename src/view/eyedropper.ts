@@ -59,6 +59,8 @@ export class Eyedropper {
   private loupe: HTMLElement | null = null;
   private bar: HTMLElement | null = null;
   private screenPick: AbortController | null = null;
+  /** Began on an external drag handle rather than with a later page press. */
+  private dragging = false;
   private readonly disposers: Array<() => void> = [];
 
   constructor(private readonly host: EyedropperHost) {}
@@ -79,6 +81,25 @@ export class Eyedropper {
     this.listen();
   }
 
+  /**
+   * Continue a pointer already down on another control. Its moves show the
+   * loupe and its lift picks, which is how the radial-menu pipette drags out.
+   */
+  drag(
+    pointerId: number,
+    clientX: number,
+    clientY: number,
+    done: (color: string | null) => void,
+  ): void {
+    this.cancel();
+    this.done = done;
+    this.aiming = pointerId;
+    this.dragging = true;
+    this.host.layer.addClass("is-eyedropping");
+    this.listen();
+    this.preview(clientX, clientY);
+  }
+
   /** Stop waiting; the host hears `null`. */
   cancel(): void {
     this.finish(null);
@@ -93,6 +114,7 @@ export class Eyedropper {
     if (!done) return;
     this.done = null;
     this.aiming = null;
+    this.dragging = false;
     this.screenPick?.abort();
     this.screenPick = null;
     for (const dispose of this.disposers.splice(0)) dispose();
@@ -124,6 +146,7 @@ export class Eyedropper {
       if (event.pointerId !== this.aiming) return;
       this.aiming = null;
       this.hideLoupe();
+      if (this.dragging) this.finish(null);
     });
     // No click, scroll or focus from a touch on the page while armed.
     const holdTouch = (event: TouchEvent): void => {
@@ -231,7 +254,8 @@ export class Eyedropper {
     loupe.setAttribute("aria-hidden", "true");
     loupe.createDiv({ cls: "finenotes-x-eyedrop-target" });
     const bubble = loupe.createDiv({ cls: "finenotes-x-eyedrop-bubble" });
-    bubble.createDiv({ cls: "finenotes-x-eyedrop-swatch" });
+    const swatch = bubble.createDiv({ cls: "finenotes-x-eyedrop-swatch" });
+    setIcon(swatch.createSpan({ cls: "finenotes-x-eyedrop-pipette" }), "pipette");
     bubble.createDiv({ cls: "finenotes-x-eyedrop-hex" });
     this.loupe = loupe;
     return loupe;

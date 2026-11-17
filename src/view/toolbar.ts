@@ -58,9 +58,10 @@
  *   "3 / 18" readout are chrome-level, because discrete pages are the fix.
  */
 
+import { installPencilHover } from "./pencil-hover";
 import { penGlyph } from "./pen-glyph-svg";
-import { drawingToolOf, optionsAfterSwitch, selectedTool } from "./tool-return";
-import { setIcon } from "obsidian";
+import { drawingToolOf, optionsAfterSwitch } from "./tool-return";
+import { Menu, setIcon } from "obsidian";
 import { DEFAULT_ERASER_SIZE, ERASER_SIZES, PALETTE, SIZES } from "../constants";
 import {
   CONNECTOR_PRESETS,
@@ -104,6 +105,7 @@ import {
 } from "../model/text-style";
 import type { ListKind } from "../model/text-list";
 import { keyboardHeight } from "./keyboard";
+import { wheelPins, wheelSwatches } from "../model/color-wheel";
 import { renderColorPicker } from "./color-picker";
 import { type PenInk, type PenInks, penInkFor, switchPenInk, withPenInk } from "../model/pen-inks";
 import {
@@ -115,6 +117,10 @@ import {
   widthMarkThickness,
 } from "./pen-glyphs";
 import {
+  hsvToRgb,
+  rgbToHex,
+  hexToRgb,
+  rgbToHsv,
   DEFAULT_SHAPE_COLOR,
   contrastMark,
   penColorRow,
@@ -189,6 +195,17 @@ import {
   type RulerUnit,
   parseRulerSettings,
 } from "./ruler";
+import {
+  compactToolbarLabel,
+  stripLayoutOf,
+  MORE_ACTIONS,
+  TOOLBAR_ITEMS,
+  isToolbarLayoutItem,
+  type MoreActionId,
+  type ToolbarItemChoice,
+  type ToolbarItemId,
+  toolbarItemsOf,
+} from "../model/toolbar-items";
 
 /**
  * Tools selectable in the toolbar. Pen, highlighter and shape produce
@@ -485,6 +502,8 @@ export interface ToolbarCallbacks {
   onSearch?: () => void;
   // --- 0.5 (contracts/api.md v7).
   /** Open the image menu (Photos, camera, files, vault, scan, AI); `anchor` is the button. */
+  onLock?: () => void;
+  onPaste?: () => void;
   onInsertImage?: (anchor: HTMLElement) => void;
   /** Import whole or selected PDF pages. */
   onInsertPdf?: (anchor: HTMLElement) => void;
@@ -495,7 +514,12 @@ export interface ToolbarCallbacks {
   /** Open the draggable handwritten math-symbol table. */
   onMathSymbols?: (anchor: HTMLElement) => void;
   /** Show or hide the movable drawing ruler. */
+  favoriteColors?: () => readonly string[];
+  favoritePins?: () => unknown;
+  onFavoritePins?: (pins: (string | null)[]) => void;
   onRuler?: () => boolean;
+  /** Show or hide the radial Pencil quick-tools menu. */
+  onPenMenu?: () => boolean;
   /** Apply the ruler's appearance and measurement settings. */
   onRulerSettings?: (settings: RulerSettings) => void;
   /** Start or stop an audio recording, or open its controls; `anchor` is the button. */
@@ -505,7 +529,12 @@ export interface ToolbarCallbacks {
   /** Export pages as a PDF and share it (GoodNotes' share button); `anchor` is the button. */
   onShare?: (anchor: HTMLElement) => void;
   /** Open the ⋯ panel for the page being read; `anchor` is the button. */
+  onStripAction?: (id: MoreActionId, anchor: HTMLElement) => void;
+  stripActionEnabled?: (id: MoreActionId) => boolean;
   onMore?: (anchor: HTMLElement) => void;
+  /** Read and edit the persistent order and visibility of tier-1 controls. */
+  toolbarItems?: () => unknown;
+  onEditToolbar?: () => void;
   /** The options pill was placed (it may have moved); `chromeSpans` says where. */
   onPillPlaced?: () => void;
   // --- The Text tool (0.5).
@@ -624,6 +653,7 @@ export interface FoldedBarItem {
 const FOLD_RANK = {
   calculator: 0,
   mathSymbols: 0,
+  penMenu: 0,
   ruler: 0,
   pdf: 1,
   record: 2,
@@ -669,12 +699,25 @@ interface PillBox {
 export class Toolbar {
   /** Tier 1: the tinted tool bar. */
   private readonly barEl: HTMLElement;
+  private fullscreenControls: HTMLElement | null = null;
+
+  get fullscreenControlHost(): HTMLElement {
+    return (this.fullscreenControls ??= this.barEl.createDiv({
+      cls: "finenotes-x-fullscreen-bar-controls",
+      attr: { role: "group", "aria-label": "Fullscreen controls" },
+    }));
+  }
   /** Tier 2: the active tool's options pill. */
   private readonly optionsEl: HTMLElement;
 
   // The buttons that each stand for one choice, keyed by it. `syncActive`
   // marks the one matching the state; the pill's are rebuilt with the pill.
   private readonly toolButtons = new Map<ActiveTool, HTMLElement>();
+  private stripItems: readonly ToolbarItemChoice[] = [];
+  private stripMore: HTMLElement | null = null;
+  private stripMoreDispose: (() => void) | null = null;
+  private readonly itemButtons = new Map<ToolbarItemId, HTMLElement>();
+  private readonly customGroups = new Map<string, HTMLElement>();
   /** The lasso type the lasso button shows now (`drawLassoIcon`). */
   private lassoIconMode: LassoMode | null = null;
   /** The eraser mode the eraser button shows now (`drawEraserIcon`). */
@@ -699,6 +742,7 @@ export class Toolbar {
   > = [];
   private moreButton: HTMLButtonElement | null = null;
   private settingsButton: HTMLButtonElement | null = null;
+  private penMenuButton: HTMLButtonElement | null = null;
   private rulerButton: HTMLButtonElement | null = null;
   private rulerSettings: RulerSettings = { ...DEFAULT_RULER_SETTINGS };
   /** "Update available" under the gear while it shows (`showUpdateTip`). */
@@ -739,6 +783,8 @@ export class Toolbar {
   /** The open popover growing in, and the timer that ends it (and gives back its blur). */
   private popoverGrow: Animation | null = null;
   private popoverGrowTimer = 0;
+  private favoriteHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  private popoverFitObserver: ResizeObserver | null = null;
   /** Popovers still closing, each removed by its own timer, never on `finish`. */
   private readonly leavingPopovers = new Map<HTMLElement, number>();
   /** Redraws the open text popover's body in place after a change it made. */
@@ -792,11 +838,15 @@ export class Toolbar {
     this.barEl.setAttribute("role", "toolbar");
     this.barEl.setAttribute("aria-label", "Handwriting tools");
     // The pill always floats over the page (styles.css, `.is-floating`).
-    this.optionsEl = host.createDiv({ cls: "finenotes-x-options is-floating" });
+    this.optionsEl = host.createDiv({
+      cls: "finenotes-x-options is-floating is-intelligent-strip",
+    });
     this.optionsEl.setAttribute("role", "toolbar");
-    this.optionsEl.setAttribute("aria-label", "Tool options");
+    this.optionsEl.setAttribute("aria-label", "Intelligent Strip");
+    this.optionsEl.setAttribute("tabindex", "-1");
 
     this.buildBar();
+    this.installToolbarMenu();
     this.buildOptions();
     this.applyPosition();
     this.syncActive();
@@ -805,6 +855,8 @@ export class Toolbar {
     this.keepFocus(this.barEl, true);
     this.keepFocus(this.optionsEl, true);
     this.installPressFeedback();
+    this.installToolHover();
+    this.disposers.push(installPencilHover(this.host, () => this.hoverOriginal ?? this.state));
   }
 
   /**
@@ -869,11 +921,14 @@ export class Toolbar {
     // handler, which is how the not-yet-implemented tools render greyed out.
     const cb = this.callbacks;
     const left = this.barEl.createDiv({ cls: "finenotes-x-bar-group" });
-    this.thumbnailsButton = this.barButton(
-      left,
-      "panel-left",
-      "Page thumbnails",
-      cb.onToggleThumbnails,
+    const item = <T extends HTMLElement>(id: ToolbarItemId, button: T): T => {
+      this.itemButtons.set(id, button);
+      button.dataset.toolbarItem = id;
+      return button;
+    };
+    this.thumbnailsButton = item(
+      "thumbnails",
+      this.barButton(left, "panel-left", "Page thumbnails", cb.onToggleThumbnails),
     );
     this.fold(
       FOLD_RANK.thumbnails,
@@ -887,12 +942,46 @@ export class Toolbar {
     const keep = (button: HTMLElement): void => {
       beyond.push(button);
     };
-    keep(this.foldButton(left, FOLD_RANK.search, "search", "Search this notebook", cb.onSearch));
-    keep(this.foldButton(left, FOLD_RANK.ai, "sparkles", "AI", cb.onAi));
-    keep(this.foldButton(left, FOLD_RANK.calculator, "calculator", "Calculator", cb.onCalculator));
-    keep(this.foldButton(left, FOLD_RANK.mathSymbols, "sigma", "Math symbols", cb.onMathSymbols));
-    this.rulerButton = this.foldButton(left, FOLD_RANK.ruler, "ruler", "Ruler", (button) =>
-      this.tapRuler(button),
+    keep(
+      item(
+        "search",
+        this.foldButton(left, FOLD_RANK.search, "search", "Search this notebook", cb.onSearch),
+      ),
+    );
+    keep(item("ai", this.foldButton(left, FOLD_RANK.ai, "sparkles", "AI", cb.onAi)));
+    keep(
+      item(
+        "calculator",
+        this.foldButton(left, FOLD_RANK.calculator, "calculator", "Calculator", cb.onCalculator),
+      ),
+    );
+    keep(
+      item(
+        "math-symbols",
+        this.foldButton(left, FOLD_RANK.mathSymbols, "sigma", "Math symbols", cb.onMathSymbols),
+      ),
+    );
+    this.penMenuButton = item(
+      "pencil-menu",
+      this.foldButton(left, FOLD_RANK.penMenu, "circle-dot", "Pencil quick tools", () =>
+        this.tapPenMenu(),
+      ),
+    );
+    keep(this.penMenuButton);
+    const colorButton = item("colorwheel", this.foldButton(left, FOLD_RANK.ruler, "palette", "Colorwheel", (button) => {
+      if (this.quickColorSuppressClick) { this.quickColorSuppressClick = false; return; }
+      this.toggleQuickColor(button);
+    }));
+    keep(colorButton);
+    colorButton.addEventListener("pointerdown", (event) => {
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+      event.preventDefault();
+      this.quickColorSuppressClick = true;
+      this.toggleQuickColor(colorButton, event);
+    });
+    this.rulerButton = item(
+      "ruler",
+      this.foldButton(left, FOLD_RANK.ruler, "ruler", "Ruler", (button) => this.tapRuler(button)),
     );
     this.rulerButton.addClass("has-caret");
     this.rulerButton.addClass("finenotes-x-ruler-button");
@@ -906,21 +995,21 @@ export class Toolbar {
       rulerCaret.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (this.rulerButton) this.toggleRulerPopover(this.rulerButton);
+        if (this.rulerButton?.hasClass("is-active")) this.toggleRulerPopover(this.rulerButton);
       });
     }
     keep(this.rulerButton);
 
     const history = this.barEl.createDiv({ cls: "finenotes-x-bar-group is-centre" });
-    this.undoButton = this.barButton(history, "undo-2", "Undo (Cmd/Ctrl+Z)", () =>
-      this.callbacks.onUndo(),
+    this.undoButton = item(
+      "undo",
+      this.barButton(history, "undo-2", "Undo (Cmd/Ctrl+Z)", () => this.callbacks.onUndo()),
     );
-    this.redoButton = this.foldButton(
-      history,
-      FOLD_RANK.redo,
-      "redo-2",
-      "Redo (Cmd/Ctrl+Shift+Z)",
-      () => this.callbacks.onRedo(),
+    this.redoButton = item(
+      "redo",
+      this.foldButton(history, FOLD_RANK.redo, "redo-2", "Redo (Cmd/Ctrl+Shift+Z)", () =>
+        this.callbacks.onRedo(),
+      ),
     );
 
     // The writing tools, centred on the bar (styles.css), as GoodNotes has them.
@@ -928,21 +1017,58 @@ export class Toolbar {
     this.toolsGroup = tools;
     // First, so every button paints over it.
     this.toolIndicator = tools.createDiv({ cls: "finenotes-x-tool-indicator is-hidden" });
-    keep(this.addToolButton(tools, "select", "lasso", "Lasso select (V)"));
-    this.addToolButton(tools, "pen", "pen-tool", "Pen (P or W)");
-    this.addToolButton(tools, "eraser", "eraser", "Eraser (E)");
-    keep(this.addToolButton(tools, "text", "type", "Text box (T)"));
-    keep(this.addToolButton(tools, "shape", "shapes", "Shapes (S)"));
-    keep(this.foldButton(tools, FOLD_RANK.image, "image", "Insert image", cb.onInsertImage));
-    keep(this.foldButton(tools, FOLD_RANK.pdf, "file-text", "Insert PDF", cb.onInsertPdf));
+    keep(item("select", this.addToolButton(tools, "select", "lasso", "Lasso select (V)")));
+    item("pen", this.addToolButton(tools, "pen", "pen-tool", "Pen (P or W)"));
+    item(
+      "eraser",
+      this.foldButton(tools, FOLD_RANK.image, "eraser", "Standard eraser", () =>
+        this.activateEraser("standard"),
+      ),
+    );
+    item(
+      "eraser-stroke",
+      this.foldButton(tools, FOLD_RANK.image, "delete", "Whole stroke eraser", () =>
+        this.activateEraser("stroke"),
+      ),
+    );
+    item(
+      "eraser-line",
+      this.foldButton(tools, FOLD_RANK.image, "list-minus", "Line eraser", () =>
+        this.activateEraser("ruled"),
+      ),
+    );
+    for (const id of ["eraser", "eraser-stroke", "eraser-line"] as const) {
+      const button = this.itemButtons.get(id);
+      if (button) {
+        button.addClass("has-caret");
+        button.setAttribute("aria-haspopup", "dialog");
+      }
+    }
+    keep(
+      item("lock", this.foldButton(tools, FOLD_RANK.image, "lock", "Lock rectangle", cb.onLock)),
+    );
+    keep(
+      item(
+        "paste",
+        this.foldButton(tools, FOLD_RANK.image, "clipboard-paste", "Paste", cb.onPaste),
+      ),
+    );
+    keep(item("text", this.addToolButton(tools, "text", "type", "Text box (T)")));
+    keep(item("shape", this.addToolButton(tools, "shape", "shapes", "Shapes (S)")));
+    keep(
+      item(
+        "image",
+        this.foldButton(tools, FOLD_RANK.image, "image", "Insert image", cb.onInsertImage),
+      ),
+    );
+    keep(
+      item("pdf", this.foldButton(tools, FOLD_RANK.pdf, "file-text", "Insert PDF", cb.onInsertPdf)),
+    );
     // The note's recordings live in the page sidebar's Files tab, as in
     // GoodNotes; the mic only starts and stops one.
-    this.recordButton = this.foldButton(
-      tools,
-      FOLD_RANK.record,
-      "mic",
-      "Record audio",
-      cb.onRecord,
+    this.recordButton = item(
+      "record",
+      this.foldButton(tools, FOLD_RANK.record, "mic", "Record audio", cb.onRecord),
     );
     keep(this.recordButton);
 
@@ -951,28 +1077,572 @@ export class Toolbar {
     // (bookmark, duplicate, go to page, clear, delete), then, rightmost,
     // the note's own settings.
     const doc = this.barEl.createDiv({ cls: "finenotes-x-bar-group finenotes-x-bar-doc" });
-    this.addPageButton = this.foldButton(doc, FOLD_RANK.addPage, "plus", "Add page", cb.onAddPage);
-    keep(this.foldButton(doc, FOLD_RANK.share, "share", "Export as PDF", cb.onShare));
-    this.moreButton = this.barButton(doc, "more-horizontal", "More", cb.onMore);
-    this.settingsButton = this.foldButton(
-      doc,
-      FOLD_RANK.settings,
-      "settings",
-      "Notebook settings",
-      cb.onSettings,
+    this.addPageButton = item(
+      "add-page",
+      this.foldButton(doc, FOLD_RANK.addPage, "plus", "Add page", cb.onAddPage),
     );
+    keep(
+      item("share", this.foldButton(doc, FOLD_RANK.share, "share", "Export as PDF", cb.onShare)),
+    );
+    this.moreButton = item(
+      "more",
+      this.barButton(doc, "more-horizontal", "More", (anchor) => this.toggleStripMore(anchor)),
+    );
+    this.settingsButton = item(
+      "settings",
+      this.foldButton(doc, FOLD_RANK.settings, "settings", "Notebook settings", cb.onSettings),
+    );
+    for (const spec of MORE_ACTIONS) {
+      item(
+        spec.id,
+        this.foldButton(
+          doc,
+          0,
+          spec.icon,
+          spec.label,
+          cb.onStripAction ? (anchor) => cb.onStripAction?.(spec.id, anchor) : undefined,
+        ),
+      );
+    }
+    this.applyToolbarItems(toolbarItemsOf(cb.toolbarItems?.()));
     this.watchCrowding();
+  }
+
+  /** Put every existing button into its ordered left, centre or right group. */
+  setToolbarItems(value: unknown): void {
+    this.applyToolbarItems(toolbarItemsOf(value));
+    this.fitBar(this.indicatorTool);
+    this.placeIndicator(this.indicatorTool, null);
+  }
+
+  private applyToolbarItems(items: readonly ToolbarItemChoice[]): void {
+    this.closeStripMore();
+    items = stripLayoutOf(items);
+    this.stripItems = items;
+    for (const button of this.itemButtons.values()) button.remove();
+    this.toolIndicator?.remove();
+    this.fullscreenControls?.remove();
+    for (const child of Array.from(this.barEl.children)) child.remove();
+    this.customGroups.clear();
+    this.barEl.addClass("is-unified-strip");
+    const lane = this.barEl.createDiv({
+      cls: "finenotes-x-bar-group is-customizable is-strip-linear",
+    });
+    this.customGroups.set("right", lane);
+    this.customGroups.set("center", lane);
+    const append = (choice: ToolbarItemChoice, parent: HTMLElement): void => {
+      if (choice.id === "group") {
+        const pill = parent.createDiv({
+          cls: "finenotes-x-strip-pill",
+          attr: { role: "group", "aria-label": "Toolbar group" },
+        });
+        for (const child of items.filter(
+          (i) => i.visible && i.container === choice.key && i.group === "strip",
+        ))
+          append(child, pill);
+      } else if (choice.id === "submenu") {
+        const button = parent.createEl("button", {
+          cls: "finenotes-x-tool clickable-icon",
+          attr: {
+            title: choice.name || "Submenu",
+            "aria-label": choice.name || "Submenu",
+            "aria-haspopup": "dialog",
+          },
+        });
+        iconOrText(button, choice.icon || "panel-left-open", "");
+        button.addEventListener("click", () => this.toggleCustomSubmenu(choice, button));
+      } else if (isToolbarLayoutItem(choice.id)) {
+        parent.createDiv({
+          cls: `finenotes-x-strip-${choice.id}`,
+          attr: { "aria-hidden": "true" },
+        });
+      } else {
+        const button = this.itemButtons.get(choice.id);
+        if (button) {
+          button.removeClass("is-user-hidden");
+          parent.append(button);
+        }
+      }
+    };
+    for (const choice of items.filter((i) => i.visible && i.group === "strip" && !i.container))
+      append(choice, lane);
+    // Keep hidden controls connected for state updates, without taking space.
+    const stash = this.barEl.createDiv({ cls: "finenotes-x-strip-stash" });
+    for (const [id, button] of this.itemButtons) {
+      const choice = items.find((item) => item.id === id);
+      if (!button.parentElement) stash.append(button);
+      button.toggleClass(
+        "is-user-hidden",
+        !choice?.visible || choice.group === "more" || stash.contains(button),
+      );
+    }
+    // Overflow must always have an accessible destination, even if More was removed.
+    if (
+      this.moreButton &&
+      (!this.moreButton.parentElement || this.moreButton.parentElement === stash)
+    ) {
+      this.customGroups.get("right")?.append(this.moreButton);
+      this.moreButton.removeClass("is-user-hidden");
+    }
+    this.toolsGroup = this.customGroups.get("center") ?? null;
+    if (this.toolIndicator && this.toolsGroup) this.toolsGroup.prepend(this.toolIndicator);
+    if (this.fullscreenControls) this.barEl.append(this.fullscreenControls);
+  }
+
+  private submenuAnchor: HTMLElement | null = null;
+  private quickColorClose: (() => void) | null = null;
+
+  private quickColorSuppressClick = false;
+
+  private toggleQuickColor(anchor: HTMLElement, initial?: PointerEvent): void {
+    if (this.quickColorClose) { if (!initial) this.quickColorClose(); return; }
+    const button = this.itemButtons.get("colorwheel") ?? anchor;
+    button.addClass("is-color-expanded");
+    button.setAttribute("aria-expanded", "true");
+    const track = button.createSpan({ cls: "finenotes-x-inline-color-track", attr: { role: "slider", tabindex: "0", "aria-label": "Ink color", "aria-valuemin": "0", "aria-valuemax": "359" } });
+    let hue = Math.round(rgbToHsv(hexToRgb(this.state.color) ?? { r: 0, g: 0, b: 0 }).h);
+    let color = this.state.color;
+    let pointer = initial?.pointerId;
+    const doc = this.host.ownerDocument;
+    const show = (): void => {
+      button.querySelector<HTMLElement>(".finenotes-x-current-color")?.setCssStyles({ backgroundColor: color });
+      track.setAttribute("aria-valuenow", String(hue));
+      track.setAttribute("aria-valuetext", color);
+      track.setCssProps({ "--color-position": `${hue / 359 * 100}%` });
+    };
+    const pick = (event: PointerEvent): void => {
+      const box = track.getBoundingClientRect();
+      const vertical = getComputedStyle(this.barEl).flexDirection === "column";
+      hue = Math.round(Math.max(0, Math.min(1, vertical ? (event.clientY - box.top) / Math.max(1, box.height) : (event.clientX - box.left) / Math.max(1, box.width))) * 359);
+      color = rgbToHex(hsvToRgb({ h: hue, s: 1, v: 1 }));
+      show();
+    };
+    const close = (): void => {
+      this.quickColorClose = null;
+      track.remove(); button.removeClass("is-color-expanded");
+      button.setAttribute("aria-expanded", "false");
+      doc.removeEventListener("pointermove", move, true);
+      doc.removeEventListener("pointerup", up, true);
+      doc.removeEventListener("pointercancel", cancel, true);
+      doc.removeEventListener("pointerdown", down, true);
+      doc.removeEventListener("keydown", key, true);
+      this.syncActive();
+    };
+    const commit = (): void => { close(); this.setPenColor(color); };
+    const move = (event: PointerEvent): void => { if (event.pointerId === pointer) { event.preventDefault(); pick(event); } };
+    const up = (event: PointerEvent): void => { if (event.pointerId === pointer) { event.preventDefault(); commit(); } };
+    const cancel = (event: PointerEvent): void => { if (event.pointerId === pointer) close(); };
+    const down = (event: PointerEvent): void => {
+      if (!button.contains(event.target as Node)) { close(); return; }
+      pointer = event.pointerId; event.preventDefault(); pick(event);
+    };
+    const key = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") close();
+      else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); commit(); }
+      else if (["ArrowLeft", "ArrowDown", "ArrowRight", "ArrowUp"].includes(event.key)) {
+        event.preventDefault(); hue = Math.max(0, Math.min(359, hue + (["ArrowLeft", "ArrowDown"].includes(event.key) ? -1 : 1)));
+        color = rgbToHex(hsvToRgb({ h: hue, s: 1, v: 1 })); show();
+      }
+    };
+    this.quickColorClose = close;
+    doc.addEventListener("pointermove", move, { capture: true, passive: false });
+    doc.addEventListener("pointerup", up, true);
+    doc.addEventListener("pointercancel", cancel, true);
+    doc.addEventListener("pointerdown", down, true);
+    doc.addEventListener("keydown", key, true);
+    show();
+    if (!initial) track.focus();
+  }
+
+  private intelligentCollapsed = true;
+  private hoverOriginal: ToolbarState | null = null;
+  private hoverAnchor: HTMLElement | null = null;
+  private hoverTimer: ReturnType<typeof setTimeout> | null = null;
+  private hoverExitTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private endToolHover(hide = true): void {
+    if (this.hoverTimer !== null) clearTimeout(this.hoverTimer);
+    if (this.hoverExitTimer !== null) clearTimeout(this.hoverExitTimer);
+    this.hoverTimer = this.hoverExitTimer = null;
+    this.hoverAnchor?.removeClass("is-hover-preview");
+    this.hoverAnchor = null;
+    if (!this.hoverOriginal) return;
+    this.state = this.hoverOriginal;
+    this.hoverOriginal = null;
+    this.intelligentCollapsed = hide;
+    this.buildOptions();
+    this.syncActive();
+  }
+
+  private installToolHover(): void {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let tip: HTMLElement | null = null;
+    let anchor: HTMLElement | null = null;
+    const clear = (): void => {
+      if (timer !== null) clearTimeout(timer);
+      timer = null; tip?.remove(); tip = null; anchor = null;
+    };
+    const over = (event: PointerEvent): void => {
+      if (event.pointerType === "touch" || event.buttons || event.pressure > 0) return;
+      const button = (event.target as Element | null)?.closest<HTMLElement>("button");
+      if (button === anchor) return;
+      clear();
+      if (!button) return;
+      anchor = button;
+      timer = setTimeout(() => {
+        timer = null;
+        const name = button.getAttribute("aria-label") ?? button.getAttribute("title");
+        if (!name) return;
+        tip = this.host.createDiv({ cls: "finenotes-x-tool-tooltip", text: name, attr: { role: "tooltip" } });
+        const host = this.host.getBoundingClientRect(), box = button.getBoundingClientRect();
+        const vertical = getComputedStyle(this.barEl).flexDirection === "column";
+        tip.setCssStyles({ left: `${Math.max(8, Math.min(host.width - tip.offsetWidth - 8, (vertical ? box.left - tip.offsetWidth - 8 : (box.left + box.right - tip.offsetWidth) / 2) - host.left))}px`, top: `${Math.max(8, Math.min(host.height - tip.offsetHeight - 8, (vertical ? (box.top + box.bottom - tip.offsetHeight) / 2 : box.bottom + 8) - host.top))}px` });
+      }, 500);
+    };
+    const out = (event: PointerEvent): void => { if (!anchor?.contains(event.relatedTarget as Node | null)) clear(); };
+    this.barEl.addEventListener("pointerover", over);
+    this.barEl.addEventListener("pointermove", over);
+    this.barEl.addEventListener("pointerout", out);
+    this.barEl.addEventListener("pointerdown", clear, true);
+    this.barEl.addEventListener("pointercancel", clear);
+    this.disposers.push(() => {
+      clear();
+      this.barEl.removeEventListener("pointerover", over);
+      this.barEl.removeEventListener("pointermove", over);
+      this.barEl.removeEventListener("pointerout", out);
+      this.barEl.removeEventListener("pointerdown", clear, true);
+      this.barEl.removeEventListener("pointercancel", clear);
+    });
+  }
+  private intelligentDispose: (() => void) | null = null;
+
+  /** Dock tool-owned content; cleanup runs before another toolkit replaces it. */
+  closeIntelligentTool(kind: string): void {
+    if (this.popoverKind === kind) this.closePopover();
+  }
+
+  openIntelligentTool(kind: string, title: string, dispose: () => void): HTMLElement {
+    const body = this.openPopover(kind, this.barEl);
+    body.addClass("finenotes-x-intelligent-external");
+    body.setAttribute("aria-label", title);
+    body.createDiv({ cls: "finenotes-x-popover-title", text: title });
+    this.intelligentDispose = dispose;
+    return body;
+  }
+
+  private toggleCustomSubmenu(choice: ToolbarItemChoice, anchor: HTMLElement): void {
+    const kind = `submenu-${choice.key}`;
+    if (this.popoverKind === kind) {
+      this.closePopover();
+      return;
+    }
+    const body = this.openPopover(kind, anchor);
+    this.submenuAnchor = anchor;
+    anchor.addClass("is-active");
+    anchor.setAttribute("aria-expanded", "true");
+    body.addClass("finenotes-x-custom-submenu-bar");
+    body.setAttribute("aria-label", choice.name || "Submenu");
+    const append = (item: ToolbarItemChoice, parent: HTMLElement): void => {
+      if (item.id === "group") {
+        const group = parent.createDiv({
+          cls: "finenotes-x-strip-pill",
+          attr: { role: "group", "aria-label": "Action group" },
+        });
+        this.stripItems
+          .filter((child) => child.visible && child.container === item.key)
+          .forEach((child) => append(child, group));
+        return;
+      }
+      if (isToolbarLayoutItem(item.id)) {
+        parent.createDiv({ cls: `finenotes-x-strip-${item.id}`, attr: { "aria-hidden": "true" } });
+        return;
+      }
+      const source = this.itemButtons.get(item.id) as HTMLButtonElement | undefined;
+      const spec = TOOLBAR_ITEMS.find((spec) => spec.id === item.id);
+      if (!source || !spec) return;
+      const button = parent.createEl("button", {
+        cls: "finenotes-x-tool clickable-icon",
+        attr: { title: spec.label, "aria-label": spec.label },
+      });
+      iconOrText(button, spec.icon, "");
+      button.disabled = source.disabled;
+      button.toggleClass("is-active", source.hasClass("is-active"));
+      button.setAttribute("aria-pressed", String(source.hasClass("is-active")));
+      button.addEventListener("click", () => {
+        this.closePopover();
+        const folded = this.foldable.find((item) => item.button === source);
+        if (folded) folded.run(anchor);
+        else source.click();
+      });
+    };
+    this.stripItems
+      .filter((item) => item.visible && item.container === choice.key)
+      .forEach((item) => append(item, body));
+    if (!body.children.length)
+      body.createDiv({
+        cls: "finenotes-x-popover-label",
+        text: "Add actions in Customize menu strip",
+      });
+    this.keepPopoverInside(anchor);
+  }
+
+  private closeStripMore(): void {
+    this.moreButton?.removeClass("is-active");
+    this.moreButton?.setAttribute("aria-expanded", "false");
+    this.stripMoreDispose?.();
+    this.stripMoreDispose = null;
+    this.stripMore?.remove();
+    this.stripMore = null;
+    if (!this.popover) this.optionsEl?.removeClass("has-strip-detail");
+  }
+
+  private toggleStripMore(anchor: HTMLElement): void {
+    if (this.stripMore) {
+      this.closeStripMore();
+      return;
+    }
+    const doc = this.barEl.ownerDocument;
+    this.closePopover();
+    const docked = this.optionsEl.hasClass("is-intelligent-strip");
+    const panel = (docked ? this.optionsEl : doc.body).createDiv({
+      cls: "finenotes-x-strip-more" + (docked ? " is-strip-detail" : ""),
+      attr: { role: "menu", "aria-label": "More actions" },
+    });
+    if (docked) {
+      this.setIntelligentVisible(true);
+      this.optionsEl.addClass("has-strip-detail");
+      const back = panel.createEl("button", {
+        cls: "finenotes-x-strip-back",
+        attr: { "aria-label": "Back to tools", title: "Back to tools" },
+      });
+      iconOrText(back, "arrow-left", "←");
+      back.addEventListener("click", () => this.closeStripMore());
+    }
+    const dark = this.host.closest(".finenotes-x-view")?.hasClass("theme-dark") === true;
+    panel.addClass(dark ? "theme-dark" : "theme-light", "finenotes-x-themed-menu");
+    this.stripMore = panel;
+    this.moreButton?.addClass("is-active");
+    this.moreButton?.setAttribute("aria-expanded", "true");
+    const add = (
+      label: string,
+      icon: string,
+      run: () => void,
+      enabled = true,
+      parent: HTMLElement = panel,
+    ): void => {
+      const button = parent.createEl("button", {
+        cls: "finenotes-x-strip-menu-action clickable-icon",
+        attr: { role: "menuitem", "aria-label": label, title: label },
+      });
+      iconOrText(button.createSpan({ cls: "finenotes-x-strip-menu-icon" }), icon, "");
+      button.createSpan({ cls: "finenotes-x-strip-menu-label", text: compactToolbarLabel(label) });
+      button.toggleClass("is-destructive", icon === "trash-2" || label === "Clear page");
+      button.disabled = !enabled;
+      const source = [...this.itemButtons.values()].find(
+        (item) =>
+          item.getAttribute("aria-label")?.replace(/ \(.*\)$/, "") === label ||
+          item.getAttribute("aria-label") === label,
+      );
+      if (source?.hasClass("is-active")) {
+        button.addClass("is-active");
+        button.setAttribute("aria-pressed", "true");
+        iconOrText(button.createSpan({ cls: "finenotes-x-strip-menu-check" }), "check", "✓");
+      }
+      button.addEventListener("click", () => {
+        this.closeStripMore();
+        run();
+      });
+    };
+    const menuGroups = new Map<string, HTMLElement>();
+    for (const choice of this.stripItems
+      .filter(
+        (item) => item.visible && item.group === "more" && item.id !== "more" && !item.container,
+      )
+      .flatMap((item) =>
+        item.id === "group"
+          ? [
+              item,
+              ...this.stripItems.filter(
+                (child) =>
+                  child.visible &&
+                  child.group === "more" &&
+                  child.container === item.key &&
+                  child.id !== "more",
+              ),
+            ]
+          : [item],
+      )) {
+      if (choice.id === "group") {
+        menuGroups.set(
+          choice.key!,
+          panel.createDiv({
+            cls: "finenotes-x-strip-menu-group",
+            attr: { role: "group", "aria-label": "Action group" },
+          }),
+        );
+        continue;
+      }
+      const parent = choice.container ? (menuGroups.get(choice.container) ?? panel) : panel;
+      if (choice.id === "submenu") {
+        add(
+          choice.name || "Submenu",
+          choice.icon || "panel-left-open",
+          () => this.toggleCustomSubmenu(choice, anchor),
+          true,
+          parent,
+        );
+        continue;
+      }
+      if (isToolbarLayoutItem(choice.id)) {
+        parent.createDiv({
+          cls:
+            choice.id === "divider"
+              ? "finenotes-x-strip-menu-divider"
+              : "finenotes-x-strip-menu-space",
+          attr: { role: "separator" },
+        });
+        continue;
+      }
+      const spec = TOOLBAR_ITEMS.find((item) => item.id === choice.id);
+      const button = this.itemButtons.get(choice.id) as HTMLButtonElement | undefined;
+      if (!spec || !button) continue;
+      const folded = this.foldable.find((item) => item.button === button);
+      const contextual = MORE_ACTIONS.some((item) => item.id === choice.id);
+      add(
+        spec.label,
+        spec.icon,
+        () => (folded ? folded.run(anchor) : button.click()),
+        !button.disabled &&
+          (!contextual || this.callbacks.stripActionEnabled?.(choice.id as MoreActionId) !== false),
+        parent,
+      );
+    }
+    const folded = this.foldedItems();
+    if (folded.length) panel.createDiv({ cls: "finenotes-x-strip-menu-divider" });
+    const shortcuts = folded.length
+      ? panel.createDiv({ cls: "finenotes-x-strip-menu-shortcuts" })
+      : panel;
+    for (const item of folded) add(item.label, item.icon, () => item.run(anchor), true, shortcuts);
+    const footer = panel.createDiv({ cls: "finenotes-x-strip-menu-footer" });
+    add(
+      "Customize menu strip…",
+      "sliders-horizontal",
+      () => this.callbacks.onEditToolbar?.(),
+      true,
+      footer,
+    );
+    const rect = anchor.getBoundingClientRect();
+    const win = doc.defaultView;
+    const width = win?.innerWidth ?? 800,
+      height = win?.innerHeight ?? 600;
+    const vertical = getComputedStyle(this.barEl).flexDirection === "column";
+    panel.setCssStyles({ maxHeight: `${Math.max(80, height - 20)}px` });
+    const panelWidth = panel.offsetWidth || 300;
+    const panelHeight = panel.offsetHeight;
+    const preferredLeft = vertical ? rect.left - panelWidth - 10 : rect.right - panelWidth;
+    panel.setCssStyles({
+      left: `${Math.max(10, Math.min(preferredLeft, width - panelWidth - 10))}px`,
+      top: `${Math.max(10, Math.min(vertical ? rect.top : rect.bottom + 8, height - panelHeight - 10))}px`,
+    });
+    const outside = (event: Event): void => {
+      if (!panel.contains(event.target as Node) && !anchor.contains(event.target as Node))
+        this.closeStripMore();
+    };
+    const key = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        this.closeStripMore();
+        anchor.focus();
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const buttons = Array.from(
+          panel.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+        );
+        const at = buttons.indexOf(doc.activeElement as HTMLButtonElement);
+        buttons[
+          (at + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length
+        ]?.focus();
+      }
+    };
+    doc.addEventListener("pointerdown", outside, true);
+    doc.addEventListener("keydown", key);
+    this.stripMoreDispose = () => {
+      doc.removeEventListener("pointerdown", outside, true);
+      doc.removeEventListener("keydown", key);
+    };
+    panel.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+  }
+
+  private installToolbarMenu(): void {
+    const open = (event: MouseEvent): void => {
+      event.preventDefault();
+      const menu = new Menu();
+      menu.addItem((entry) =>
+        entry
+          .setTitle("Edit toolbar items")
+          .setIcon("list-ordered")
+          .onClick(() => {
+            this.callbacks.onEditToolbar?.();
+          }),
+      );
+      menu.showAtMouseEvent(event);
+    };
+    this.barEl.addEventListener("contextmenu", open);
+    this.disposers.push(() => this.barEl.removeEventListener("contextmenu", open));
+  }
+
+  private tapPenMenu(): void {
+    this.tapTool("pen", this.penToolButton ?? this.barEl);
+    this.showOptions(true);
+  }
+
+  setActionActive(id: ToolbarItemId, active: boolean): void {
+    const button = this.itemButtons?.get(id);
+    button?.toggleClass("is-active", active);
+    button?.setAttribute("aria-pressed", String(active));
+  }
+
+  setCalculatorActive(active: boolean): void {
+    const button = this.itemButtons.get("calculator");
+    button?.toggleClass("is-active", active);
+    button?.setAttribute("aria-pressed", String(active));
+  }
+
+  refreshIntelligentTheme(): void {
+    const color = this.host.closest(".finenotes-x-view")?.hasClass("theme-dark")
+      ? "#ffffff"
+      : "#000000";
+    this.stripMore?.toggleClass("theme-dark", color === "#ffffff");
+    this.stripMore?.toggleClass("theme-light", color !== "#ffffff");
+    const swatch = this.optionsEl.querySelector<HTMLElement>(".is-theme-ink");
+    swatch?.setCssStyles({ backgroundColor: color });
+    swatch?.setAttribute("aria-label", `Theme ink: ${color === "#ffffff" ? "white" : "black"}`);
+  }
+
+  setPenMenuActive(active: boolean): void {
+    this.penMenuButton?.toggleClass("is-active", active);
+    this.penMenuButton?.setAttribute("aria-pressed", String(active));
+  }
+
+  /** Apply a colour sampled outside the toolbar as an ordinary pen-colour pick. */
+  applyPickedColor(color: string): void {
+    this.setPenColor(color);
   }
 
   /** The main ruler button toggles it; its separate caret opens settings. */
   private tapRuler(anchor: HTMLElement): void {
     const button = this.rulerButton;
     if (!button) return;
-    void anchor;
+    if (button.hasClass("is-active")) {
+      this.toggleRulerPopover(anchor);
+      return;
+    }
     const active = this.callbacks.onRuler?.() ?? false;
     button.toggleClass("is-active", active);
     button.setAttribute("aria-pressed", String(active));
     if (!active && this.popoverKind === "ruler") this.closePopover();
+
   }
 
   private toggleRulerPopover(anchor: HTMLElement): void {
@@ -982,6 +1652,16 @@ export class Toolbar {
     }
     const body = this.openPopover("ruler", anchor);
     body.createEl("h3", { cls: "finenotes-x-ruler-settings-title", text: "Ruler" });
+    const hide = body.createEl("button", {
+      cls: "finenotes-x-icon-action",
+      attr: { "aria-label": "Hide ruler", title: "Hide ruler" },
+    });
+    iconOrText(hide, "eye-off", "Hide ruler");
+    hide.addEventListener("click", () => {
+      const active = this.callbacks.onRuler?.() ?? false;
+      this.setRulerActive(active);
+      if (!active) this.closePopover();
+    });
 
     const choice = <T extends string>(
       label: string,
@@ -1008,10 +1688,9 @@ export class Toolbar {
     for (const kind of ["ruler", "triangle", "protractor"] as const) {
       const card = types.createEl("button", {
         cls: "finenotes-x-ruler-type clickable-icon",
-        attr: { "aria-label": RULER_KIND_LABELS[kind] },
+        attr: { "aria-label": RULER_KIND_LABELS[kind], title: RULER_KIND_LABELS[kind] },
       });
       card.append(rulerGlyph(kind));
-      card.createSpan({ cls: "finenotes-x-ruler-type-label", text: RULER_KIND_LABELS[kind] });
       card.toggleClass("is-active", kind === this.rulerSettings.kind);
       card.setAttribute("aria-pressed", String(kind === this.rulerSettings.kind));
       card.addEventListener("click", () => {
@@ -1029,46 +1708,20 @@ export class Toolbar {
       (theme) => theme[0].toUpperCase() + theme.slice(1),
       (theme) => apply({ theme }),
     );
-    const lengthControl: { label?: HTMLElement; input?: HTMLInputElement } = {};
     choice<RulerUnit>(
       "Units",
       ["cm", "inch"],
       this.rulerSettings.unit,
       (unit) => (unit === "cm" ? "Centimetres" : "Inches"),
-      (unit) => {
-        const mm = this.rulerSettings.baseLength * (this.rulerSettings.unit === "inch" ? 25.4 : 10);
-        const baseLength = mm / (unit === "inch" ? 25.4 : 10);
-        apply({ unit, baseLength });
-        lengthControl.label?.setText(`Base length (${unit})`);
-        const input = lengthControl.input;
-        if (input) {
-          input.min = unit === "inch" ? "2" : "5";
-          input.max = unit === "inch" ? "20" : "50";
-          input.step = unit === "inch" ? "0.25" : "0.5";
-          input.value = String(Number(this.rulerSettings.baseLength.toFixed(2)));
-        }
-      },
+      (unit) => apply({ unit }),
     );
-
-    const lengthRow = body.createDiv({ cls: "finenotes-x-ruler-setting" });
-    lengthControl.label = lengthRow.createSpan({
-      text: `Base length (${this.rulerSettings.unit})`,
+    body.createDiv({
+      cls: "finenotes-x-popover-label",
+      text: "Pinch to resize. Triangle markings use centimetres.",
     });
-    const length = lengthRow.createEl("input", {
-      type: "number",
-      attr: {
-        min: this.rulerSettings.unit === "inch" ? "2" : "5",
-        max: this.rulerSettings.unit === "inch" ? "20" : "50",
-        step: this.rulerSettings.unit === "inch" ? "0.25" : "0.5",
-        value: String(Number(this.rulerSettings.baseLength.toFixed(2))),
-        "aria-label": "Ruler base length",
-      },
-    });
-    lengthControl.input = length;
-    length.addEventListener("change", () => apply({ baseLength: Number(length.value) }));
 
     const snapRow = body.createDiv({ cls: "finenotes-x-ruler-setting" });
-    snapRow.createSpan({ text: "Degree snapping" });
+    snapRow.createSpan({ text: "Snapping" });
     const snap = snapRow.createEl("select", { attr: { "aria-label": "Degree snapping" } });
     const snapOptions: ReadonlyArray<[RulerDegreeSnap, string]> = [
       ["off", "Off"],
@@ -1135,10 +1788,13 @@ export class Toolbar {
       // The buttons moved with the bar: the indicator follows, without a slide.
       this.placeIndicator(this.indicatorTool, null);
       this.placeUpdateTip();
+      this.placePill();
     };
     if (typeof ResizeObserver === "function") {
       const observer = new ResizeObserver(measure);
       observer.observe(this.barEl);
+      observer.observe(this.host);
+      observer.observe(this.optionsEl);
       this.disposers.push(() => observer.disconnect());
     }
     measure();
@@ -1157,20 +1813,41 @@ export class Toolbar {
     for (const item of this.foldable) item.button.removeClass("is-overflowed");
     this.measureCrowding();
     const style = getComputedStyle(bar);
+    const vertical = style.flexDirection === "column";
+    const top = box.top + parseFloat(style.paddingTop);
+    const bottom =
+      box.bottom -
+      parseFloat(style.paddingBottom) -
+      (this.fullscreenControls?.offsetHeight ? this.fullscreenControls.offsetHeight + 10 : 0);
     const left = box.left + parseFloat(style.paddingLeft);
-    const right = box.right - parseFloat(style.paddingRight);
+    const right =
+      box.right -
+      parseFloat(style.paddingRight) -
+      (this.fullscreenControls?.offsetWidth ? this.fullscreenControls.offsetWidth + 10 : 0);
     const overflows = (): boolean =>
-      Array.from(bar.children).some((group) => {
+      Array.from(
+        bar.querySelectorAll(".finenotes-x-tool:not(.is-user-hidden):not(.is-overflowed)"),
+      ).some((group) => {
         if (!group.instanceOf(HTMLElement)) return false;
         const at = group.getBoundingClientRect();
-        return at.width > 0 && (at.right > right + 0.5 || at.left < left - 0.5);
+        return (
+          at.width > 0 &&
+          (vertical
+            ? at.bottom > bottom + 0.5 || at.top < top - 0.5
+            : at.right > right + 0.5 || at.left < left - 0.5)
+        );
       });
     const order = [...this.foldable].sort((a, b) => a.rank - b.rank);
     for (const item of order) {
       if (!overflows()) break;
       if (item.tool !== undefined && item.tool === active) continue;
+      if (
+        item.button === this.itemButtons.get("fullscreen") ||
+        item.button === this.itemButtons.get("collapse-menu")
+      )
+        continue;
       // Hidden for another reason (a practice file, a single page): nothing to fold.
-      if (item.button.style.display === "none") continue;
+      if (item.button.style.display === "none" || item.button.hasClass("is-user-hidden")) continue;
       item.button.addClass("is-overflowed");
       this.measureCrowding();
     }
@@ -1263,7 +1940,9 @@ export class Toolbar {
   /** The bar's buttons folded into ⋯ just now, in the bar's order. */
   foldedItems(): FoldedBarItem[] {
     return this.foldable
-      .filter((item) => item.button.hasClass("is-overflowed"))
+      .filter(
+        (item) => item.button.hasClass("is-overflowed") && !item.button.hasClass("is-user-hidden"),
+      )
       .sort((a, b) =>
         a.button.compareDocumentPosition(b.button) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
       )
@@ -1350,7 +2029,7 @@ export class Toolbar {
     if (rank !== undefined) {
       this.fold(rank, button, icon, label, (anchor) => this.tapTool(tool, anchor), tool);
     }
-    if (tool === "select") {
+    if (["select", "pen", "text", "shape"].includes(tool)) {
       button.addClass("has-caret");
       iconOrText(button.createSpan({ cls: "finenotes-x-tool-caret" }), "chevron-down", "");
       button.setAttribute("aria-haspopup", "dialog");
@@ -1453,13 +2132,7 @@ export class Toolbar {
     if (tool === "pen") tool = this.activePenType().tool;
     const current = this.state.tool;
     this.drawingTool = drawingToolOf(this.drawingTool, current);
-    tool = selectedTool(
-      current,
-      tool,
-      this.callbacks.returnToPenOnReselect?.() === true,
-      this.drawingTool,
-    );
-    if (tool === "select" && current === "select") {
+    if (tool === "select" && current === "select" && !this.optionsEl?.hasClass("is-intelligent-strip")) {
       this.toggleLassoPopover(button);
       return;
     }
@@ -1471,6 +2144,8 @@ export class Toolbar {
       this.leaveToolFor(tool);
       this.state.tool = tool;
       this.callbacks.onToolChange(tool);
+      this.optionsVisible = false;
+      this.intelligentCollapsed = true;
       this.buildOptions();
     }
     this.syncActive();
@@ -1502,10 +2177,20 @@ export class Toolbar {
 
   /** Rebuild the options pill for whatever tool is active. */
   private buildOptions(): void {
+    if (this.favoriteHoldTimer !== null) clearTimeout(this.favoriteHoldTimer);
+    this.favoriteHoldTimer = null;
     // Where the pill is now, mid-glide or not, so it can glide from there.
     const before = this.pillBox();
     this.stopPillMorph();
+    this.closePopover();
+    this.closeStripMore();
     this.optionsEl.empty();
+    const heading = this.optionsEl.createDiv({
+      cls: "finenotes-x-intelligent-heading",
+      text: `${this.state.tool === "highlighter" ? "Marker" : this.state.tool[0].toUpperCase() + this.state.tool.slice(1)} tools`,
+    });
+    heading.setAttribute("role", "heading");
+    this.optionsVisible = true;
     this.colorSwatches.clear();
     this.widthButtons.clear();
     this.penTypeButtons.clear();
@@ -1514,8 +2199,10 @@ export class Toolbar {
 
     // A text box being edited shows the text options whatever the tool is:
     // styling the box under the caret is what the pill is for right then.
-    const text = this.state.tool === "text" || this.textTarget !== null;
+    const text = this.state.tool === "text" || (this.textTarget !== null && !this.hoverOriginal);
+    if (text) heading.setText("Text tools");
     this.optionsEl.toggleClass("is-text", text);
+    this.optionsEl.toggleClass("is-wide-toolkit", text || this.state.tool === "select");
     if (text) this.buildTextOptions();
     else {
       // A text popover must not outlive the pill it hangs from, nor a tool's
@@ -1546,7 +2233,10 @@ export class Toolbar {
     }
     // A held or edited box always shows its pill, floating beside it.
     const anchored = this.textAnchor !== null && this.textTarget !== null;
-    this.optionsEl.toggleClass("is-collapsed", !this.optionsVisible && !anchored);
+    this.optionsEl.removeClass("is-collapsed");
+    this.optionsVisible = !this.intelligentCollapsed;
+    this.optionsEl.toggleClass("is-intelligent-hidden", this.intelligentCollapsed);
+    void anchored;
     this.applyPosition();
     // Highlighter is a pen type: the same controls, so nothing to fade.
     const kind = text ? "text" : this.state.tool === "highlighter" ? "pen" : this.state.tool;
@@ -1554,9 +2244,74 @@ export class Toolbar {
     this.pillKind = kind;
   }
 
+  private buildCompactColorRow(): void {
+    const row = this.optionsEl.createDiv({ cls: "finenotes-x-compact-color-row" });
+    const strip = row.createEl("input", {
+      cls: "finenotes-x-touch-color-strip",
+      type: "range",
+      attr: { min: "0", max: "359", "aria-label": "Pen color hue" },
+    });
+    strip.value = String(
+      Math.round(rgbToHsv(hexToRgb(this.state.color) ?? { r: 0, g: 0, b: 0 }).h),
+    );
+    strip.addEventListener("input", () =>
+      strip.setAttribute(
+        "aria-valuetext",
+        rgbToHex(hsvToRgb({ h: Number(strip.value), s: 1, v: 1 })),
+      ),
+    );
+    strip.addEventListener("change", () =>
+      this.setPenColor(rgbToHex(hsvToRgb({ h: Number(strip.value), s: 1, v: 1 }))),
+    );
+    for (const { color, slot, locked } of wheelSwatches(
+      [
+        this.state.color,
+        ...(this.callbacks.favoriteColors?.() ?? this.state.recentColors ?? []),
+        ...this.quickColors(),
+        ...PALETTE,
+      ],
+      this.callbacks.favoritePins?.(),
+    ).slice(0, 6)) {
+      let held = false;
+      const swatch = this.swatchButton(row, color, () => {
+        if (!held) this.setPenColor(color);
+      });
+      swatch.setAttribute("title", `${color}; hold to ${locked ? "unlock" : "lock"}`);
+      swatch.toggleClass("is-locked", locked);
+      swatch.addEventListener("pointerdown", () => {
+        held = false;
+        if (this.favoriteHoldTimer !== null) clearTimeout(this.favoriteHoldTimer);
+        this.favoriteHoldTimer = setTimeout(() => {
+          held = true;
+          const pins = wheelPins(this.callbacks.favoritePins?.());
+          pins[slot] = locked ? null : color;
+          this.callbacks.onFavoritePins?.(pins);
+          this.buildOptions();
+        }, 650);
+      });
+      for (const event of ["pointerup", "pointercancel", "pointerleave"])
+        swatch.addEventListener(event, () => {
+          if (this.favoriteHoldTimer !== null) clearTimeout(this.favoriteHoldTimer);
+          this.favoriteHoldTimer = null;
+        });
+      this.colorSwatches.set(color, swatch);
+    }
+    const theme = this.swatchButton(row, "#000000", () => {
+      const color = this.host.closest(".finenotes-x-view")?.hasClass("theme-dark")
+        ? "#ffffff"
+        : "#000000";
+      this.setPenColor(color);
+    });
+    theme.addClass("is-theme-ink");
+    theme.setAttribute("title", "Theme ink — fixed black or white");
+    this.refreshIntelligentTheme();
+  }
+
   private buildPenOptions(): void {
     // One live pen button, not four permanent swatches. The three pen styles
     // remain one tap away in its menu, keeping the writing area clear.
+    this.buildCompactColorRow();
+    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
     const active = this.activePenType();
     const pen = this.optionsEl.createEl("button", { cls: "finenotes-x-pentype" });
     pen.append(penGlyph(active.id, this.state.color));
@@ -1564,7 +2319,7 @@ export class Toolbar {
     pen.setAttribute("title", `${active.label} options`);
     pen.addEventListener("click", () => this.togglePenTypeList());
     this.penTypeButtons.set(active.id, pen);
-    this.chevron("Pen options", () => this.togglePenTypeList());
+    caretIn(pen);
 
     this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
 
@@ -1580,36 +2335,8 @@ export class Toolbar {
 
     this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
 
-    // Five colours, then every colour in the picker.
-    for (const color of this.quickColors()) {
-      const swatch = this.swatchButton(this.optionsEl, color, () => {
-        // GoodNotes: a tap on the colour already chosen opens the picker on
-        // it (the ▾ in the swatch says so), and what it picks takes that
-        // swatch's place; any other colour is just picked.
-        if (sameColor(color, this.state.color)) {
-          this.toggleColorPopover("pen-color", swatch, this.state.color, (picked) =>
-            this.setPenColor(picked, color),
-          );
-        } else this.setPenColor(color);
-      });
-      this.colorSwatches.set(color, swatch);
-    }
-    // A dashed ring holding a "+", as GoodNotes' "add colour" (styles.css).
-    const more = this.optionsEl.createEl("button", {
-      cls: "finenotes-x-color-more clickable-icon",
-    });
-    iconOrText(more, "plus", "+");
-    more.setAttribute("aria-label", "More colours");
-    more.setAttribute("title", "More colours");
-    more.addEventListener("click", () =>
-      this.toggleColorPopover("pen-color", more, this.state.color, (color) =>
-        this.setPenColor(color),
-      ),
-    );
-
     // Auto-shape: a stroke that is plainly a shape snaps to it on lift.
     if (this.practice) return;
-    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
     const auto = this.optionsEl.createEl("button", {
       cls: "finenotes-x-shape finenotes-x-pen-autoshape clickable-icon",
     });
@@ -1868,20 +2595,23 @@ export class Toolbar {
     this.syncActive();
   }
 
+  private activateEraser(mode: EraserMode): void {
+    if (this.state.tool === "eraser" && eraserModeFor(this.state) === mode) {
+      this.optionsVisible = !this.optionsVisible;
+      this.showOptions(this.optionsVisible);
+      return;
+    }
+    this.state.eraserMode = mode;
+    this.state.tool = "eraser";
+    this.callbacks.onEraserChange?.(mode, eraserSizeFor(this.state));
+    this.callbacks.onToolChange("eraser");
+    this.optionsVisible = false;
+    this.intelligentCollapsed = true;
+    this.buildOptions();
+    this.syncActive();
+  }
+
   private buildEraserOptions(): void {
-    // Mode first, as in GoodNotes: "Standard" with a chevron to switch.
-    const mode = ERASER_MODES.find((m) => m.id === eraserModeFor(this.state)) ?? ERASER_MODES[0];
-    const modeButton = this.optionsEl.createEl("button", { cls: "finenotes-x-erasermode" });
-    const modeIcon = modeButton.createSpan({ cls: "finenotes-x-erasermode-icon" });
-    eraserModeIcon(modeIcon, mode.id, mode.label);
-    modeButton.createSpan({ text: mode.label });
-    const modeCaret = modeButton.createSpan({ cls: "finenotes-x-erasermode-caret" });
-    iconOrText(modeCaret, "chevron-down", "");
-    modeButton.setAttribute("aria-label", `Eraser mode: ${mode.label}`);
-    modeButton.addEventListener("click", () => this.toggleEraserModeList(modeButton));
-
-    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
-
     // Sizes, drawn as eraser footprints of increasing diameter: the presets,
     // with a size set on the slider in place of the nearest one. The chevron
     // opens the slider, as the pen's widths do.
@@ -1913,13 +2643,6 @@ export class Toolbar {
     filterButton.toggleClass("is-filtered", filter !== "all");
     filterButton.setAttribute("aria-label", `Eraser erases: ${ERASER_FILTER_LABELS[filter]}`);
     filterButton.addEventListener("click", () => this.toggleEraserFilterList(filterButton));
-
-    this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
-    const clear = this.optionsEl.createEl("button", {
-      cls: "finenotes-x-text-button",
-      text: "Clear page",
-    });
-    clear.addEventListener("click", () => this.callbacks.onClear());
   }
 
   private buildShapeOptions(): void {
@@ -2159,11 +2882,7 @@ export class Toolbar {
    * button says so), and an empty pill hides itself.
    */
   private buildSelectOptions(): void {
-    // Repeated selection may now return to Pen, so keep the lasso settings reachable.
-    if (this.callbacks.returnToPenOnReselect?.() === true)
-      this.barButton(this.optionsEl, "settings-2", "Lasso options", (button) =>
-        this.toggleLassoPopover(button),
-      );
+    this.renderLassoOptions(this.optionsEl);
   }
 
   /**
@@ -2204,7 +2923,8 @@ export class Toolbar {
         this.state.lassoMode = option;
         this.saveLasso();
         this.drawLassoIcon();
-        this.popoverRender?.();
+        if (body === this.optionsEl) this.buildOptions();
+        else this.popoverRender?.();
       });
     }
 
@@ -2215,7 +2935,8 @@ export class Toolbar {
       this.switchRow(list, LASSO_FILTER_LABELS[key], filter[key], (on) => {
         this.state.lassoFilter = { ...lassoFilterFor(this.state), [key]: on };
         this.saveLasso();
-        this.popoverRender?.();
+        if (body === this.optionsEl) this.buildOptions();
+        else this.popoverRender?.();
       });
     }
   }
@@ -2467,7 +3188,7 @@ export class Toolbar {
    */
   private keepPopoverAboveKeyboard(anchor: HTMLElement): void {
     const popover = this.popover;
-    if (!popover) return;
+    if (!popover || popover.hasClass?.("is-strip-detail")) return;
     const hostBox = this.host.getBoundingClientRect();
     const anchorBox = anchor.getBoundingClientRect();
     const floor = Math.min(hostBox.bottom, window.innerHeight - keyboardHeight()) - EDGE_INSET;
@@ -3024,34 +3745,6 @@ export class Toolbar {
     this.callbacks.onEraserChange?.(eraserModeFor(this.state), clamped);
   }
 
-  private toggleEraserModeList(anchor: HTMLElement): void {
-    if (this.popoverKind === "eraser-mode") {
-      this.closePopover();
-      return;
-    }
-    const body = this.openPopover("eraser-mode", anchor);
-    body.createDiv({ cls: "finenotes-x-popover-label", text: "Eraser" });
-    for (const mode of ERASER_MODES) {
-      const button = body.createEl("button", {
-        cls: "finenotes-x-wide finenotes-x-erasermode-row",
-      });
-      eraserModeIcon(
-        button.createSpan({ cls: "finenotes-x-erasermode-icon" }),
-        mode.id,
-        mode.label,
-      );
-      button.createSpan({ text: mode.label });
-      button.toggleClass("is-active", mode.id === eraserModeFor(this.state));
-      button.addEventListener("click", () => {
-        this.closePopover();
-        this.state.eraserMode = mode.id;
-        this.callbacks.onEraserChange?.(mode.id, eraserSizeFor(this.state));
-        this.buildOptions();
-        this.syncActive();
-      });
-    }
-  }
-
   /**
    * "Erase highlighter only" and "Erase pen only", as switches: at most one
    * is on, so turning one on turns the other off. Both off erases all ink.
@@ -3101,6 +3794,7 @@ export class Toolbar {
     this.popoverRender = () => {
       body.empty();
       this.popover?.toggleClass("is-pen-gestures", page !== "types");
+      this.popover?.toggleClass("has-inner-back", page !== "types");
       const go =
         (to: typeof page): (() => void) =>
         () => {
@@ -3180,6 +3874,8 @@ export class Toolbar {
     backLabel: string,
     back: () => void,
   ): void {
+    // A nested page has its own Back arrow; avoid a second route above it.
+    this.popover?.addClass("has-inner-back");
     const head = body.createDiv({ cls: "finenotes-x-popover-head" });
     const backButton = head.createEl("button", {
       cls: "finenotes-x-popover-back clickable-icon",
@@ -3256,6 +3952,31 @@ export class Toolbar {
       this.popoverRender?.();
     };
 
+    const lines = body.createDiv({ cls: "finenotes-x-switch-list" });
+    this.switchRow(lines, "Straighten lines", gestures.straightenLines, (on) =>
+      set({ straightenLines: on }),
+    );
+    const rotate = this.switchRow(
+      lines,
+      "Rotate strokes to degree",
+      gestures.rotateStrokesToDegree,
+      (on) => set({ rotateStrokesToDegree: on }),
+    );
+    rotate.disabled = !gestures.straightenLines;
+    const degreeRow = lines.createEl("label", { cls: "finenotes-x-degree-row" });
+    degreeRow.createSpan({ text: "Angle interval" });
+    const value = degreeRow.createEl("output", { text: `${gestures.rotationDegrees}°` });
+    const slider = degreeRow.createEl("input", {
+      type: "range",
+      attr: { min: "1", max: "90", step: "1", "aria-label": "Rotation interval in degrees" },
+    });
+    slider.value = String(gestures.rotationDegrees);
+    slider.disabled = !gestures.straightenLines || !gestures.rotateStrokesToDegree;
+    slider.addEventListener("input", () => {
+      value.setText(`${slider.value}°`);
+    });
+    slider.addEventListener("change", () => set({ rotationDegrees: Number(slider.value) }));
+
     const scribble = body.createDiv({ cls: "finenotes-x-switch-list" });
     this.switchRow(scribble, "Scribble to erase", gestures.scribbleErase, (on) =>
       set({ scribbleErase: on }),
@@ -3284,12 +4005,45 @@ export class Toolbar {
 
   private openPopover(kind: string, anchor: HTMLElement): HTMLElement {
     this.closePopover();
+    this.closeStripMore();
+    if (this.optionsEl.hasClass("is-intelligent-strip")) {
+      this.setIntelligentVisible(true);
+      this.optionsEl.scrollTop = 0;
+      const panel = this.optionsEl.createDiv({ cls: "finenotes-x-popover is-strip-detail" });
+      this.optionsEl.addClass("has-strip-detail");
+      const back = panel.createEl("button", {
+        cls: "finenotes-x-strip-back",
+        attr: { "aria-label": "Back to tools", title: "Back to tools" },
+      });
+      iconOrText(back, "arrow-left", "←");
+      back.addEventListener("click", () => this.closePopover());
+      const body = panel.createDiv({ cls: "finenotes-x-popover-body" });
+      this.popover = panel;
+      this.popoverKind = kind;
+      return body;
+    }
     // Appended to the host, not to a bar: either bar would clip it.
     const popover = this.host.createDiv({ cls: "finenotes-x-popover" });
     popover.setAttribute("role", "dialog");
     // Removed with the popover, so its listeners need no disposer.
     this.keepFocus(popover, false);
     const body = popover.createDiv({ cls: "finenotes-x-popover-body" });
+    if (kind !== "pens") {
+      body.addEventListener("click", (event) => {
+        const target = event.target as HTMLElement | null;
+        if (!target?.closest("button")) return;
+        queueMicrotask(() => {
+          if (this.popover === popover) this.closePopover();
+        });
+      });
+      body.addEventListener("change", (event) => {
+        const target = event.target as HTMLElement | null;
+        if (!target?.matches("select, input[type=range], input[type=color]")) return;
+        queueMicrotask(() => {
+          if (this.popover === popover) this.closePopover();
+        });
+      });
+    }
 
     const hostBox = this.host.getBoundingClientRect();
     const anchorBox = anchor.getBoundingClientRect();
@@ -3301,13 +4055,34 @@ export class Toolbar {
     this.popover = popover;
     this.popoverKind = kind;
     this.growPopover(popover);
+    if (typeof ResizeObserver === "function") {
+      this.popoverFitObserver = new ResizeObserver(() => {
+        if (this.popover === popover) this.keepPopoverInside(anchor);
+      });
+      this.popoverFitObserver.observe(popover);
+    }
+    const frame = this.host.ownerDocument.defaultView;
+    frame?.requestAnimationFrame(() => {
+      if (this.popover === popover) this.keepPopoverInside(anchor);
+    });
     return body;
   }
 
   private closePopover(): void {
+    const dispose = this.intelligentDispose;
+    this.intelligentDispose = null;
+    dispose?.();
+    this.submenuAnchor?.removeClass("is-active");
+    this.submenuAnchor?.setAttribute("aria-expanded", "false");
+    this.submenuAnchor = null;
+    this.popoverFitObserver?.disconnect();
+    this.popoverFitObserver = null;
     this.popoverKeyboard?.end();
     this.popoverKeyboard = null;
-    if (this.popover) this.shrinkPopover(this.popover);
+    if (this.popover?.hasClass("is-strip-detail")) {
+      this.popover.remove();
+      this.optionsEl.removeClass("has-strip-detail");
+    } else if (this.popover) this.shrinkPopover(this.popover);
     this.popover = null;
     this.popoverKind = null;
     this.popoverRender = null;
@@ -3388,10 +4163,24 @@ export class Toolbar {
    */
   private keepPopoverInside(anchor: HTMLElement): void {
     const popover = this.popover;
-    if (!popover) return;
+    if (!popover || popover.hasClass("is-strip-detail")) return;
     const hostBox = this.host.getBoundingClientRect();
     const anchorBox = anchor.getBoundingClientRect();
     const box = popover.getBoundingClientRect();
+    if (getComputedStyle(this.barEl).flexDirection === "column") {
+      const rail =
+        anchor.closest?.<HTMLElement>(".finenotes-x-options, .finenotes-x-popover") ?? this.barEl;
+      const bar = rail.getBoundingClientRect();
+      popover.addClass("is-side-popover");
+      popover.setCssStyles({
+        maxHeight: `${Math.max(80, hostBox.height - 20)}px`,
+        maxWidth: `${Math.max(160, bar.left - hostBox.left - 20)}px`,
+        transform: "none",
+        left: `${Math.max(10, bar.left - hostBox.left - popover.offsetWidth - 4)}px`,
+        top: `${Math.max(10, Math.min(anchorBox.top - hostBox.top, hostBox.height - popover.offsetHeight - 10))}px`,
+      });
+      return;
+    }
     let shift = 0;
     if (box.right > hostBox.right - EDGE_INSET) shift = hostBox.right - EDGE_INSET - box.right;
     if (box.left + shift < hostBox.left + EDGE_INSET) shift = hostBox.left + EDGE_INSET - box.left;
@@ -3462,11 +4251,47 @@ export class Toolbar {
   }
 
   private placePill(): void {
+    if (this.optionsEl.hasClass("is-intelligent-strip")) {
+      this.optionsEl.removeClass("is-side-options", "is-anchored", "is-offscreen", "is-collapsed");
+      const host = this.host.getBoundingClientRect();
+      const bar = this.barEl.getBoundingClientRect();
+      const vertical = getComputedStyle(this.barEl).flexDirection === "column";
+      const width = Math.min(280, Math.max(0, host.width - (vertical ? host.right - bar.left + 16 : 20)));
+      const height = this.optionsEl.offsetHeight;
+      const top = Math.max(10, vertical
+        ? Math.min(host.height - height - 10, (bar.top + bar.bottom) / 2 - host.top - height / 2)
+        : bar.bottom + 6 - host.top);
+      const right = Math.max(10, vertical ? host.right - bar.left + 6 : host.right - (bar.left + bar.right) / 2 - width / 2);
+      this.optionsEl.setCssStyles({
+        left: "auto", right: `${right}px`, top: `${top}px`,
+        maxHeight: `${Math.max(80, host.height - top - 10)}px`,
+        maxWidth: `${Math.max(0, host.width - right - 10)}px`,
+      });
+      return;
+    }
     // A glide in progress would be measured as the pill's size.
     this.stopPillMorph();
     this.fitTextPill();
     const hostBox = this.host.getBoundingClientRect();
     const pill = this.optionsEl.getBoundingClientRect();
+    const side = getComputedStyle(this.barEl).flexDirection === "column";
+    this.optionsEl.toggleClass("is-side-options", side);
+    if (side) {
+      const bar = this.barEl.getBoundingClientRect();
+      const active = this.barEl.querySelector<HTMLElement>(
+        ".finenotes-x-tool.is-active:not(.is-user-hidden)",
+      );
+      const anchorTop = active?.getBoundingClientRect().top ?? bar.top;
+      this.optionsEl.setCssStyles({
+        maxHeight: `${hostBox.height - 20}px`,
+        maxWidth: `${Math.max(160, bar.left - hostBox.left - 20)}px`,
+        left: `${Math.max(10, bar.left - hostBox.left - this.optionsEl.offsetWidth - 4)}px`,
+        top: `${Math.max(10, Math.min(anchorTop - hostBox.top, hostBox.height - this.optionsEl.offsetHeight - 10))}px`,
+      });
+      return;
+    }
+    this.optionsEl.style.maxHeight = "";
+    this.optionsEl.style.maxWidth = "";
     const anchored = this.anchoredPlace(hostBox, pill);
     this.optionsEl.toggleClass("is-anchored", anchored !== null);
     this.optionsEl.toggleClass("is-offscreen", anchored === "hidden");
@@ -3575,6 +4400,7 @@ export class Toolbar {
    * `width: max-content` and inline `left` take over when the glide ends.
    */
   private morphPill(before: PillBox | null, durationMs: number, fresh: boolean): void {
+    if (this.optionsEl.hasClass("is-intelligent-strip")) return;
     if (!before || prefersReducedMotion()) return;
     const after = this.pillBox();
     if (!after) return;
@@ -3611,7 +4437,31 @@ export class Toolbar {
    * `.is-collapsed` (styles.css), which also stops it taking taps at once
    * and hides it when the slide ends.
    */
+  /** Tuck transient menus when the user resumes drawing on the page. */
+  dismissDrawingPopouts(): void {
+    this.endToolHover();
+    if (this.optionsVisible) {
+      this.optionsVisible = false;
+      this.showOptions(false);
+    }
+    if (this.popover) this.closePopover();
+    if (this.stripMore) this.closeStripMore();
+  }
+
+  private setIntelligentVisible(visible: boolean): void {
+    this.intelligentCollapsed = !visible;
+    this.optionsVisible = visible;
+    this.optionsEl.toggleClass("is-intelligent-hidden", !visible);
+    this.optionsEl.removeClass("is-collapsed");
+
+    this.applyPosition();
+  }
+
   private showOptions(visible: boolean): void {
+    if (this.optionsEl.hasClass("is-intelligent-strip")) {
+      this.setIntelligentVisible(visible);
+      return;
+    }
     this.optionsEl.toggleClass("is-collapsed", !visible);
     if (visible) this.applyPosition();
   }
@@ -3794,8 +4644,14 @@ export class Toolbar {
     // A tool with no bar button (the laser), or a bar not laid out yet: no
     // indicator, and the button's own active square shows (styles.css).
     const shown = target !== undefined && target.offsetWidth > 0;
+    const previousGroup = indicator.parentElement;
+    if (previousGroup?.instanceOf(HTMLElement)) previousGroup.removeClass("has-indicator");
+    const targetGroup = target?.parentElement;
+    if (targetGroup?.instanceOf(HTMLElement) && targetGroup.hasClass("is-customizable")) {
+      targetGroup.prepend(indicator);
+    }
     indicator.toggleClass("is-hidden", !shown);
-    this.toolsGroup?.toggleClass("has-indicator", shown);
+    if (targetGroup?.instanceOf(HTMLElement)) targetGroup.toggleClass("has-indicator", shown);
     if (!target || !shown) return;
     indicator.setCssStyles({
       left: `${target.offsetLeft}px`,
@@ -3847,10 +4703,22 @@ export class Toolbar {
   /** Mark every choice button that matches the state, and unmark the rest. */
   syncActive(): void {
     const { state } = this;
+    const colorButton = this.itemButtons?.get("colorwheel");
+    if (colorButton && !this.quickColorClose) {
+      colorButton.empty();
+      colorButton.createSpan({ cls: "finenotes-x-current-color" }).setCssStyles({ backgroundColor: state.color });
+      colorButton.setAttribute("aria-label", `Colorwheel: ${state.color}`);
+    }
     // Highlighter is a pen type, so the pen button stands for both.
     const tool = state.tool === "highlighter" ? "pen" : state.tool;
     const from = tool === this.indicatorTool ? null : this.toolPlaces();
     markChosen(this.toolButtons, tool, true);
+    for (const [id, mode] of [
+      ["eraser", "standard"],
+      ["eraser-stroke", "stroke"],
+      ["eraser-line", "ruled"],
+    ] as const)
+      this.setActionActive(id, tool === "eraser" && eraserModeFor(this.state) === mode);
     // The tool in hand stays on the bar, and a chosen tool is wider.
     if (tool !== this.indicatorTool) this.fitBar(tool);
     this.placeIndicator(tool, from);
@@ -3859,6 +4727,7 @@ export class Toolbar {
     markChosen(this.eraserSizeButtons, eraserSizeFor(state));
     markChosen(this.penTypeButtons, this.activePenType().id);
     markChosen(this.shapeButtons, shapeModeFor(state), true);
+
     this.drawPenPreview();
     this.drawLassoIcon();
     this.drawEraserIcon();
@@ -3876,6 +4745,7 @@ export class Toolbar {
 
   /** Take on a state the host changed (a shortcut, an undo, another note's defaults). */
   setState(next: ToolbarState): void {
+    this.endToolHover(false);
     this.drawingTool = drawingToolOf(this.drawingTool, next.tool);
     this.leaveToolFor(next.tool);
     this.state = next;
@@ -3892,6 +4762,9 @@ export class Toolbar {
 
   /** Close what is open, drop every listener outside the toolbar, and take both tiers away. */
   destroy(): void {
+    this.quickColorClose?.();
+    if (this.favoriteHoldTimer !== null) clearTimeout(this.favoriteHoldTimer);
+    this.closeStripMore();
     this.hideUpdateTip();
     this.closePopover();
     for (const [popover, timer] of this.leavingPopovers) {

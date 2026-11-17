@@ -179,14 +179,19 @@ export class ImageMenuPopover {
     entries: readonly ImageMenuEntry[],
     private readonly context: ImageMenuContext,
     title = "Insert image",
+    private readonly dock?: HTMLElement,
   ) {
-    this.el = document.body.createDiv({ cls: "finenotes-x-addpage finenotes-x-imagemenu" });
+    this.el = (dock ?? document.body).createDiv({
+      cls: "finenotes-x-addpage finenotes-x-imagemenu",
+    });
     this.el.setAttribute("role", "menu");
     this.el.setAttribute("aria-label", title);
     this.el.createDiv({ cls: "finenotes-x-addpage-title", text: title });
     for (const entry of entries) this.addRow(entry);
-    this.place();
-    this.installDismiss();
+    if (!dock) {
+      this.place();
+      this.installDismiss();
+    }
   }
 
   get isOpen(): boolean {
@@ -218,6 +223,7 @@ export class ImageMenuPopover {
 
   /** Below the anchor, right-aligned to it, kept inside the window. */
   private place(): void {
+    if (this.dock) return;
     const r = this.anchor.getBoundingClientRect();
     const width = Math.min(POPOVER_WIDTH, window.innerWidth - 16);
     let left = r.right - width;

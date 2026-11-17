@@ -1,5 +1,7 @@
 import type { Pt } from "../ink/shape-geometry";
 import { PAGE_PX_PER_MM } from "../model/units";
+import { triangleMarkings, TRIANGLE_WIDTH_MM, TRIANGLE_HEIGHT_MM } from "./triangle-markings";
+import { protractorGeometry, protractorMarkings } from "./protractor-markings";
 
 export interface RulerLine {
   kind?: "line";
@@ -25,11 +27,9 @@ export interface RulerSettings {
   unit: RulerUnit;
   /** A straight ruler, geometry triangle or semicircular protractor. */
   kind: RulerKind;
-  /** Physical width/diameter expressed in the selected unit. */
-  baseLength: number;
   /** Rotation grid in degrees; cardinal directions receive a stronger magnet. */
   degreeSnap: RulerDegreeSnap;
-  /** Legacy appearance value; physical tool dimensions no longer resize. */
+  /** Uniform tool size; markings remain calibrated to the page. */
   scale: number;
 }
 
@@ -37,7 +37,6 @@ export const DEFAULT_RULER_SETTINGS: RulerSettings = {
   theme: "clear",
   unit: "cm",
   kind: "ruler",
-  baseLength: 12,
   degreeSnap: 15,
   scale: 1,
 };
@@ -50,7 +49,6 @@ export function parseRulerSettings(value: unknown): RulerSettings {
       raw.theme === "light" || raw.theme === "dark" || raw.theme === "school" ? raw.theme : "clear",
     unit: raw.unit === "inch" ? "inch" : "cm",
     kind: raw.kind === "triangle" || raw.kind === "protractor" ? raw.kind : "ruler",
-    baseLength: rulerBaseLength(raw.baseLength, raw.unit === "inch" ? "inch" : "cm"),
     degreeSnap:
       raw.degreeSnap === "off" ||
       raw.degreeSnap === 5 ||
@@ -61,30 +59,14 @@ export function parseRulerSettings(value: unknown): RulerSettings {
         : 15,
     scale:
       typeof raw.scale === "number" && Number.isFinite(raw.scale)
-        ? Math.min(1.5, Math.max(0.5, raw.scale))
+        ? Math.min(4, Math.max(0.5, raw.scale))
         : 1,
   };
 }
 
-export function rulerBaseLength(value: unknown, unit: RulerUnit): number {
-  const fallback = unit === "inch" ? 12 / 2.54 : 12;
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  const mm = value * (unit === "inch" ? 25.4 : 10);
-  const clamped = Math.min(500, Math.max(50, mm));
-  return clamped / (unit === "inch" ? 25.4 : 10);
-}
-
-/** Smallest marked interval at the current calibrated screen scale. */
-export function rulerStepMm(pxPerMm: number, unit: RulerUnit): number {
-  if (unit === "inch") {
-    if (pxPerMm >= 400) return 25.4 / 1024;
-    if (pxPerMm >= 80) return 25.4 / 256;
-    return pxPerMm >= 8 ? 25.4 / 32 : pxPerMm >= 2 ? 25.4 / 8 : 25.4;
-  }
-  // One micrometre is the hard floor: zooming further never creates more UI.
-  if (pxPerMm >= 800) return 0.001;
-  if (pxPerMm >= 120) return 0.01;
-  return pxPerMm >= 12 ? 0.1 : pxPerMm >= 3 ? 1 : 10;
+/** Zoom magnifies existing divisions; it never adds sub-millimetre ticks. */
+export function rulerStepMm(_pxPerMm: number, unit: RulerUnit): number {
+  return unit === "inch" ? 25.4 / 16 : 1;
 }
 
 /** Project a point onto an infinite line. Kept pure for geometry tests. */
@@ -116,7 +98,7 @@ export class RulerOverlay {
   private y = 0;
   private angle = -8;
   private rawAngle = -8;
-  /** Fixed physical span for the selected real-world tool. */
+  /** Physical span, resized proportionally by a pinch. */
   private lengthMm = 120;
   /** CSS px per millimetre at the canvas zoom now. */
   private pxPerMm = 4;
@@ -128,13 +110,8 @@ export class RulerOverlay {
   constructor(private readonly host: HTMLElement) {
     this.el = host.createDiv({ cls: "finenotes-x-ruler is-hidden" });
     this.el.setAttribute("aria-hidden", "true");
+    this.installGlassFilter();
     this.ticks = this.el.createDiv({ cls: "finenotes-x-ruler-ticks" });
-    const move = this.el.createDiv({ cls: "finenotes-x-ruler-handle is-move" });
-    move.setAttribute("aria-label", "Move ruler");
-    const transform = this.el.createDiv({ cls: "finenotes-x-ruler-handle is-transform" });
-    transform.setAttribute("aria-label", "Rotate ruler");
-    this.bindHandle(move, "move");
-    this.bindHandle(transform, "transform");
     this.renderTicks();
   }
 
@@ -155,21 +132,25 @@ export class RulerOverlay {
   hit(clientX: number, clientY: number): boolean {
     if (!this.shown) return false;
     const p = this.local(clientX, clientY);
-    if (Math.abs(p.x) > this.lengthPx / 2 || Math.abs(p.y) > this.toolHeight / 2 + 12) return false;
+    if (Math.abs(p.x) > this.lengthPx / 2 || Math.abs(p.y) > this.toolHeight / 2) return false;
     if (this.settings.kind === "ruler") return true;
     if (this.settings.kind === "protractor") {
-      const radius = this.lengthPx / 2;
-      const centre = { x: 0, y: this.toolHeight / 2 };
-      const distance = Math.hypot(p.x - centre.x, p.y - centre.y);
-      const base = p.y > this.toolHeight / 2 - this.heightMm * this.pxPerMm * 0.16;
-      return p.y <= centre.y && distance <= radius + 12 && (distance >= radius * 0.52 || base);
+      const shape = protractorGeometry(this.settings.scale);
+      const x = p.x / this.pxPerMm + shape.width / 2;
+      const y = p.y / this.pxPerMm + shape.height / 2;
+      if (y < 0 || y > shape.height) return false;
+      if (y >= shape.center.y) return true;
+      const distance = Math.hypot(x - shape.center.x, y - shape.center.y);
+      return (
+        (distance >= shape.innerRadius && distance <= shape.radius) || distance <= shape.tabRadius
+      );
     }
     // The geometry triangle is a symmetric 45-degree set square.
     const left = -this.lengthPx / 2;
     const top = -this.toolHeight / 2;
     const u = (p.x - left) / this.lengthPx;
     const v = (p.y - top) / this.toolHeight;
-    return Math.abs(u - 0.5) <= (1 - v) / 2 + 0.06;
+    return v >= 0 && v <= 1 && Math.abs(u - 0.5) <= (1 - v) / 2;
   }
 
   moveBy(dx: number, dy: number): void {
@@ -178,10 +159,96 @@ export class RulerOverlay {
     this.place();
   }
 
-  transformBy(scaleFactor: number, rotation: number): void {
-    void scaleFactor;
-    this.rawAngle += rotation;
+  /** Detect a fast stroke crossing the material between pointer samples. */
+  crossesMaterial(from: Pt, to: Pt): boolean {
+    if (!this.shown) return false;
+    if (this.hit(from.x, from.y) || this.hit(to.x, to.y)) return true;
+    const a = this.local(from.x, from.y);
+    const b = this.local(to.x, to.y);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const halfW = this.lengthPx / 2;
+    const halfH = this.toolHeight / 2;
+    if (
+      Math.min(a.x, b.x) > halfW ||
+      Math.max(a.x, b.x) < -halfW ||
+      Math.min(a.y, b.y) > halfH ||
+      Math.max(a.y, b.y) < -halfH
+    )
+      return false;
+    const candidates: number[] = [];
+    let edges = this.localEdges();
+    if (this.settings.kind === "ruler") {
+      edges = [
+        ...edges,
+        { a: { x: -halfW, y: -halfH }, b: { x: -halfW, y: halfH } },
+        { a: { x: halfW, y: -halfH }, b: { x: halfW, y: halfH } },
+      ];
+    } else if (this.settings.kind === "protractor") {
+      const shape = protractorGeometry(this.settings.scale);
+      const cy = shape.center.y * this.pxPerMm - halfH;
+      edges = [
+        { a: { x: -halfW, y: cy }, b: { x: halfW, y: cy } },
+        { a: { x: -halfW, y: halfH }, b: { x: halfW, y: halfH } },
+        { a: { x: -halfW, y: cy }, b: { x: -halfW, y: halfH } },
+        { a: { x: halfW, y: cy }, b: { x: halfW, y: halfH } },
+      ];
+      const aa = dx * dx + dy * dy;
+      if (aa > 0)
+        for (const radius of [shape.radius, shape.innerRadius, shape.tabRadius]) {
+          const bb = 2 * (a.x * dx + (a.y - cy) * dy);
+          const cc = a.x * a.x + (a.y - cy) ** 2 - (radius * this.pxPerMm) ** 2;
+          const discriminant = bb * bb - 4 * aa * cc;
+          if (discriminant >= 0) {
+            candidates.push(
+              (-bb - Math.sqrt(discriminant)) / (2 * aa),
+              (-bb + Math.sqrt(discriminant)) / (2 * aa),
+            );
+          }
+        }
+    }
+    for (const edge of edges) {
+      const ex = edge.b.x - edge.a.x;
+      const ey = edge.b.y - edge.a.y;
+      const denominator = dx * ey - dy * ex;
+      if (Math.abs(denominator) < 1e-8) continue;
+      const ax = edge.a.x - a.x;
+      const ay = edge.a.y - a.y;
+      const t = (ax * ey - ay * ex) / denominator;
+      const u = (ax * dy - ay * dx) / denominator;
+      if (u >= 0 && u <= 1) candidates.push(t);
+    }
+    return candidates.some((t) => {
+      if (t < 0 || t >= 1) return false;
+      const inside = Math.min(1, t + 1e-5);
+      return this.hit(from.x + (to.x - from.x) * inside, from.y + (to.y - from.y) * inside);
+    });
+  }
+
+  transformBy(scaleFactor: number, rotation: number, focus?: Pt): void {
+    const oldScale = this.settings.scale;
+    const oldAngle = this.angle;
+    if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
+      this.settings.scale = Math.min(4, Math.max(0.5, oldScale * scaleFactor));
+    }
+    if (Number.isFinite(rotation)) this.rawAngle += rotation;
     this.angle = snapRotation(this.rawAngle, this.settings.degreeSnap);
+    // Keep the same point beneath the fingers while resizing and rotating.
+    if (focus) {
+      const rect = this.host.getBoundingClientRect();
+      const fx = focus.x - rect.left;
+      const fy = focus.y - rect.top;
+      const dx = this.x - fx;
+      const dy = this.y - fy;
+      const factor = this.settings.scale / oldScale;
+      const radians = ((this.angle - oldAngle) * Math.PI) / 180;
+      this.x = fx + factor * (dx * Math.cos(radians) - dy * Math.sin(radians));
+      this.y = fy + factor * (dx * Math.sin(radians) + dy * Math.cos(radians));
+    }
+    if (oldScale !== this.settings.scale) {
+      this.updateDimensions();
+      this.renderTicks();
+    }
     this.place();
   }
 
@@ -191,16 +258,14 @@ export class RulerOverlay {
     if (!(pxPerMm > 0) || !Number.isFinite(pxPerMm)) return;
     if (Math.abs(pxPerMm - this.pxPerMm) < 0.001) return;
     this.pxPerMm = pxPerMm;
-    this.renderTicks();
+    if (this.settings.kind === "ruler") this.renderTicks();
     this.place();
   }
 
   setSettings(settings: RulerSettings): void {
     this.settings = parseRulerSettings(settings);
     this.angle = snapRotation(this.rawAngle, this.settings.degreeSnap);
-    const dimensions = physicalDimensions(this.settings.kind, this.settings);
-    this.lengthMm = dimensions.width;
-    this.heightMm = dimensions.height;
+    this.updateDimensions();
     this.el.setAttribute("data-theme", this.settings.theme);
     this.el.setAttribute("data-kind", this.settings.kind);
     this.renderTicks();
@@ -274,76 +339,43 @@ export class RulerOverlay {
 
   private renderTicks(): void {
     this.ticks.empty();
+    this.ticks.setCssStyles({ left: "", width: "", fontSize: "" });
+    if (this.settings.kind === "triangle") {
+      this.renderTriangle();
+      return;
+    }
     if (this.settings.kind === "protractor") {
-      this.renderDegrees();
-      this.renderProtractorScale();
+      this.renderProtractor();
       return;
     }
     const inch = this.settings.unit === "inch";
-    // More detail appears only when it has room: cm → mm → 0.1 mm (100 µm),
-    // or inches → eighths → thirty-seconds. The distance itself never changes.
     const stepMm = rulerStepMm(this.pxPerMm, this.settings.unit);
+    const stroke = Math.min(1, stepMm * this.pxPerMm * 0.5);
     const majorMm = inch ? 25.4 : 10;
     const halfMm = inch ? 25.4 / 2 : 5;
-    // CSS repeats the potentially microscopic ticks without creating tens of
-    // thousands of elements. Only the numbered major marks need DOM nodes.
-    this.ticks.setCssProps({
-      "--gob-ruler-minor": `${Math.max(0.5, stepMm * this.pxPerMm)}px`,
-      "--gob-ruler-half": `${Math.max(0.5, halfMm * this.pxPerMm)}px`,
-      "--gob-ruler-major": `${Math.max(0.5, majorMm * this.pxPerMm)}px`,
+    const markedLengthMm = this.lengthMm - 10;
+    // The body includes 5 mm of unprinted material at both ends. Include the
+    // last tick's stroke so the endpoint is not clipped.
+    this.ticks.setCssStyles({
+      left: `${5 * this.pxPerMm}px`,
+      width: `${markedLengthMm * this.pxPerMm + stroke}px`,
+      fontSize: `${this.toolHeight * 0.12}px`,
     });
-    const majors = Math.floor(this.lengthMm / majorMm);
-    for (let i = 1; i <= majors; i++) {
+    // Repeated divisions keep the element count independent of page zoom.
+    this.ticks.setCssProps({
+      "--gob-ruler-minor": `${stepMm * this.pxPerMm}px`,
+      "--gob-ruler-half": `${halfMm * this.pxPerMm}px`,
+      "--gob-ruler-major": `${majorMm * this.pxPerMm}px`,
+      "--gob-ruler-stroke": `${stroke}px`,
+    });
+    const majors = Math.floor(markedLengthMm / majorMm);
+    for (let i = 0; i <= majors; i++) {
       const label = this.ticks.createSpan({
         cls: "finenotes-x-ruler-number",
         text: String(i),
       });
-      label.setCssStyles({ left: `${i * majorMm * this.pxPerMm}px` });
+      label.setCssStyles({ left: `${i * majorMm * this.pxPerMm + stroke / 2}px` });
     }
-    if (this.settings.kind === "triangle") this.renderTriangleDegrees();
-  }
-
-  private bindHandle(handle: HTMLElement, kind: "move" | "transform"): void {
-    let drag: { id: number; x: number; y: number; angle: number } | null = null;
-    const down = (event: PointerEvent): void => {
-      if (event.pointerType === "touch") return;
-      event.preventDefault();
-      event.stopPropagation();
-      const rect = this.host.getBoundingClientRect();
-      const dx = event.clientX - rect.left - this.x;
-      const dy = event.clientY - rect.top - this.y;
-      drag = {
-        id: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        angle: Math.atan2(dy, dx),
-      };
-      handle.setPointerCapture(event.pointerId);
-    };
-    const move = (event: PointerEvent): void => {
-      if (!drag || event.pointerId !== drag.id) return;
-      event.preventDefault();
-      const rect = this.host.getBoundingClientRect();
-      if (kind === "move") {
-        this.moveBy(event.clientX - drag.x, event.clientY - drag.y);
-      } else {
-        const dx = event.clientX - rect.left - this.x;
-        const dy = event.clientY - rect.top - this.y;
-        const angle = Math.atan2(dy, dx);
-        this.transformBy(1, ((angle - drag.angle) * 180) / Math.PI);
-        drag.angle = angle;
-      }
-      drag.x = event.clientX;
-      drag.y = event.clientY;
-    };
-    const up = (event: PointerEvent): void => {
-      if (!drag || event.pointerId !== drag.id) return;
-      drag = null;
-    };
-    handle.addEventListener("pointerdown", down);
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", up);
-    handle.addEventListener("pointercancel", up);
   }
 
   private get lengthPx(): number {
@@ -373,98 +405,139 @@ export class RulerOverlay {
     ];
   }
 
-  private renderDegrees(): void {
-    const radius = this.lengthPx / 2;
-    const centreX = radius;
-    const centreY = this.toolHeight;
-    for (let degree = 0; degree <= 180; degree += 5) {
-      const radians = (Math.PI * (180 - degree)) / 180;
-      const inset = degree % 10 === 0 ? 13 : 7;
-      const tick = this.ticks.createSpan({
-        cls: degree % 10 === 0 ? "finenotes-x-degree is-major" : "finenotes-x-degree",
-      });
-      tick.setCssStyles({
-        left: `${centreX + (radius - inset) * Math.cos(radians)}px`,
-        top: `${centreY - (radius - inset) * Math.sin(radians)}px`,
-        transform: `translate(-50%, -50%) rotate(${degree - 90}deg)`,
-      });
-      if (degree % 10 === 0) {
-        const labelRadius = radius - 27;
-        const label = this.ticks.createSpan({
-          cls: "finenotes-x-degree-number",
-          text: String(degree),
-        });
-        label.setCssStyles({
-          left: `${centreX + labelRadius * Math.cos(radians)}px`,
-          top: `${centreY - labelRadius * Math.sin(radians)}px`,
-        });
-      }
-    }
-  }
-
-  private renderProtractorScale(): void {
-    const scale = this.ticks.createDiv({ cls: "finenotes-x-protractor-linear-scale" });
-    const inch = this.settings.unit === "inch";
-    const stepMm = rulerStepMm(this.pxPerMm, this.settings.unit);
-    const majorMm = inch ? 25.4 : 10;
-    const halfMm = inch ? 25.4 / 2 : 5;
-    scale.setCssProps({
-      "--gob-ruler-minor": `${Math.max(0.5, stepMm * this.pxPerMm)}px`,
-      "--gob-ruler-half": `${Math.max(0.5, halfMm * this.pxPerMm)}px`,
-      "--gob-ruler-major": `${Math.max(0.5, majorMm * this.pxPerMm)}px`,
+  private renderProtractor(): void {
+    const markings = protractorMarkings(this.settings.scale, this.settings.unit);
+    const svg = this.ticks.createSvg("svg");
+    svg.setAttribute("viewBox", `0 0 ${markings.width} ${markings.height}`);
+    svg.setAttribute("class", "finenotes-x-protractor-markings");
+    svg.setAttribute("aria-hidden", "true");
+    // Share the exact silhouette with the transparent backdrop, so the opening
+    // reveals the page and the base extends beyond the 10 cm measuring arc.
+    const mask = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${markings.width} ${markings.height}"><path fill="white" fill-rule="evenodd" d="${markings.outline}${markings.opening}"/><circle fill="white" cx="${markings.center.x}" cy="${markings.center.y}" r="${markings.tabRadius}"/></svg>`;
+    this.el.setCssProps({
+      "--gob-protractor-mask": `url("data:image/svg+xml,${encodeURIComponent(mask)}")`,
     });
-    const majors = Math.floor(this.lengthMm / majorMm);
-    for (let i = 1; i <= majors; i++) {
-      const label = scale.createSpan({
-        cls: "finenotes-x-protractor-scale-number",
-        text: String(i),
-      });
-      label.setCssStyles({ left: `${i * majorMm * this.pxPerMm}px` });
+    for (const band of markings.bands) {
+      const path = svg.createSvg("path");
+      path.setAttribute("class", `finenotes-x-protractor-band is-${band.direction}`);
+      path.setAttribute("d", band.path);
+      path.setAttribute("stroke-width", String(band.width));
+    }
+    for (const [cls, d] of [
+      ["outline", markings.outline + markings.opening],
+      ["degree-ticks", markings.degreeTicks],
+      ["linear-ticks", markings.linearTicks],
+      ["center-mark", markings.centerMark],
+    ]) {
+      const path = svg.createSvg("path");
+      path.setAttribute("class", `finenotes-x-protractor-${cls}`);
+      path.setAttribute("d", d);
+    }
+    for (const { x, y, text, rotation, fontSize, kind, direction, textLength } of markings.labels) {
+      const label = svg.createSvg("text");
+      label.setAttribute("x", String(x));
+      label.setAttribute("y", String(y));
+      label.setAttribute(
+        "class",
+        `finenotes-x-protractor-label is-${kind}${direction ? ` is-${direction}` : ""}`,
+      );
+      label.setAttribute("font-size", String(fontSize));
+      if (textLength !== undefined) {
+        label.setAttribute("textLength", String(textLength));
+        label.setAttribute("lengthAdjust", "spacingAndGlyphs");
+      }
+      if (rotation) label.setAttribute("transform", `rotate(${rotation} ${x} ${y})`);
+      label.textContent = text;
     }
   }
 
-  private renderTriangleDegrees(): void {
-    const band = this.ticks.createDiv({ cls: "finenotes-x-triangle-degree-band" });
-    const centreX = this.lengthPx / 2;
-    const centreY = this.toolHeight;
-    const radius = this.toolHeight * 0.64;
-    for (let degree = 0; degree <= 90; degree += 10) {
-      const radians = ((-135 + degree) * Math.PI) / 180;
-      const tick = band.createSpan({ cls: "finenotes-x-triangle-degree" });
-      tick.setCssStyles({
-        left: `${centreX + radius * Math.cos(radians)}px`,
-        top: `${centreY + radius * Math.sin(radians)}px`,
-        transform: `translate(-50%, -50%) rotate(${degree - 45}deg)`,
-      });
-      const labelRadius = radius - 13;
-      const label = band.createSpan({
-        cls: "finenotes-x-triangle-degree-number",
-        text: String(degree <= 45 ? degree : 90 - degree),
-      });
-      label.setCssStyles({
-        left: `${centreX + labelRadius * Math.cos(radians)}px`,
-        top: `${centreY + labelRadius * Math.sin(radians)}px`,
-      });
+  private updateDimensions(): void {
+    const dimensions = physicalDimensions(this.settings.kind, this.settings.scale);
+    this.lengthMm = dimensions.width;
+    this.heightMm = dimensions.height;
+  }
+
+  private renderTriangle(): void {
+    const svg = this.ticks.createSvg("svg");
+    svg.setAttribute("viewBox", `0 0 ${this.lengthMm} ${this.heightMm}`);
+    svg.setAttribute("class", "finenotes-x-triangle-markings");
+    svg.setAttribute("aria-hidden", "true");
+    const markings = triangleMarkings(this.lengthMm);
+    for (const [cls, d] of [
+      ["outline", markings.outline],
+      ["degree-band", markings.degreeBand],
+      ["grid", markings.grid],
+      ["edge-ticks", markings.edgeTicks],
+      ["degree-ticks", markings.degreeTicks],
+    ]) {
+      const path = svg.createSvg("path");
+      path.setAttribute("class", `finenotes-x-triangle-${cls}`);
+      path.setAttribute("d", d);
     }
+    for (const { x, y, text, rotation, kind, fontSize, textLength } of markings.labels) {
+      const label = svg.createSvg("text");
+      label.setAttribute("x", String(x));
+      label.setAttribute("y", String(y));
+      label.setAttribute("class", `finenotes-x-triangle-label is-${kind}`);
+      if (fontSize !== undefined) label.setAttribute("font-size", String(fontSize));
+      if (textLength !== undefined) {
+        label.setAttribute("textLength", String(textLength));
+        label.setAttribute("lengthAdjust", "spacingAndGlyphs");
+      }
+      if (rotation) label.setAttribute("transform", `rotate(${rotation} ${x} ${y})`);
+      label.textContent = text;
+    }
+  }
+
+  private installGlassFilter(): void {
+    const svg = this.el.createSvg("svg");
+    svg.setAttribute("class", "finenotes-x-ruler-filter");
+    svg.setAttribute("aria-hidden", "true");
+    const filter = svg.createSvg("filter");
+    const id = `finenotes-x-ruler-glass-${++glassFilterId}`;
+    filter.setAttribute("id", id);
+    filter.setAttribute("color-interpolation-filters", "sRGB");
+    const noise = filter.createSvg("feTurbulence");
+    noise.setAttribute("type", "fractalNoise");
+    noise.setAttribute("baseFrequency", "0.012 0.045");
+    noise.setAttribute("numOctaves", "2");
+    noise.setAttribute("seed", "8");
+    noise.setAttribute("result", "glass");
+    const displacement = filter.createSvg("feDisplacementMap");
+    displacement.setAttribute("in", "SourceGraphic");
+    displacement.setAttribute("in2", "glass");
+    displacement.setAttribute("scale", "4");
+    displacement.setAttribute("xChannelSelector", "R");
+    displacement.setAttribute("yChannelSelector", "G");
+    this.el.setCssProps({ "--gob-ruler-refraction": `url("#${id}")` });
   }
 
   private protractorGuide(point: Pt): RulerGuide | null {
+    const shape = protractorGeometry(this.settings.scale);
     const halfW = this.lengthPx / 2;
     const halfH = this.toolHeight / 2;
-    const centerLocal = { x: 0, y: halfH };
-    const arcDistance = Math.abs(Math.hypot(point.x, point.y - halfH) - halfW);
-    const baseDistance = Math.abs(point.y - halfH);
+    const centerY = shape.center.y * this.pxPerMm - halfH;
+    const distance = Math.hypot(point.x, point.y - centerY);
+    const outerRadius = shape.radius * this.pxPerMm;
+    const innerRadius = shape.innerRadius * this.pxPerMm;
+    const radius =
+      Math.abs(distance - outerRadius) < Math.abs(distance - innerRadius)
+        ? outerRadius
+        : innerRadius;
+    const arcDistance = point.y <= centerY ? Math.abs(distance - radius) : Infinity;
+    const baseProjection = projectToSegment(point, { x: -halfW, y: halfH }, { x: halfW, y: halfH });
+    const baseDistance = Math.hypot(point.x - baseProjection.x, point.y - baseProjection.y);
     if (Math.min(arcDistance, baseDistance) > 30) return null;
     const radians = (this.angle * Math.PI) / 180;
     const rect = this.host.getBoundingClientRect();
-    if (arcDistance < baseDistance && point.y <= halfH) {
+    if (arcDistance < baseDistance) {
       return {
         kind: "arc",
         center: {
-          x: rect.left + this.x - centerLocal.y * Math.sin(radians),
-          y: rect.top + this.y + centerLocal.y * Math.cos(radians),
+          x: rect.left + this.x - centerY * Math.sin(radians),
+          y: rect.top + this.y + centerY * Math.cos(radians),
         },
-        radius: halfW,
+        radius,
       };
     }
     return {
@@ -478,16 +551,18 @@ export class RulerOverlay {
   }
 }
 
-export function physicalDimensions(
-  kind: RulerKind,
-  settings: Pick<RulerSettings, "baseLength" | "unit">,
-): { width: number; height: number } {
-  const width = settings.baseLength * (settings.unit === "inch" ? 25.4 : 10);
-  // Base length stretches only the measured edge. Tool depth remains the
-  // physical size of the original 12 cm instrument.
-  if (kind === "triangle" || kind === "protractor") return { width, height: 60 };
-  return { width, height: 18 };
+export function physicalDimensions(kind: RulerKind, scale = 1): { width: number; height: number } {
+  if (kind === "triangle") {
+    return { width: TRIANGLE_WIDTH_MM * scale, height: TRIANGLE_HEIGHT_MM * scale };
+  }
+  if (kind === "protractor") {
+    const { width, height } = protractorGeometry(scale);
+    return { width, height };
+  }
+  return { width: 120 * scale, height: 18 * scale };
 }
+
+let glassFilterId = 0;
 
 export function snapRotation(angle: number, snap: RulerDegreeSnap): number {
   if (snap === "off") return angle;

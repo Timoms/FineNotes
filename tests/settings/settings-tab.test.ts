@@ -236,6 +236,11 @@ function makePlugin(overrides: Partial<Settings> = {}, keys: Record<string, stri
       settings.penCursor = style;
       return Promise.resolve();
     }),
+    setShowScrollControls: vi.fn((show: boolean) => {
+      settings.showScrollControls = show;
+      calls.push(`scrollControls:${show}`);
+      return Promise.resolve();
+    }),
   };
   return plugin;
 }
@@ -388,9 +393,11 @@ describe("the rows", () => {
       [PENS, "Stylus side button", "dropdown:barrelButton"],
       [PENS, "Cursor over the page", "dropdown:penCursor"],
       [PENS, "Floating pen menu", "render"],
+      [PENS, "Hide pen menu after selection", "toggle:hideCompanionAfterSelection"],
+      [PENS, "Show scroll crosshair", "toggle:showScrollControls"],
       [PENS, "Clean up handwriting", "toggle:handwritingCleanup"],
       [PENS, "Keyboard shortcuts", "render"],
-      [PAGES, "Page appearance", "render"],
+      [PAGES, "Dark / Light Theme", "render"],
       [PAGES, "Paper width", "render"],
       [PAGES, "More", "action"],
       [PAGES, "New notebooks go in", "render"],
@@ -457,7 +464,7 @@ describe("the rows", () => {
     const all = rows(tab);
     expect(named(all, "Hold to make shapes").desc).toBeUndefined();
     expect(tab.infoOf("Hold to make shapes")).toMatch(/keep the pen still/);
-    expect(tab.infoOf("Page appearance")).toMatch(/PDFs as they are/);
+    expect(tab.infoOf("Dark / Light Theme")).toMatch(/PDFs as they are/);
     expect(tab.infoOf("Folder for recordings")).toMatch(/^Audio recorded .* own folder/);
     expect(tab.infoOf("Start with")).toBeUndefined();
   });
@@ -470,7 +477,7 @@ describe("the rows", () => {
     );
     expect(words("Back to the pen")).toContain("return to pen");
     expect(words("Hold to make shapes")).toContain("draw and hold");
-    expect(words("Page appearance")).toEqual(
+    expect(words("Dark / Light Theme")).toEqual(
       expect.arrayContaining(["dark mode", "dark PDF pages"]),
     );
     expect(words("New notebooks go in")).toContain("default folder for new notebooks");
@@ -514,7 +521,7 @@ describe("the rows", () => {
       "after-use",
       "both",
     ]);
-    expect(Object.keys(renderRow(named(all, "Page appearance")).dropdowns[0].options)).toEqual([
+    expect(Object.keys(renderRow(named(all, "Dark / Light Theme")).dropdowns[0].options)).toEqual([
       "light",
       "dark",
       "dark-pdf-light",
@@ -561,6 +568,8 @@ const PEN_ROWS = [
   "Stylus side button",
   "Cursor over the page",
   "Floating pen menu",
+  "Hide pen menu after selection",
+  "Show scroll crosshair",
   "Clean up handwriting",
   "Keyboard shortcuts",
 ];
@@ -604,7 +613,7 @@ describe("which rows show", () => {
       "Highlighter opacity",
       "Straighten highlighter strokes",
       ...PEN_ROWS,
-      "Page appearance",
+      "Dark / Light Theme",
       "Paper width",
       "More",
       "New notebooks go in",
@@ -616,7 +625,7 @@ describe("which rows show", () => {
       "New notebook button in the file explorer",
       "Show notebook folders as notebooks",
       // The models' introduction.
-      "(block 35)",
+      "(block 37)",
       ...DEFAULT_MODEL_ROWS,
       "Set up an AI service",
       "Pressure-sensitive pens",
@@ -647,7 +656,7 @@ describe("which rows show", () => {
       "More",
       "Image generation",
       // Claude makes no pictures: the callout saying so.
-      "(block 57)",
+      "(block 59)",
     ]);
   });
 
@@ -837,11 +846,11 @@ describe("control values", () => {
     expect(plugin.saveSettings).toHaveBeenCalledOnce();
   });
 
-  it("sets the appearance and the PDF switch from Page appearance, and redraws notebooks", async () => {
+  it("sets the appearance and the PDF switch from Dark / Light Theme, and redraws notebooks", async () => {
     const plugin = Object.assign(makePlugin({ pageAppearance: "dark", invertPdfPages: false }), {
       applyPageAppearance: vi.fn(() => Promise.resolve()),
     });
-    const row = renderRow(named(rows(makeTab(plugin).tab), "Page appearance"));
+    const row = renderRow(named(rows(makeTab(plugin).tab), "Dark / Light Theme"));
     expect(row.dropdowns[0].value).toBe("dark-pdf-light");
     await row.dropdowns[0].pick("system");
     expect([plugin.settings.pageAppearance, plugin.settings.invertPdfPages]).toEqual([
@@ -1512,7 +1521,7 @@ describe("folding sections", () => {
     const plugin = makePlugin({ settingsOpen: ["pens", "advanced"] });
     const headings = unfoldedRows(makeTab(plugin, false).tab).map((r) => r.heading);
     expect([...new Set(headings)]).toEqual([PENS, ADVANCED, ""]);
-    expect(headings.filter((h) => h === PENS)).toHaveLength(14);
+    expect(headings.filter((h) => h === PENS)).toHaveLength(16);
   });
 
   it("keeps a folded section's rows, so search still finds them", () => {
@@ -1865,5 +1874,15 @@ describe("the learned handwriting model", () => {
     expect(plugin.files.get(MODEL)).toBe("old");
     expect(plugin.files.get(PREVIOUS)).toBe("new");
     expect(plugin.settings.grape2Model).toBe(older);
+  });
+});
+
+describe("scroll crosshair setting", () => {
+  it("saves visibility through the plugin so open notebooks update immediately", async () => {
+    const plugin = makePlugin();
+    const { tab } = makeTab(plugin);
+    await tab.setControlValue("showScrollControls", false);
+    expect(plugin.setShowScrollControls).toHaveBeenCalledWith(false);
+    expect(plugin.settings.showScrollControls).toBe(false);
   });
 });

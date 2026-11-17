@@ -2,6 +2,7 @@ export const COMPANION_ACTIONS = [
   { id: "pen", label: "Pen", icon: "pen-tool" },
   { id: "eraser", label: "Eraser", icon: "eraser" },
   { id: "highlighter", label: "Highlighter", icon: "highlighter" },
+  { id: "color", label: "Pick colour", icon: "pipette" },
   { id: "select", label: "Lasso", icon: "lasso" },
   { id: "shape", label: "Shapes", icon: "shapes" },
   { id: "text", label: "Text", icon: "type" },
@@ -10,12 +11,20 @@ export const COMPANION_ACTIONS = [
   { id: "sticky", label: "Sticky notes", icon: "sticky-note" },
 ] as const;
 
-export type CompanionAction = (typeof COMPANION_ACTIONS)[number]["id"];
+/** Mode toggles remain available beside the user's selected drawing shortcuts. */
+export const COMPANION_MODES = [
+  { id: "distraction-free", label: "Distraction free mode", icon: "maximize" },
+  { id: "prevent-scrolling", label: "Prevent scrolling", icon: "hand" },
+] as const;
+
+export type CompanionAction =
+  (typeof COMPANION_ACTIONS)[number]["id"] | (typeof COMPANION_MODES)[number]["id"];
 
 export const DEFAULT_COMPANION_ACTIONS: CompanionAction[] = [
   "pen",
   "eraser",
   "highlighter",
+  "color",
   "select",
   "ruler",
   "stickers",

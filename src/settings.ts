@@ -210,7 +210,7 @@ const APPEARANCE_CHOICES: Record<AppearanceChoice, string> = {
 /** "Back to the pen", as its dropdown names the choices. */
 const RETURN_TO_PEN_NAMES: Record<ReturnToPen, string> = {
   never: "Never",
-  reselect: "Tap the tool again",
+  reselect: "Press the tool shortcut again",
   "after-use": "After one use",
   both: "Both",
 };
@@ -851,6 +851,10 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
   }
 
   private async storeControlValue(key: string, value: unknown): Promise<void> {
+    if (key === "showScrollControls") {
+      await this.plugin.setShowScrollControls(value === true);
+      return;
+    }
     if (key === "debugHud") {
       // The plugin saves this one itself, and shows or hides the overlay in
       // every open note.
@@ -1110,6 +1114,24 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
           "Choose the shortcuts arranged around the movable round pen button. The button remains available while its menu collapses during writing.",
         ),
         this.info(
+          toggle("hideCompanionAfterSelection", "Hide pen menu after selection", "", [
+            "radial menu",
+            "quick tools",
+            "floating button",
+          ]),
+          "Remove the floating pen button after choosing an action. Bring it back with Apple Pencil squeeze or the toolbar button.",
+        ),
+        this.info(
+          toggle("showScrollControls", "Show scroll crosshair", "", [
+            "scroll",
+            "navigation",
+            "crosshair",
+            "touch",
+            "arrows",
+          ]),
+          "Show arrow controls while Prevent scrolling is on. Turn it off from the pen menu when these controls are hidden.",
+        ),
+        this.info(
           toggle("handwritingCleanup", "Clean up handwriting", "", [
             "smooth handwriting",
             "cleanup",
@@ -1287,7 +1309,8 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
       "file-text",
       [
         this.info(
-          drawnRow("Page appearance", "", (s) => this.drawAppearance(s), [
+          drawnRow("Dark / Light Theme", "", (s) => this.drawAppearance(s), [
+            "page appearance",
             "dark mode",
             "night mode",
             "invert",

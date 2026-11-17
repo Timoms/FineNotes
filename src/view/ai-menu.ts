@@ -32,13 +32,16 @@ export class AiMenuPopover {
     private readonly run: (id: string) => void,
     keyFolded = false,
     private readonly toggle: (id: string, on: boolean) => void = () => {},
+    private readonly dock?: HTMLElement,
   ) {
-    this.el = document.body.createDiv({ cls: "finenotes-x-addpage finenotes-x-aimenu" });
+    this.el = (dock ?? document.body).createDiv({ cls: "finenotes-x-addpage finenotes-x-aimenu" });
     this.el.setAttribute("role", "menu");
     this.el.setAttribute("aria-label", "AI");
     this.build(items, keyFolded);
-    this.place();
-    this.installDismiss();
+    if (!dock) {
+      this.place();
+      this.installDismiss();
+    }
   }
 
   get isOpen(): boolean {
@@ -158,6 +161,7 @@ export class AiMenuPopover {
 
   /** Below the anchor, left-aligned to it, kept inside the window. */
   private place(): void {
+    if (this.dock) return;
     const r = this.anchor.getBoundingClientRect();
     const width = Math.min(POPOVER_WIDTH, window.innerWidth - 16);
     const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));

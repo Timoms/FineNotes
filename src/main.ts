@@ -16,6 +16,7 @@ import { stickerFileName, stickerFolderOf, stickerSvg } from "./model/stickers";
 import { type ShapeToolStyle, readShapeToolStyle } from "./model/shape-style";
 import { type RulerSettings, parseRulerSettings } from "./view/ruler";
 import { type CompanionAction, companionActionsOf } from "./model/companion-menu";
+import { type ToolbarItemChoice, toolbarItemsOf } from "./model/toolbar-items";
 import { FileExplorerNotebookButton } from "./view/file-explorer-notebook-button";
 import { ExplorerFolderNotebooks } from "./view/explorer-folder-notebooks";
 import { WordCheck } from "./view/word-check";
@@ -42,6 +43,7 @@ import {
   ICON_IMPORT_NOTEBOOK,
   ICON_IMPORT_NOTEBOOK_SVG,
   ICON_NEW_NOTEBOOK,
+  PENCIL_ACTION,
   PREVIOUS_PLUGIN_ID,
   VIEW_TYPE_INK,
 } from "./constants";
@@ -534,6 +536,9 @@ export default class GoodObsidianPlugin extends Plugin {
     // obsidian://finenotes-x-openrouter with a one-time code.
     this.registerObsidianProtocolHandler(OPENROUTER_CALLBACK_ACTION, (params) => {
       void this.handleOpenRouterCallback(params);
+    });
+    this.registerObsidianProtocolHandler(PENCIL_ACTION, () => {
+      this.app.workspace.getActiveViewOfType(InkView)?.togglePencilMenu();
     });
     this.startup.mark("onload done");
   }
@@ -1117,6 +1122,19 @@ export default class GoodObsidianPlugin extends Plugin {
     this.settings.companionActions = companionActionsOf(actions);
     void this.saveSettings();
     for (const view of this.openNotebooks()) view.setCompanionActions(actions);
+  }
+
+  async setShowScrollControls(show: boolean): Promise<void> {
+    this.settings.showScrollControls = show;
+    await this.saveSettings();
+    for (const view of this.openNotebooks()) view.setShowScrollControls(show);
+  }
+
+  /** Persist the main toolbar order and apply it to every open notebook. */
+  saveToolbarItems(items: readonly ToolbarItemChoice[]): void {
+    this.settings.toolbarItems = toolbarItemsOf(items);
+    void this.saveSettings();
+    for (const view of this.openNotebooks()) view.setToolbarItems(this.settings.toolbarItems);
   }
 
   /** Remember the custom colours picked lately, for every colour picker. */

@@ -97,6 +97,20 @@ describe("wheel zoom", () => {
     return { surface, applyZoom, scrollBy, frame, wheel };
   }
 
+  it("rotates the ruler under the mouse wheel without scrolling or zooming the page", () => {
+    const pane = wheelPane();
+    const transformBy = vi.fn();
+    pane.surface.ruler = { hit: () => true, transformBy };
+    pane.wheel({ ctrlKey: false, deltaY: 100 });
+    expect(transformBy).toHaveBeenLastCalledWith(1, 5);
+    pane.wheel({ ctrlKey: false, shiftKey: true, deltaY: 100 });
+    expect(transformBy).toHaveBeenLastCalledWith(1, 1);
+    expect(pane.scrollBy).not.toHaveBeenCalled();
+    expect(pane.applyZoom).not.toHaveBeenCalled();
+    pane.wheel({ ctrlKey: true });
+    expect(pane.applyZoom).toHaveBeenCalledOnce();
+  });
+
   it.each([0, 1, 2])(
     "normalizes delta mode %s before bounding zoom, anchored to the pointer",
     (mode) => {
@@ -1900,4 +1914,175 @@ describe("ink pressure", () => {
     run(s, "setInkPressure", false);
     expect(frames).toEqual(["frame"]);
   });
+});
+
+describe("rulers intercept page input", () => {
+  it("uses arrows to change pages along the notebook axis and pan across it", () => {
+    const nextPage = vi.fn();
+    const previousPage = vi.fn();
+    const glideTo = vi.fn();
+    const s = surfaceWith({
+      direction: "vertical",
+      cssH: 800,
+      surfaceEl: { clientWidth: 600 },
+      scroller: { position: { x: 10, y: 20 }, glideTo },
+      nextPage,
+      previousPage,
+      requestFrame: vi.fn(),
+    });
+    run(s, "scrollWithArrows", "down");
+    run(s, "scrollWithArrows", "up");
+    expect(nextPage).toHaveBeenCalledOnce();
+    expect(previousPage).toHaveBeenCalledOnce();
+    run(s, "scrollWithArrows", "right");
+    expect(glideTo).toHaveBeenLastCalledWith(430, 20, expect.any(Number), expect.any(Number));
+    s.direction = "horizontal";
+    run(s, "scrollWithArrows", "right");
+    expect(nextPage).toHaveBeenCalledTimes(2);
+    run(s, "scrollWithArrows", "up");
+    expect(glideTo).toHaveBeenLastCalledWith(10, -540, expect.any(Number), expect.any(Number));
+  });
+
+  function pane() {
+    const move = vi.fn();
+    const finish = vi.fn();
+    const down = vi.fn();
+    const moveBy = vi.fn();
+    const surface = surfaceWith({
+      callbacks: { onPen: vi.fn(), onDrawingStart: vi.fn() },
+      toolState: { tool: "pen" },
+      activePage: { id: "page" },
+      rulerPointerDrag: null,
+      rulerGuide: null,
+      rulerInkBlocked: false,
+      lastInkSample: null,
+      zoomDrag: null,
+      toClient: (sample: unknown) => sample,
+      pressOverrideOf: () => null,
+      ruledSample: (sample: unknown) => sample,
+      ruler: {
+        hit: (x: number) => x >= 0 && x <= 100,
+        guideAt: () => null,
+        crossesMaterial: (from: { x: number }, to: { x: number }) => from.x < 0 && to.x > 100,
+        moveBy,
+      },
+      markDrawing: vi.fn(),
+      penDown: down,
+      gestureTool: () => "pen",
+      gestureOf: () => ({ move }),
+      finishToolGesture: finish,
+      endZoomDrag: () => false,
+      finishCellTap: () => false,
+      finishTextDismiss: () => false,
+    });
+    return { surface, move, finish, down, moveBy };
+  }
+
+  it("drags the whole body instead of starting ink, including pen input", () => {
+    const p = pane();
+    run(p.surface, "startPointer", { x: 20, y: 20 }, {});
+    run(p.surface, "movePointer", [{ x: 30, y: 40 }]);
+    run(p.surface, "endPointer", { x: 30, y: 40 });
+    expect(p.moveBy).toHaveBeenCalledWith(10, 20);
+    expect(p.down).not.toHaveBeenCalled();
+    expect(
+      (p.surface.callbacks as { onDrawingStart: ReturnType<typeof vi.fn> }).onDrawingStart,
+    ).not.toHaveBeenCalled();
+    expect(p.move).not.toHaveBeenCalled();
+    expect(p.finish).not.toHaveBeenCalled();
+    expect(p.surface.rulerPointerDrag).toBeNull();
+  });
+
+  it("stops ink before it enters the ruler, without joining it across the body", () => {
+    const p = pane();
+    run(p.surface, "startPointer", { x: -20, y: 10 }, {});
+    expect(
+      (p.surface.callbacks as { onDrawingStart: ReturnType<typeof vi.fn> }).onDrawingStart,
+    ).toHaveBeenCalledOnce();
+    run(p.surface, "movePointer", [
+      { x: -5, y: 10 },
+      { x: 10, y: 10 },
+      { x: 120, y: 10 },
+    ]);
+    expect(p.move).toHaveBeenCalledWith(p.surface.activePage, [{ x: -5, y: 10 }]);
+    expect(p.finish).toHaveBeenCalledWith(p.surface.activePage, { x: -5, y: 10 });
+    run(p.surface, "movePointer", [{ x: 150, y: 10 }]);
+    run(p.surface, "endPointer", { x: 150, y: 10 });
+    expect(p.move).toHaveBeenCalledOnce();
+    expect(p.finish).toHaveBeenCalledOnce();
+  });
+
+  it("blocks a fast crossing even when both samples lie outside the body", () => {
+    const p = pane();
+    run(p.surface, "startPointer", { x: -20, y: 10 }, {});
+    run(p.surface, "movePointer", [{ x: 120, y: 10 }]);
+    expect(p.move).not.toHaveBeenCalled();
+    expect(p.finish).toHaveBeenCalledWith(p.surface.activePage, { x: -20, y: 10 });
+  });
+});
+
+describe("toolbar Paste and ink locks", () => {
+  it("pastes at the centre of the visible page and respects note protection", () => {
+    const pasteHere = vi.fn();
+    const isLocked = vi.fn(() => false);
+    const surface = surfaceWith({
+      pageIndex: 2,
+      callbacks: { isLocked },
+      pageAt: () => ({ id: "p3" }),
+      visibleRegion: () => ({ minX: 100, minY: 200, maxX: 300, maxY: 600 }),
+      pasteHere,
+    });
+    run(surface, "pasteFromClipboard");
+    expect(pasteHere).toHaveBeenCalledWith("p3", { x: 200, y: 400 });
+    isLocked.mockReturnValue(true);
+    run(surface, "pasteFromClipboard");
+    expect(pasteHere).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not erase protected fragments through linked whole-stroke erasure", () => {
+    const p = page("p1", [line("s1", 0, 10, 0), { ...line("s2", 4, 6, 0), locked: true }]);
+    p.links = [{ id: "link1", strokes: ["s1", "s2"], target: "Example" }];
+    const surface = surfaceWith({
+      eraseIds: new Set(),
+      eraseDirty: new Set(),
+      erasePieces: new Map(),
+    });
+    run(surface, "markWhole", p, "s1");
+    expect([...(surface.eraseIds as Set<string>)]).toEqual(["s1"]);
+  });
+});
+
+describe("fit current page", () => {
+  it.each([
+    { width: 1200, height: 600, paneWidth: 600, paneHeight: 800, zoom: 0.5 },
+    { width: 600, height: 1200, paneWidth: 800, paneHeight: 600, zoom: 0.5 },
+  ])(
+    "fits and centers a $width by $height page",
+    ({ width, height, paneWidth, paneHeight, zoom }) => {
+      const setPosition = vi.fn();
+      const surface = surfaceWith({
+        pageIndex: 0,
+        baseScale: 1,
+        userZoom: 1,
+        minZoom: 0.1,
+        cssW: paneWidth,
+        cssH: paneHeight,
+        pageAt: () => ({ geometry: { width, height } }),
+        pageLayout: { boxes: [{ x: 20, y: 40, width, height }] },
+        layout: vi.fn(),
+        ensurePaperSize: vi.fn(),
+        syncRowGap: vi.fn(),
+        syncViewport: vi.fn(),
+        flashChrome: vi.fn(),
+        requestFrame: vi.fn(),
+        scroller: { setPosition },
+      });
+      run(surface, "fitCurrentPage");
+      expect(surface.userZoom).toBeCloseTo(zoom);
+      expect(setPosition).toHaveBeenCalledWith(
+        (20 + width / 2) * zoom - paneWidth / 2,
+        (40 + height / 2) * zoom - paneHeight / 2,
+      );
+    },
+  );
 });

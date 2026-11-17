@@ -4,6 +4,7 @@ import { MATH_SYMBOL_GROUPS } from "../model/math-symbols";
 import { FloatingWindow } from "./floating-window";
 
 export interface MathSymbolHost {
+  onOpenChange?: (open: boolean) => void;
   place(symbol: string, at: { x: number; y: number } | null): void;
   practice(): void;
   loadPlace(): WindowPlace | null;
@@ -52,6 +53,7 @@ export class MathSymbolPopover {
     });
     setIcon(practice.createSpan({ cls: "finenotes-x-math-practice-icon" }), "pen-line");
     practice.addEventListener("click", () => host.practice());
+    this.host.onOpenChange?.(true);
   }
 
   get isOpen(): boolean {
@@ -61,6 +63,7 @@ export class MathSymbolPopover {
   close(): void {
     if (this.closed) return;
     this.closed = true;
+    this.host.onOpenChange?.(false);
     this.frame.destroy();
   }
 

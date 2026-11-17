@@ -477,7 +477,10 @@ describe("registration", () => {
     expect(registered.ribbon[0].title).toBe("New notebook");
     // The import icon is FineNotes' own, so it must be registered before use.
     expect(addedIcons.has("finenotes-x-notebook-import")).toBe(true);
-    expect([...registered.protocolHandlers.keys()]).toEqual(["finenotes-x-openrouter"]);
+    expect([...registered.protocolHandlers.keys()].sort()).toEqual([
+      "finenotes-x-openrouter",
+      "finenotes-x-pencil",
+    ]);
   });
 
   it("opens the import dialog on the folder it was asked for", async () => {

@@ -24,7 +24,12 @@ export type HudEvent = Pick<
   PointerDebugRecord,
   "type" | "pointerType" | "pressure" | "coalesced" | "timeStamp"
 > &
-  Partial<Pick<PointerDebugRecord, "wholePixel">>;
+  Partial<
+    Pick<
+      PointerDebugRecord,
+      "wholePixel" | "altitudeAngle" | "azimuthAngle" | "twist" | "tiltX" | "tiltY"
+    >
+  >;
 
 export class PointerHud {
   private log: LogEntry[] = [];
@@ -46,11 +51,23 @@ export class PointerHud {
   private pressure = 0;
   /** Whether its position was whole px (rounded input); undefined if unknown. */
   private wholePixel: boolean | undefined;
+  private pose = "";
 
   record(event: HudEvent): void {
     this.pointerType = event.pointerType;
     this.pressure = event.pressure;
     this.wholePixel = event.wholePixel;
+    const deg = (radians: number | undefined): string =>
+      radians === undefined ? "-" : ((radians * 180) / Math.PI).toFixed(0);
+    const hasPose =
+      event.altitudeAngle !== undefined ||
+      event.azimuthAngle !== undefined ||
+      event.twist !== undefined ||
+      event.tiltX !== undefined ||
+      event.tiltY !== undefined;
+    this.pose = hasPose
+      ? ` alt=${deg(event.altitudeAngle)}° azi=${deg(event.azimuthAngle)}° roll=${event.twist ?? "-"}° tilt=${event.tiltX ?? "-"}/${event.tiltY ?? "-"}`
+      : "";
     switch (event.type) {
       case "down":
         this.downs += 1;
@@ -109,7 +126,7 @@ export class PointerHud {
    */
   pointer(): string {
     const xy = this.wholePixel === undefined ? "" : ` xy=${this.wholePixel ? "int" : "frac"}`;
-    return `${this.pointerType || "-"} p=${this.pressure.toFixed(2)}${xy}`;
+    return `${this.pointerType || "-"} p=${this.pressure.toFixed(2)}${xy}${this.pose}`;
   }
 
   private recordMove(event: HudEvent): void {

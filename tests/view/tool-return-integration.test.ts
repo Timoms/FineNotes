@@ -54,7 +54,7 @@ describe("secondary tool integration", () => {
     vi.unstubAllGlobals();
   });
   it.each(["eraser", "select", "text", "shape"] as ActiveTool[])(
-    "toolbar toggles active %s only when enabled",
+    "toolbar opens options for active %s without changing the tool",
     (tool) => {
       for (const enabled of [false, true]) {
         const s: Fake = Object.assign(Object.create(Toolbar.prototype), {
@@ -70,9 +70,10 @@ describe("secondary tool integration", () => {
           syncActive: vi.fn(),
         });
         run(s, "tapTool", tool, {});
-        expect(s.state.tool).toBe(enabled ? "pen" : tool);
-        if (enabled) expect(s.callbacks.onToolChange).toHaveBeenCalledWith("pen");
-        else expect(s.callbacks.onToolChange).not.toHaveBeenCalled();
+        expect(s.state.tool).toBe(tool);
+        expect(s.callbacks.onToolChange).not.toHaveBeenCalled();
+        if (tool === "select") expect(s.toggleLassoPopover).toHaveBeenCalledOnce();
+        else expect(s.showOptions).toHaveBeenCalledWith(false);
       }
     },
   );
@@ -268,23 +269,17 @@ describe("secondary tool integration", () => {
     run(s, "select", "p1", { strokes: [], images: [], textBoxes: [] });
     expect(s.selectionToolUsed).toBe(false);
   });
-  it("keeps lasso options reachable when repeated selection returns to pen", () => {
-    for (const enabled of [false, true]) {
-      const button = {};
-      const s: Fake = Object.assign(Object.create(Toolbar.prototype), {
-        callbacks: { returnToPenOnReselect: () => enabled },
-        optionsEl: {},
-        barButton: vi.fn((_parent, _icon, label, click) => {
-          expect(label).toBe("Lasso options");
-          click(button);
-        }),
-        toggleLassoPopover: vi.fn(),
-      });
-      run(s, "buildSelectOptions");
-      if (enabled) expect(s.toggleLassoPopover).toHaveBeenCalledWith(button);
-      else expect(s.barButton).not.toHaveBeenCalled();
-    }
+  it("renders selection settings directly in the intelligent strip", () => {
+    const root = {};
+    const renderLassoOptions = vi.fn();
+    const bar: Fake = Object.assign(Object.create(Toolbar.prototype), {
+      optionsEl: root,
+      renderLassoOptions,
+    });
+    run(bar, "buildSelectOptions");
+    expect(renderLassoOptions).toHaveBeenCalledWith(root);
   });
+
   it("hands back to the highlighter it was picked from, by use, key and toolbar", () => {
     // Use once: highlighter -> eraser -> one stroke -> highlighter (with its pen type intact).
     const s = surface("highlighter");
@@ -328,13 +323,13 @@ describe("secondary tool integration", () => {
     run(bar, "tapTool", "eraser", {});
     expect(bar.state.tool).toBe("eraser");
     run(bar, "tapTool", "eraser", {});
-    expect(bar.state.tool).toBe("highlighter");
+    expect(bar.state.tool).toBe("eraser");
     run(bar, "setState", { tool: "pen" });
     run(bar, "setState", { tool: "shape" });
     run(bar, "tapTool", "shape", {});
-    expect(bar.state.tool).toBe("pen");
+    expect(bar.state.tool).toBe("shape");
   });
-  it("brings each tool's options back as they were when it was left", () => {
+  it("opens tool options only on a second tap", () => {
     const state: { tool: ActiveTool } = { tool: "pen" };
     const bar: Fake = Object.assign(Object.create(Toolbar.prototype), {
       state,
@@ -348,44 +343,18 @@ describe("secondary tool integration", () => {
       buildOptions: vi.fn(),
       syncActive: vi.fn(),
     });
-    // Tuck the pen's options away, pick the eraser: its options show.
+    // Switching tools keeps options closed; tapping the active tool toggles them.
     run(bar, "tapTool", "pen", {});
     expect(bar.optionsVisible).toBe(false);
     run(bar, "tapTool", "eraser", {});
-    expect(bar.optionsVisible).toBe(true);
-    // Back to the pen after one use: the surface changes the shared state first.
-    state.tool = "pen";
-    run(bar, "setState", state);
-    expect(bar.optionsVisible).toBe(false);
-    // The highlighter is a pen type, so it shares the pen's memory.
-    run(bar, "tapTool", "eraser", {});
-    state.tool = "highlighter";
-    run(bar, "setState", state);
-    expect(bar.optionsVisible).toBe(false);
-    // Shown again, the pen's options still start tucked the next time it is picked.
-    run(bar, "tapTool", "highlighter", {});
-    expect(bar.optionsVisible).toBe(true);
-    run(bar, "tapTool", "shape", {});
-    state.tool = "pen";
-    run(bar, "setState", state);
-    expect(bar.optionsVisible).toBe(false);
-    // Without the return, first tap selects and second tap opens: a switch
-    // never opens a pill, though one showing stays for the next tool.
-    bar.callbacks.returnToPenOnReselect = () => false;
-    run(bar, "tapTool", "eraser", {});
     expect(bar.optionsVisible).toBe(false);
     run(bar, "tapTool", "eraser", {});
     expect(bar.optionsVisible).toBe(true);
     run(bar, "tapTool", "shape", {});
-    expect(bar.optionsVisible).toBe(true);
-    // The eraser left showing comes back showing; tucked away, it comes back tucked.
-    run(bar, "tapTool", "eraser", {});
-    expect(bar.optionsVisible).toBe(true);
-    run(bar, "tapTool", "eraser", {});
-    run(bar, "tapTool", "shape", {});
     expect(bar.optionsVisible).toBe(false);
     run(bar, "tapTool", "shape", {});
-    run(bar, "tapTool", "eraser", {});
+    expect(bar.optionsVisible).toBe(true);
+    run(bar, "tapTool", "shape", {});
     expect(bar.optionsVisible).toBe(false);
   });
   it("reads settings live, including both switches independently", () => {

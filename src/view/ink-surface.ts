@@ -195,6 +195,7 @@ import {
   anchorScrollDelta,
   pinchOpensOverview,
   fitPageZoom,
+  fitSheetZoom,
   nextZoomFloor,
   wheelZoomFactor,
 } from "../canvas/zoom";
@@ -210,8 +211,9 @@ import {
   stabilizationReach,
 } from "../ink/stroke-builder";
 import { stabilizationOf } from "../model/pen-stabilization";
-import { InkTracer } from "../ink/freehand";
+import { InkTracer, inkRuns } from "../ink/freehand";
 import { lineOfHighlight } from "../ink/straighten";
+import { shrinkSelection } from "../ink/shrink-selection";
 import { explainShape, recognizeAtZoom } from "../ink/shape-recognizer";
 import {
   SCRIBBLE_COVERAGE,
@@ -220,7 +222,7 @@ import {
   scribbleCoverage,
   scribbleMayErase,
 } from "../ink/scribble";
-import { gestureLoopOf, penGesturesOf } from "../ink/pen-gestures";
+import { gestureLoopOf, penGesturesOf, straightenPenLine } from "../ink/pen-gestures";
 import {
   type Pt,
   STAR_ASPECT,
@@ -348,6 +350,7 @@ import {
   RemoveImage,
   TransformImage,
 } from "../model/commands";
+import { AddProtectionZone, UpdateProtectionZone, RemoveProtectionZone, lockStrokeInRect } from "../model/ink-lock";
 import { ReplaceStrokesOnPage, type StrokeReplacement } from "../model/erase-commands";
 import { addStrokesTimed } from "../model/recording-commands";
 import { SetTextBoxStyle, SetTextBoxText } from "../model/text-commands";
@@ -601,6 +604,9 @@ export interface InkSurfaceCallbacks {
    * puts off work that would stall the ink until it has been up a moment.
    */
   onPen?: (down: boolean) => void;
+  onDrawingStart?: () => void;
+  /** The Pencil tip's latest screen position, including hover. */
+  onPenPosition?: (x: number, y: number) => void;
   /**
    * Asked before every edit: true refuses it, for a note that must not be
    * written (the host says why).
@@ -618,6 +624,8 @@ export interface InkSurfaceCallbacks {
   onEditGraph?: (pageId: string, graph: GraphElement) => void;
   /** A key press switched tools; the host's toolbar should show the new one. */
   onToolChange?: (tool: ActiveTool) => void;
+  /** A completed ruler pinch changed its size; keep the toolbar and saved settings in sync. */
+  onRulerSettingsChange?: (settings: RulerSettings) => void;
   /** A key (1 to 8) asked for saved pen `index` (FineNotes#25); the host applies it. */
   onSavedPen?: (index: number) => void;
   /** ? asked for the keyboard shortcuts; the host shows them. */
@@ -1172,6 +1180,10 @@ export class InkSurface {
   private rulerDrag: { x: number; y: number } | null = null;
   private rulerPinch = false;
   private rulerGuide: RulerGuide | null = null;
+  private rulerPointerDrag: Pt | null = null;
+  private rulerInkBlocked = false;
+  private lastInkSample: PointerSample | null = null;
+  private touchNavigationLocked = false;
   /** Page-local start of a text-tool drag, and where it currently is. */
   private textDrag: { origin: { x: number; y: number }; to: { x: number; y: number } } | null =
     null;
@@ -1379,6 +1391,7 @@ export class InkSurface {
   private inkPressure = false;
   private cssW = 0;
   private cssH = 0;
+  private fitPageCentering = false;
 
   /** The scroll (layout px) and scale, as the renderer takes them. */
   private viewport: ViewportState = { scrollY: 0, scale: 1, width: 0 };
@@ -1471,6 +1484,8 @@ export class InkSurface {
   // serves both. Frame, bar and menu are DOM over the page, like the text
   // boxes, so a finger works them as well as the Pencil.
   private selection: GroupSelection | null = null;
+  private drawingLock = false;
+  private readonly selectionLockButton: HTMLButtonElement;
   /** A lasso has selected content; return only when its outside click dismisses it. */
   private selectionToolUsed = false;
   private lasso: LassoDraft | null = null;
@@ -1508,6 +1523,11 @@ export class InkSurface {
   private readonly cropPictureEl: HTMLElement;
   private readonly cropFrameEl: HTMLElement;
   /** A lock badge on each locked picture, shown only while the lasso is the tool. */
+  private readonly protectionZonesEl: HTMLElement;
+  private selectedProtectionZone: {
+    pageId: string;
+    zone: import("../model/document").ProtectionZone;
+  } | null = null;
   private readonly lockBadgesEl: HTMLElement;
   private readonly lockBadges: HTMLElement[] = [];
   /** A marker on each comment pinned to a page; a tap opens it (`onTapComment`). */
@@ -1840,6 +1860,7 @@ export class InkSurface {
 
     // A lock badge on each locked picture, under the selection chrome. The
     // badges take no presses: a tap-and-hold on the picture reaches the page.
+    this.protectionZonesEl = this.paperEl.createDiv({ cls: "finenotes-x-protection-zones" });
     this.lockBadgesEl = this.paperEl.createDiv({ cls: "finenotes-x-lock-badges is-hidden" });
     this.commentMarkersEl = this.paperEl.createDiv({
       cls: "finenotes-x-comment-markers is-hidden",
@@ -1912,6 +1933,12 @@ export class InkSurface {
     for (const corner of IMAGE_CORNERS) {
       this.selectionFrameEl.createDiv({ cls: `finenotes-x-image-handle is-corner is-${corner}` });
     }
+    this.selectionLockButton = this.selectionFrameEl.createEl("button", {
+      cls: "finenotes-x-selection-lock clickable-icon",
+      attr: { "aria-label": "Lock selected ink", title: "Lock selected ink" },
+    });
+    iconInto(this.selectionLockButton, "lock", "Lock");
+    onTap(this.selectionLockButton, () => this.toggleSelectionLock());
     // And a rotate knob below it on a stem, as below a picture.
     const groupKnob = this.selectionFrameEl.createDiv({ cls: "finenotes-x-image-rotate" });
     iconInto(groupKnob.createDiv({ cls: "finenotes-x-image-rotate-knob" }), "refresh-cw", "↻");
@@ -1940,6 +1967,7 @@ export class InkSurface {
       this.pointerCallbacks,
       () => this.handHeld,
       (event) => this.pressRoute(event),
+      (event) => !this.touchNavigationLocked || this.ruler.hit(event.clientX, event.clientY),
     );
     input.attach();
     this.pointerInput = input;
@@ -2500,6 +2528,48 @@ export class InkSurface {
     this.reportStatus();
   }
 
+  /** Fit the current sheet after fullscreen or menu visibility changes. */
+  fitCurrentPage(): void {
+    const index = this.pageIndex;
+    this.layout();
+    const page = this.pageAt(index);
+    if (!page) return;
+    this.pinch = null;
+    this.zoomAnim = null;
+    this.rowSettle = null;
+    this.fitPageCentering = true;
+    this.userZoom = fitSheetZoom(
+      page.geometry.width,
+      page.geometry.height,
+      this.baseScale,
+      this.cssW,
+      this.cssH,
+    );
+    this.minZoom = Math.min(this.minZoom, this.userZoom);
+    this.ensurePaperSize();
+    this.layout();
+    this.userZoom = fitSheetZoom(
+      page.geometry.width,
+      page.geometry.height,
+      this.baseScale,
+      this.cssW,
+      this.cssH,
+    );
+    this.minZoom = Math.min(this.minZoom, this.userZoom);
+    this.syncRowGap();
+    this.ensurePaperSize();
+    const box = this.pageLayout.boxes[index];
+    if (!box) return;
+    const scale = this.scale;
+    this.scroller.setPosition(
+      (box.x + box.width / 2) * scale - this.cssW / 2,
+      (box.y + box.height / 2) * scale - this.cssH / 2,
+    );
+    this.syncViewport();
+    this.flashChrome(true);
+    this.requestFrame();
+  }
+
   zoomIn(): void {
     this.zoomBy(ZOOM_STEP);
   }
@@ -2612,6 +2682,7 @@ export class InkSurface {
   }
 
   setTool(tool: ActiveTool): void {
+    this.drawingLock = false;
     // A colour waiting to be picked was for the tool being left.
     this.eyedropper?.cancel();
     // Another tool ends exploring a graph, keeping where it was left.
@@ -2677,6 +2748,37 @@ export class InkSurface {
 
   get rulerSettings(): RulerSettings {
     return this.ruler.configuration;
+  }
+
+  /** Stop touch navigation immediately; mouse, keyboard and explicit arrows still work. */
+  setTouchNavigationLocked(locked: boolean): void {
+    this.touchNavigationLocked = locked;
+    this.surfaceEl.toggleClass("is-touch-locked", locked);
+    if (locked) {
+      this.pointerInput?.cancelTouches();
+      this.zoomAnim = null;
+      this.rowSettle = null;
+      this.scroller.cancel();
+    }
+  }
+
+  scrollWithArrows(direction: "up" | "down" | "left" | "right"): void {
+    const horizontal = direction === "left" || direction === "right";
+    const forward = direction === "right" || direction === "down";
+    if ((this.direction === "horizontal") === horizontal) {
+      if (forward) this.nextPage();
+      else this.previousPage();
+      return;
+    }
+    const from = this.scroller.glideTarget ?? this.scroller.position;
+    const step = (horizontal ? this.surfaceEl.clientWidth : this.cssH) * 0.7 * (forward ? 1 : -1);
+    this.scroller.glideTo(
+      from.x + (horizontal ? step : 0),
+      from.y + (horizontal ? 0 : step),
+      now(),
+      ARROW_SCROLL_MS,
+    );
+    this.requestFrame();
   }
 
   /** Called only after a complete tool operation, never during pointer movement. */
@@ -3164,6 +3266,13 @@ export class InkSurface {
     // Zoomed out (or pages down) nothing is held; a later zoom-in starts on
     // the page then being read.
     if (!row || this.turnsPages) this.heldPage = null;
+    const centres = this.fitPageCentering
+      ? this.pageLayout.boxes.map((box) => (box.y + box.height / 2) * scale)
+      : [];
+    const leadY = centres.length ? Math.max(0, this.cssH / 2 - Math.min(...centres)) : 0;
+    const trailY = centres.length
+      ? Math.max(0, this.cssH / 2 - (height - Math.max(...centres)))
+      : 0;
     this.scroller.setExtent({
       contentWidth: width,
       contentHeight: height,
@@ -3176,7 +3285,8 @@ export class InkSurface {
       rangeX,
       // While a box is typed in, room to lift it above the keyboard: a page
       // that fits the screen (a cover, a single page) has none of its own.
-      trailY: this.typingField() ? keyboardHeight() : 0,
+      leadY,
+      trailY: Math.max(trailY, this.typingField() ? keyboardHeight() : 0),
     });
   }
 
@@ -3551,6 +3661,14 @@ export class InkSurface {
   private onWheel(event: WheelEvent): void {
     event.preventDefault();
     const unit = event.deltaMode === 1 ? WHEEL_LINE_PX : event.deltaMode === 2 ? this.cssH : 1;
+    if (!event.ctrlKey && !event.metaKey && this.ruler?.hit(event.clientX, event.clientY)) {
+      const delta = (event.deltaY || event.deltaX) * unit;
+      this.ruler.transformBy(
+        1,
+        Math.max(-15, Math.min(15, delta * (event.shiftKey ? 0.01 : 0.05))),
+      );
+      return;
+    }
     if (event.ctrlKey || event.metaKey) {
       const factor = wheelZoomFactor(event.deltaY * unit);
       this.applyZoom(this.clampZoom(this.userZoom * factor), event.clientX, event.clientY);
@@ -4704,6 +4822,7 @@ export class InkSurface {
       size: this.strokeSize(),
       tool,
       usePressure: pressureEnabled,
+      penType: penTypeFor(this.toolState).id,
       ...(nib !== undefined ? { nib } : {}),
     };
   }
@@ -4801,59 +4920,129 @@ export class InkSurface {
     return { x: sample.x - box.x, y: sample.y - box.y };
   }
 
+  private startPointer(sample: PointerSample, press: PressInput): void {
+    this.callbacks.onPen?.(true);
+    this.rulerInkBlocked = false;
+    this.lastInkSample = null;
+    const client = this.toClient(sample);
+    if (this.ruler.hit(client.x, client.y)) {
+      this.rulerPointerDrag = client;
+      this.rulerGuide = null;
+      this.pressTool = null;
+      return;
+    }
+    this.pressTool = this.pressOverrideOf(press);
+    if (this.pressTool === "zoom") {
+      this.startZoomDrag(sample);
+      return;
+    }
+    this.rulerGuide =
+      this.toolState.tool === "pen" || this.toolState.tool === "highlighter"
+        ? this.ruler.guideAt(client.x, client.y)
+        : null;
+    this.callbacks.onDrawingStart?.();
+    this.markDrawing(true);
+    this.lastInkSample = this.ruledSample(sample);
+    this.penDown(this.lastInkSample);
+  }
+
+  private movePointer(coalesced: PointerSample[]): void {
+    if (this.rulerPointerDrag) {
+      const sample = coalesced[coalesced.length - 1];
+      if (sample) {
+        const at = this.toClient(sample);
+        this.ruler.moveBy(at.x - this.rulerPointerDrag.x, at.y - this.rulerPointerDrag.y);
+        this.rulerPointerDrag = at;
+      }
+      return;
+    }
+    if (this.rulerInkBlocked) return;
+    if (!this.rulerGuide && !this.zoomDrag) {
+      const blocked = coalesced.findIndex((sample, index) => {
+        const at = this.toClient(sample);
+        const previous = index > 0 ? coalesced[index - 1] : this.lastInkSample;
+        return (
+          this.ruler.hit(at.x, at.y) ||
+          (previous !== null && this.ruler.crossesMaterial(this.toClient(previous), at))
+        );
+      });
+      if (blocked !== -1) {
+        const outside = coalesced.slice(0, blocked);
+        if (outside.length > 0 && this.activePage) {
+          this.gestureOf(this.gestureTool()).move(this.activePage, outside);
+          this.lastInkSample = outside[outside.length - 1];
+        }
+        this.finishToolGesture(this.activePage, this.lastInkSample);
+        this.rulerInkBlocked = true;
+        this.markDrawing(false);
+        return;
+      }
+    }
+    coalesced = coalesced.map((sample) => this.ruledSample(sample));
+    this.lastInkSample = coalesced[coalesced.length - 1] ?? this.lastInkSample;
+    this.penAt = coalesced[coalesced.length - 1] ?? this.penAt;
+    if (this.zoomDrag) {
+      this.moveZoomDrag(this.penAt);
+      return;
+    }
+    const box = this.activePage;
+    if (box) this.gestureOf(this.gestureTool()).move(box, coalesced);
+  }
+
+  private endPointer(sample: PointerSample): void {
+    this.callbacks.onPen?.(false);
+    this.markDrawing(false);
+    if (this.rulerPointerDrag || this.rulerInkBlocked) {
+      this.rulerPointerDrag = null;
+      this.rulerInkBlocked = false;
+      this.pressTool = null;
+      return;
+    }
+    const at = this.toClient(sample);
+    const ruled =
+      !this.rulerGuide &&
+      (this.ruler.hit(at.x, at.y) ||
+        (this.lastInkSample !== null &&
+          this.ruler.crossesMaterial(this.toClient(this.lastInkSample), at)))
+        ? this.lastInkSample
+        : this.ruledSample(sample);
+    this.rulerGuide = null;
+    if (this.endZoomDrag()) return;
+    if (this.finishCellTap(sample)) return;
+    if (this.finishTextDismiss()) return;
+    const box = this.activePage;
+    this.finishToolGesture(box, ruled);
+  }
+
+  private cancelPointer(): void {
+    this.callbacks.onPen?.(false);
+    this.markDrawing(false);
+    if (this.rulerPointerDrag || this.rulerInkBlocked) {
+      this.rulerPointerDrag = null;
+      this.rulerInkBlocked = false;
+      this.pressTool = null;
+      return;
+    }
+    this.rulerGuide = null;
+    if (this.endZoomDrag()) return;
+    if (this.finishCellTap(null)) return;
+    if (this.finishTextDismiss()) return;
+    this.finishToolGesture(this.activePage, null);
+  }
+
   private readonly pointerCallbacks: PointerControllerCallbacks = {
-    onStart: (sample, press) => {
-      this.callbacks.onPen?.(true);
-      this.pressTool = this.pressOverrideOf(press);
-      if (this.pressTool === "zoom") {
-        this.startZoomDrag(sample);
-        return;
-      }
-      const client = this.toClient(sample);
-      this.rulerGuide =
-        this.toolState.tool === "pen" || this.toolState.tool === "highlighter"
-          ? this.ruler.guideAt(client.x, client.y)
-          : null;
-      this.markDrawing(true);
-      this.penDown(this.ruledSample(sample));
-    },
-    onMove: (coalesced) => {
-      coalesced = coalesced.map((sample) => this.ruledSample(sample));
-      this.penAt = coalesced[coalesced.length - 1] ?? this.penAt;
-      if (this.zoomDrag) {
-        this.moveZoomDrag(this.penAt);
-        return;
-      }
-      const box = this.activePage;
-      if (box) this.gestureOf(this.gestureTool()).move(box, coalesced);
-    },
-    onEnd: (sample) => {
-      this.callbacks.onPen?.(false);
-      this.markDrawing(false);
-      const ruled = this.ruledSample(sample);
-      this.rulerGuide = null;
-      if (this.endZoomDrag()) return;
-      if (this.finishCellTap(sample)) return;
-      if (this.finishTextDismiss()) return;
-      const box = this.activePage;
-      this.finishToolGesture(box, ruled);
-    },
-    onCancel: () => {
-      this.callbacks.onPen?.(false);
-      this.markDrawing(false);
-      this.rulerGuide = null;
-      if (this.endZoomDrag()) return;
-      if (this.finishCellTap(null)) return;
-      if (this.finishTextDismiss()) return;
-      this.finishToolGesture(this.activePage, null);
-    },
+    onStart: (sample, press) => this.startPointer(sample, press),
+    onMove: (samples) => this.movePointer(samples),
+    onEnd: (sample) => this.endPointer(sample),
+    onCancel: () => this.cancelPointer(),
     // Fingers. Native touch-scroll is off (touch-action: none), so the
     // scroller gets the raw gesture and the frame loop moves the page.
     onPanStart: (x, y, t) => {
-      if (this.ruler.hit(x, y)) {
+      if (this.rulerPinch || this.ruler.hit(x, y)) {
         this.rulerDrag = { x, y };
         return;
       }
+      if (this.touchNavigationLocked && !this.penPanning && !this.handHeld) return;
       // A resting palm must not scroll the page out from under an image or a
       // selection being dragged; without a dragStart the moves and the end
       // are no-ops.
@@ -4895,6 +5084,7 @@ export class InkSurface {
         this.rulerDrag = { x, y };
         return;
       }
+      if (this.touchNavigationLocked && !this.penPanning && !this.handHeld) return;
       const tap = this.fingerTap;
       if (tap && Math.hypot(x - tap.x, y - tap.y) > TAP_SLOP_PX) {
         this.fingerTap = null;
@@ -4913,6 +5103,7 @@ export class InkSurface {
         this.rulerDrag = null;
         return;
       }
+      if (this.touchNavigationLocked && !this.penPanning && !this.handHeld) return;
       const tap = this.fingerTap;
       this.fingerTap = null;
       this.stopPress();
@@ -4981,6 +5172,11 @@ export class InkSurface {
       this.pinch = null;
       this.scroller.cancel();
       this.undoPalm();
+      if (this.rulerPinch) {
+        this.callbacks.onRulerSettingsChange?.(this.ruler.configuration);
+      }
+      this.rulerPinch = false;
+      this.rulerDrag = null;
       this.requestFrame();
     },
     onPinchStart: (centerX, centerY) => {
@@ -4990,6 +5186,7 @@ export class InkSurface {
         this.pinch = null;
         return;
       }
+      if (this.touchNavigationLocked) return;
       // A pinch is never a pull: the ring goes, and stays gone for this gesture.
       if (this.pullGesture) this.pullGesture.pinched = true;
       this.pullAdd.hide();
@@ -5003,9 +5200,10 @@ export class InkSurface {
     },
     onPinch: (info) => {
       if (this.rulerPinch) {
-        this.ruler.transformBy(info.scaleFactor, info.rotation);
+        this.ruler.transformBy(info.scaleFactor, info.rotation, this.rulerDrag ?? undefined);
         return;
       }
+      if (this.touchNavigationLocked) return;
       const pinch = this.pinch;
       if (!pinch) return;
       pinch.raw *= info.scaleFactor;
@@ -5017,8 +5215,10 @@ export class InkSurface {
     onPinchEnd: () => {
       if (this.rulerPinch) {
         this.rulerPinch = false;
+        this.callbacks.onRulerSettingsChange?.(this.ruler.configuration);
         return;
       }
+      if (this.touchNavigationLocked) return;
       const pinch = this.pinch;
       const overview = this.pinchOverviewArmed;
       this.pinch = null;
@@ -5058,6 +5258,7 @@ export class InkSurface {
     onFingerContact: (width, height) => {
       if (this.fingerHold.active) this.fingerHold.noteContact(width, height);
     },
+    onPenPosition: (x, y) => this.callbacks.onPenPosition?.(x, y),
     // WebKit's own long press may end a finger held still before the press
     // timer is due: that is the hold it interrupted (ledger).
     onFingerCancel: (t) => {
@@ -5084,6 +5285,7 @@ export class InkSurface {
    * result shows briefly in the readout pill, as a zoom's percentage does.
    */
   private fingerDoubleTap(fingers: number): void {
+    if (this.touchNavigationLocked) return;
     if (this.callbacks.fingerTapUndo?.() === false) return;
     if (this.callbacks.isLocked?.() === true) return;
     const redo = fingers >= 3;
@@ -5675,7 +5877,7 @@ export class InkSurface {
     const result = recognizeAtZoom(builder.points(), this.userZoom, { held: true });
     this.diagHold = { fired: true, verdict: verdictOf(builder.points(), true) };
     this.hudVerdict("hold", builder.points(), result, true);
-    if (!result) return;
+    if (!result || (result.kind === "line" && this.toolState.tool !== "shape")) return;
     const pivot = shapePivot(result.kind, result.pts);
     if (!pivot) return;
     this.snap = {
@@ -5958,6 +6160,20 @@ export class InkSurface {
       return;
     }
     const style = this.currentStyle();
+    const settled = builder.points();
+    const pose = builder.pose(settled);
+    if (pose) {
+      const runs = inkRuns(
+        settled,
+        penFor({ ...style, penType: penTypeFor(this.toolState).id }),
+        false,
+        pose,
+      );
+      const open = runs[runs.length - 1];
+      if (open) for (const tip of builder.tail) open.pts.push(tip[0], tip[1]);
+      this.renderer?.renderWetRuns(box.index, runs, style);
+      return;
+    }
     // A straightened highlight is traced afresh each frame: a new sample can
     // move where its runs bend. It has few samples, so that stays cheap.
     const pts = builder.view;
@@ -6154,6 +6370,7 @@ export class InkSurface {
       // have trailed a tail as it left the glass.
       const held = heldLongEnough;
       shape = recognizeAtZoom(builder.points(), this.userZoom, { held });
+      if (shape?.kind === "line" && this.toolState.tool !== "shape") shape = null;
       this.hudVerdict(cancelledWhileHeld ? "cx-hold" : "lift", builder.points(), shape, held);
     } else if (!shape && this.debug) {
       this.hud.mark(final ? "lift·nohold" : "cx·nohold");
@@ -6169,14 +6386,29 @@ export class InkSurface {
     // Stored as it was drawn on the wet layer: the same colour, width and ink.
     const { color, size, tool, nib } = this.currentStyle();
     const samples = builder.recorded();
+    const gestures = penGesturesOf(this.toolState.penGestures);
+    const straight =
+      tool === "pen" && gestures.straightenLines
+        ? straightenPenLine(
+            builder.points(),
+            this.atFitZoom(20),
+            gestures.rotateStrokesToDegree,
+            gestures.rotationDegrees,
+          )
+        : null;
+    const points = shape
+      ? shape.pts
+      : (straight ?? this.highlightLine(tool, builder.points()) ?? builder.points());
+    const pose = !shape && points.length === builder.points().length ? builder.pose(points) : null;
     const stroke: Stroke = {
       id: this.strokeIds.next(),
       color,
       size,
       tool,
-      pts: shape ? shape.pts : (this.highlightLine(tool, builder.points()) ?? builder.points()),
+      pts: points,
       ...(shape ? { shape: shape.kind } : {}),
-      ...(samples ? { samples } : {}),
+      ...(samples && !straight ? { samples } : {}),
+      ...(pose ? { pose, penType: penTypeFor(this.toolState).id } : {}),
       // A snapped shape is clean geometry, drawn at one width: no nib.
       ...(nib !== undefined && !shape ? { nib } : {}),
     };
@@ -6677,7 +6909,8 @@ export class InkSurface {
   private markWhole(page: Page, id: string): boolean {
     let marked = false;
     for (const each of withLinkedStrokes(page, [id])) {
-      if (this.eraseIds.has(each)) continue;
+      if (this.eraseIds.has(each) || page.strokes.find((stroke) => stroke.id === each)?.locked)
+        continue;
       this.eraseIds.add(each);
       this.eraseDirty.add(each);
       // Cut pieces of it, from earlier in the pass, go with it.
@@ -6838,7 +7071,8 @@ export class InkSurface {
     const ids = new Set<string>();
     for (const id of near) {
       const stroke = this.strokeIndex.get(id);
-      if (!stroke || !scribbleMayErase(stroke, gestures.scribbleErasesAll)) continue;
+      if (!stroke || stroke.locked || !scribbleMayErase(stroke, gestures.scribbleErasesAll))
+        continue;
       const margin = reach + stroke.size / 2;
       if (scribbleCoverage(scribble, stroke.pts, margin) >= SCRIBBLE_COVERAGE) ids.add(id);
     }
@@ -6849,7 +7083,9 @@ export class InkSurface {
       [],
     );
     // A linked word goes whole, never in part.
-    for (const id of withLinkedStrokes(page, ids)) ids.add(id);
+    for (const id of withLinkedStrokes(page, ids)) {
+      if (!page.strokes.find((stroke) => stroke.id === id)?.locked) ids.add(id);
+    }
     this.history.push(this.doc, new RemoveStrokesFromPage(page.id, ids, "Scribble to erase"));
     for (const id of ids) this.strokeIndex.remove(id, page.id);
     if (erased) this.renderer?.invalidateRegion(box.index, erased);
@@ -7000,13 +7236,97 @@ export class InkSurface {
   // The pure rules live in src/canvas/lasso.ts; every change the selection
   // makes is one command from src/model/selection-commands.ts, one undo step.
 
+  /** The next selection gesture draws a protection rectangle over existing ink. */
+  startLockRectangle(): void {
+    if (this.practice || this.callbacks.isLocked?.()) return;
+    this.setTool("select");
+    this.clearSelection();
+    this.drawingLock = true;
+    this.syncProtectionZones();
+    new Notice("FineNotes: draw a rectangle to protect the ink inside it.");
+  }
+
+  private lockRectangle(index: number, bounds: Bounds): void {
+    const page = this.pageAt(index);
+    if (!page || this.callbacks.isLocked?.()) return;
+    const replacements: StrokeReplacement[] = [];
+    for (const original of page.strokes) {
+      const pieces = lockStrokeInRect(original, bounds, () => this.strokeIds.next());
+      if (pieces) replacements.push({ original, pieces });
+    }
+    const protectedStrokes = replacements.flatMap(({ pieces }) => pieces.filter((s) => s.locked));
+    this.applyCommand(
+      new CompositeCommand("Lock ink", [
+        new ReplaceStrokesOnPage(page.id, replacements, "Lock ink"),
+        new AddProtectionZone(page.id, { ...bounds, strokes: protectedStrokes.map((s) => s.id) }),
+      ]),
+    );
+    this.select(page.id, {
+      strokes: replacements.flatMap(({ pieces }) => pieces.filter((s) => s.locked)),
+      images: [],
+      textBoxes: [],
+    });
+  }
+
+  private toggleSelectionLock(): void {
+    const sel = this.liveSelection();
+    if (!sel || !sel.strokes.length || this.callbacks.isLocked?.()) return;
+    const unlock = sel.strokes.every((s) => s.locked);
+    const replacements = sel.strokes.map((original) => {
+      const copy = { ...original };
+      if (unlock) delete copy.locked;
+      else copy.locked = true;
+      return { original, pieces: [copy] };
+    });
+    this.applyCommand(
+      new ReplaceStrokesOnPage(sel.pageId, replacements, unlock ? "Unlock ink" : "Lock ink"),
+    );
+    this.select(sel.pageId, { ...sel, strokes: replacements.flatMap((r) => r.pieces) });
+  }
+
+  private shrinkSelectedInk(): void {
+    const sel = this.liveSelection();
+    if (!sel || this.callbacks.isLocked?.()) return;
+    const boxes = sel.textBoxes.map((box) => {
+      const frame = this.textBoxFrameOf(sel.pageId, box);
+      const virtual: Stroke = {
+        id: box.id,
+        color: box.color,
+        size: 0,
+        tool: "pen",
+        pts: [frame.x, frame.y, 1, frame.x + frame.w, frame.y + frame.h, 1],
+      };
+      return { box, virtual };
+    });
+    const all = [...sel.strokes, ...boxes.map((x) => x.virtual)];
+    const compact = shrinkSelection(all);
+    const replacements = sel.strokes.flatMap((original, i) =>
+      compact[i] === original ? [] : [{ original, pieces: [compact[i]] }],
+    );
+    const commands: Command[] = [];
+    if (replacements.length)
+      commands.push(new ReplaceStrokesOnPage(sel.pageId, replacements, "Shrink selection"));
+    boxes.forEach(({ box, virtual }, index) => {
+      const dy = compact[sel.strokes.length + index].pts[1] - virtual.pts[1];
+      if (dy)
+        commands.push(
+          new TranslateElements(sel.pageId, { strokes: [], images: [], textBoxes: [box] }, 0, dy),
+        );
+      if (lineHeightOf(box) > 1.1)
+        commands.push(new SetTextBoxStyle(sel.pageId, box.id, { lineHeight: 1.1 }));
+    });
+    if (!commands.length) return;
+    this.applyCommand(new CompositeCommand("Shrink selection", commands));
+    this.select(sel.pageId, { ...sel, strokes: compact.slice(0, sel.strokes.length) });
+  }
+
   /** Start a lasso on the page the pen went down on, letting go of any selection. */
   private selectStart(box: PageBox, local: Pt): void {
     this.clearSelection();
     this.deselectImage();
     const path = new LassoPath(box, LASSO_SPACING_PX / this.unitScale);
     path.add(local);
-    let mode = lassoModeFor(this.toolState);
+    let mode = this.drawingLock ? ("rect" as const) : lassoModeFor(this.toolState);
     let lines: LineBlock[] = [];
     let space: LassoDraft["space"] = null;
     if (mode === "lines") {
@@ -7240,6 +7560,11 @@ export class InkSurface {
       else this.tapSelect(lasso.box, lasso.origin, PEN_TAP_TOLERANCE_PX);
       return;
     }
+    if (this.drawingLock && b) {
+      this.drawingLock = false;
+      this.lockRectangle(lasso.box.index, b);
+      return;
+    }
     if (lasso.mode === "lines") {
       const span = this.lassoSpan(lasso);
       if (span) this.selectOnLines(lasso.box, lasso.lines, span);
@@ -7419,6 +7744,21 @@ export class InkSurface {
       colorAt: (clientX, clientY) => this.eyedropAt(clientX, clientY),
     });
     this.eyedropper.arm(done);
+  }
+
+  /** A radial-menu pipette is already held: preview until that pointer lifts. */
+  dragColorFromPage(
+    pointerId: number,
+    clientX: number,
+    clientY: number,
+    done: (color: string | null) => void,
+  ): void {
+    this.eyedropper ??= new Eyedropper({
+      input: this.scrollEl,
+      layer: this.surfaceEl,
+      colorAt: (x, y) => this.eyedropAt(x, y),
+    });
+    this.eyedropper.drag(pointerId, clientX, clientY, done);
   }
 
   /** Recolour the selection with a colour of the user's own, remembered as recent. */
@@ -7673,6 +8013,17 @@ export class InkSurface {
     const bounds = sel && box ? (drag ? this.draggedBounds(drag) : this.groupBounds(sel)) : null;
     this.selectionFrameEl.toggleClass("is-hidden", !box || !bounds);
     if (box && bounds) {
+      const locked = sel!.strokes.length > 0 && sel!.strokes.every((stroke) => stroke.locked);
+      iconInto(this.selectionLockButton, locked ? "lock-open" : "lock", locked ? "Unlock" : "Lock");
+      this.selectionLockButton.setAttribute(
+        "aria-label",
+        locked ? "Unlock selected ink" : "Lock selected ink",
+      );
+      this.selectionLockButton.setAttribute(
+        "title",
+        locked ? "Unlock selected ink" : "Lock selected ink",
+      );
+      this.selectionLockButton.disabled = sel!.strokes.length === 0;
       const scale = this.unitScale;
       const x = (box.x + bounds.minX) * scale - SELECTION_PAD_PX;
       const y = (box.y + bounds.minY) * scale - SELECTION_PAD_PX;
@@ -7908,6 +8259,20 @@ export class InkSurface {
   private groupActions(sel: GroupSelection): SelectionAction[] {
     const actions: SelectionAction[] = [
       {
+        id: "lock-ink",
+        icon:
+          sel.strokes.length > 0 && sel.strokes.every((stroke) => stroke.locked)
+            ? "lock-open"
+            : "lock",
+        label:
+          sel.strokes.length > 0 && sel.strokes.every((stroke) => stroke.locked)
+            ? "Unlock ink"
+            : "Lock ink",
+        group: "edit",
+        enabled: sel.strokes.length > 0,
+        run: () => this.toggleSelectionLock(),
+      },
+      {
         id: "cut",
         icon: "scissors",
         label: "Cut",
@@ -7961,6 +8326,19 @@ export class InkSurface {
           },
         });
       }
+    }
+    if (sel.strokes.length > 0 || sel.textBoxes.length > 0) {
+      actions.push({
+        id: "shrink-selection",
+        icon: "rows-3",
+        label: "Shrink selection",
+        group: "edit",
+        bar: true,
+        enabled:
+          sel.strokes.length + sel.textBoxes.length > 1 ||
+          sel.textBoxes.some((box) => lineHeightOf(box) > 1.1),
+        run: () => this.shrinkSelectedInk(),
+      });
     }
     if (sel.strokes.length > 0) {
       const first = sel.strokes[0].color;
@@ -8325,6 +8703,18 @@ export class InkSurface {
    * picture or text from the system clipboard, else the plugin's after all.
    * Runs inside the tap, which the system clipboard's read requires.
    */
+  /** Paste from a toolbar tap into the visible part of the current page. */
+  pasteFromClipboard(): void {
+    if (this.callbacks.isLocked?.()) return;
+    const page = this.pageAt(this.pageIndex);
+    const region = this.visibleRegion(this.pageIndex);
+    if (!page || !region) return;
+    this.pasteHere(page.id, {
+      x: (region.minX + region.maxX) / 2,
+      y: (region.minY + region.maxY) / 2,
+    });
+  }
+
   private pasteHere(pageId: string, at: Pt): void {
     const ink = clipboard.canPaste(this.imagesShown);
     if (this.practice || inkFirst(ink, clipboard.leftSinceCopy) || !canReadSystemClipboard()) {
@@ -9235,7 +9625,179 @@ export class InkSurface {
     this.commentMarkersEl.toggleClass("is-hidden", targets.length === 0);
   }
 
+  private reprotectZone(page: Page, zone: import("../model/document").ProtectionZone): void {
+    const replacements: StrokeReplacement[] = [];
+    for (const original of page.strokes) {
+      const pieces = lockStrokeInRect(original, zone, () => this.strokeIds.next());
+      if (pieces) replacements.push({ original, pieces });
+    }
+    const ids = [
+      ...new Set([
+        ...zone.strokes,
+        ...replacements.flatMap((r) => r.pieces.filter((s) => s.locked).map((s) => s.id)),
+      ]),
+    ];
+    if (!replacements.length) return;
+    this.applyCommand(
+      new CompositeCommand("Reprotect ink", [
+        new ReplaceStrokesOnPage(page.id, replacements, "Reprotect ink"),
+        new UpdateProtectionZone(page.id, zone, { ...zone, strokes: ids }),
+      ]),
+    );
+  }
+
+  private dragProtectionZone(
+    event: PointerEvent,
+    foil: HTMLElement,
+    page: Page,
+    zone: import("../model/document").ProtectionZone,
+    resize: boolean,
+  ): void {
+    if (this.callbacks.isLocked?.()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.selectedProtectionZone = { pageId: page.id, zone };
+    const target = event.currentTarget as HTMLElement;
+    target.setPointerCapture(event.pointerId);
+    const x = event.clientX,
+      y = event.clientY,
+      initial = { ...zone, strokes: [...zone.strokes] };
+    let dx = 0,
+      dy = 0;
+    const move = (e: PointerEvent): void => {
+      if (e.pointerId !== event.pointerId) return;
+      dx = (e.clientX - x) / this.unitScale;
+      dy = (e.clientY - y) / this.unitScale;
+      if (resize) {
+        foil.style.width = `${Math.max(10, initial.maxX - initial.minX + dx) * this.unitScale}px`;
+        foil.style.height = `${Math.max(10, initial.maxY - initial.minY + dy) * this.unitScale}px`;
+      } else foil.style.transform = `translate(${dx * this.unitScale}px,${dy * this.unitScale}px)`;
+    };
+    const end = (e: PointerEvent): void => {
+      if (e.pointerId !== event.pointerId) return;
+      target.removeEventListener("pointermove", move);
+      target.removeEventListener("pointerup", end);
+      target.removeEventListener("pointercancel", end);
+      if (e.type === "pointercancel" || (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5)) {
+        this.syncProtectionZones();
+        return;
+      }
+      const next = resize
+        ? {
+            ...initial,
+            maxX: Math.max(initial.minX + 10, initial.maxX + dx),
+            maxY: Math.max(initial.minY + 10, initial.maxY + dy),
+          }
+        : {
+            ...initial,
+            minX: initial.minX + dx,
+            maxX: initial.maxX + dx,
+            minY: initial.minY + dy,
+            maxY: initial.maxY + dy,
+          };
+      const commands: Command[] = [];
+      if (!resize) {
+        const overlaps = (b: Bounds | null): boolean =>
+          !!b &&
+          b.maxX >= initial.minX &&
+          b.minX <= initial.maxX &&
+          b.maxY >= initial.minY &&
+          b.minY <= initial.maxY;
+        const strokes = page.strokes.filter((stroke) => overlaps(strokeBounds(stroke)));
+        const images = page.images.filter((image) => overlaps(selectionBounds([], [image], [])));
+        const textBoxes = page.textBoxes.filter((text) =>
+          overlaps(selectionBounds([], [], [this.textBoxFrameOf(page.id, text)])),
+        );
+        const tables = (page.tables ?? []).filter((table) =>
+          overlaps(selectionBounds([], [], [this.tableFrameOf(table)])),
+        );
+        const graphs = (page.graphs ?? []).filter((graph) =>
+          overlaps(selectionBounds([], [], [graphFrame(graph)])),
+        );
+        commands.push(
+          new TranslateElements(page.id, { strokes, images, textBoxes, tables, graphs }, dx, dy),
+        );
+      }
+      commands.push(new UpdateProtectionZone(page.id, zone, next));
+      this.applyCommand(
+        new CompositeCommand(resize ? "Resize protection foil" : "Move protection foil", commands),
+      );
+    };
+    target.addEventListener("pointermove", move);
+    target.addEventListener("pointerup", end);
+    target.addEventListener("pointercancel", end);
+  }
+
+  private syncProtectionZones(): void {
+    // Older test/host surfaces may have no DOM overlay.
+    if (!this.protectionZonesEl) return;
+    this.protectionZonesEl.empty();
+    const scale = this.unitScale;
+    for (const box of this.pageLayout.boxes) {
+      const page = this.pageAt(box.index);
+      if (!page) continue;
+      for (const zone of page.protectionZones ?? []) {
+        const foil = this.protectionZonesEl.createDiv({
+          cls: "finenotes-x-protection-foil",
+          attr: { "aria-label": "Protected ink zone" },
+        });
+        foil.setCssStyles({
+          left: `${(box.x + zone.minX) * scale}px`,
+          top: `${(box.y + zone.minY) * scale}px`,
+          width: `${(zone.maxX - zone.minX) * scale}px`,
+          height: `${(zone.maxY - zone.minY) * scale}px`,
+        });
+        iconInto(foil.createSpan({ cls: "finenotes-x-protection-foil-lock" }), "lock", "•");
+        if (this.toolState.tool === "select" && !this.drawingLock) {
+          foil.addClass("is-selectable");
+          const selected =
+            this.selectedProtectionZone?.zone === zone &&
+            this.selectedProtectionZone.pageId === page.id;
+          foil.toggleClass("is-selected", selected);
+          foil.addEventListener("pointerdown", (event) =>
+            this.dragProtectionZone(event, foil, page, zone, false),
+          );
+          if (selected) {
+            const button = foil.createEl("button", {
+              cls: "finenotes-x-foil-reprotect",
+              attr: {
+                title: "Reprotect everything underneath",
+                "aria-label": "Reprotect everything underneath",
+              },
+            });
+            iconInto(button, "refresh-cw", "↻");
+            button.addEventListener("pointerdown", (event) => event.stopPropagation());
+            button.addEventListener("click", (event) => {
+              event.stopPropagation();
+              this.reprotectZone(page, zone);
+            });
+            const remove = foil.createEl("button", {
+              cls: "finenotes-x-foil-delete",
+              attr: { title: "Delete protection zone", "aria-label": "Delete protection zone" },
+            });
+            iconInto(remove, "trash-2", "×");
+            remove.addEventListener("pointerdown", event => event.stopPropagation());
+            remove.addEventListener("click", event => {
+              event.stopPropagation();
+              this.selectedProtectionZone = null;
+              this.applyCommand(new RemoveProtectionZone(page.id, zone));
+            });
+            const handle = foil.createEl("button", {
+              cls: "finenotes-x-foil-resize",
+              attr: { title: "Resize protection zone", "aria-label": "Resize protection zone" },
+            });
+            iconInto(handle, "move-diagonal-2", "↘");
+            handle.addEventListener("pointerdown", (event) =>
+              this.dragProtectionZone(event, foil, page, zone, true),
+            );
+          }
+        }
+      }
+    }
+  }
+
   private syncLockBadges(): void {
+    this.syncProtectionZones();
     let used = 0;
     if (this.toolState.tool === "select") {
       const scale = this.unitScale;

@@ -100,11 +100,15 @@ export class FloatingWindow {
     const bounds = this.bounds();
     const first = options.firstPlace?.(bounds) ?? defaultPlace(bounds);
     this.place = clampPlace(options.place() ?? first, bounds, this.min);
+    const docked = options.container.closest(".is-intelligent-strip") !== null;
+    if (docked) delete this.place.minimised;
     this.apply();
-    this.installDrag(bar, "move");
-    this.installDrag(grip, "resize");
+    if (!docked) {
+      this.installDrag(bar, "move");
+      this.installDrag(grip, "resize");
+    }
     this.installIsolation();
-    this.installRefit();
+    if (!docked) this.installRefit();
     this.bringToFront();
     // Capture: before anything inside stops the event.
     this.el.addEventListener("pointerdown", () => this.bringToFront(), true);

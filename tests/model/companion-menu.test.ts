@@ -12,5 +12,6 @@ describe("floating pen companion settings", () => {
   it("uses the useful defaults for missing or empty settings", () => {
     expect(companionActionsOf(null)).toEqual(DEFAULT_COMPANION_ACTIONS);
     expect(companionActionsOf([])).toEqual(DEFAULT_COMPANION_ACTIONS);
+    expect(DEFAULT_COMPANION_ACTIONS).toContain("color");
   });
 });

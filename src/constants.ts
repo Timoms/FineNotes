@@ -9,6 +9,9 @@
 /** The view type id of the notebook view; saved in workspace layouts. */
 export const VIEW_TYPE_INK = "finenotes-x-view";
 
+/** iPad Shortcuts opens this Obsidian URL action for an Apple Pencil Pro squeeze. */
+export const PENCIL_ACTION = "finenotes-x-pencil";
+
 /**
  * The official plugin id. FineNotesX copies those settings on first launch,
  * then stores its own independent settings under its fork id.

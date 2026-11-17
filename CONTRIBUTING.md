@@ -124,3 +124,18 @@ request) so two people do not build the same thing.
   project's licence, the [GNU General Public License v3.0 or later](LICENSE).
 
 Releases are cut by the maintainer, following [RELEASE.md](RELEASE.md).
+
+## Tool UI: Intelligent Strip
+
+All new drawing tools must render their options in the attached right Intelligent
+Strip (`Toolbar.buildOptions`). Reuse the existing tool renderers and route deeper
+settings through `Toolbar.openPopover`, which now shows an inline detail view
+with Back navigation. Do not create new floating toolbar popouts. Tool-owned
+components use `Toolbar.openIntelligentTool` and must supply cleanup so switching
+toolkits removes listeners and observers. The main menu strip selects tools;
+the Intelligent Strip owns their settings. Keep its glass styling and theme
+contrast consistent, including the fixed black/white theme-ink swatch.
+
+The Intelligent Strip is attached beside the main menu strip (centered below it outside fullscreen). Keep one shared width and use the active tool icon for collapse; do not introduce left-edge or separately floating tool settings. Back controls use accessible arrow icons.
+
+Pencil hover must never draw or change tool state by itself. Tool previews dwell for 500 ms; commit only on interaction, dispose timers on exit/unload, and keep all controls tappable without hover.

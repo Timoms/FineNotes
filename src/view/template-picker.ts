@@ -140,12 +140,14 @@ export class AddPagePopover {
   constructor(
     anchor: HTMLElement,
     private readonly options: AddPagePopoverOptions,
+    dock?: HTMLElement,
   ) {
     this.position = options.position;
-    this.el = document.body.createDiv({ cls: "finenotes-x-addpage" });
+    this.el = (dock ?? document.body).createDiv({ cls: "finenotes-x-addpage" });
     this.el.setAttribute("role", "dialog");
     this.el.setAttribute("aria-label", "Add page");
     this.build();
+    if (dock) return;
     placePopover(this.el, anchor, POPOVER_WIDTH);
     this.dispose.push(
       installPopoverDismiss(

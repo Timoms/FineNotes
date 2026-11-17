@@ -176,6 +176,12 @@ export interface GoodObsidianSettings {
   shapeStyle?: ShapeToolStyle;
   /** Colours picked lately, newest first. Checked where it is read. */
   recentColors: string[];
+  /** All recently used pen colors for the floating wheel, including common colors. */
+  recentPenColors?: string[];
+  /** Permanently pinned wheel colors by slot; null slots show recent colors. */
+  colorWheelPins?: (string | null)[];
+  /** Legacy wheel position; retained on disk for compatibility, no longer used by the UI. */
+  colorWheelPosition?: { x: number; y: number };
   /** The pen row's picked colours, after the reserved ones. Checked where it is read. */
   penColors?: string[];
   /**
@@ -285,6 +291,12 @@ export interface GoodObsidianSettings {
   ruler?: unknown;
   /** Actions arranged around the floating pen companion. Checked where read. */
   companionActions?: unknown;
+  /** Main toolbar visibility and order. Checked where read. */
+  toolbarItems?: unknown;
+  /** Remove the centre button after an action until the menu is summoned again. */
+  hideCompanionAfterSelection: boolean;
+  /** Show the four arrows and unlock button while touch scrolling is prevented. */
+  showScrollControls: boolean;
 }
 
 // The records are copies, so a host that edits its settings in place cannot
@@ -362,6 +374,8 @@ export const DEFAULT_SETTINGS: GoodObsidianSettings = {
   penCursor: "ink",
   straightHighlighter: true,
   handwritingCleanup: false,
+  hideCompanionAfterSelection: false,
+  showScrollControls: true,
 
   settingsOpen: [],
   scribbleTipDismissed: false,

@@ -1,6 +1,7 @@
 import { setIcon } from "obsidian";
 import {
   COMPANION_ACTIONS,
+  COMPANION_MODES,
   type CompanionAction,
   companionActionsOf,
 } from "../model/companion-menu";
@@ -17,6 +18,13 @@ export interface FloatingPenMenuCallbacks {
   pickSticker: (id: string) => void;
   stickyNotes: () => readonly { color: string; svg: string }[];
   placeSticky: (color: string, at: { x: number; y: number } | null) => void;
+  hideAfterSelection?: () => boolean;
+  /** The ink colour currently selected in the toolbar. */
+  activeColor?: () => string;
+  /** Start the page eyedropper with a pointer already held on the pipette. */
+  dragColor?: (pointerId: number, clientX: number, clientY: number, done: () => void) => void;
+  onOpenChange?: (open: boolean) => void;
+  isActive?: (action: CompanionAction) => boolean | undefined;
 }
 
 /** A draggable, always-available button whose shortcuts fan around a circle. */
@@ -27,6 +35,7 @@ export class FloatingPenMenu {
   private readonly stickerMenu: HTMLElement;
   private actions: CompanionAction[];
   private open = false;
+  private readonly modeButtons = new Map<CompanionAction, HTMLButtonElement>();
   private x = 72;
   private y = 180;
   private drag: { id: number; x: number; y: number; moved: boolean } | null = null;
@@ -53,6 +62,7 @@ export class FloatingPenMenu {
   }
 
   destroy(): void {
+    this.callbacks.onOpenChange?.(false);
     this.root.remove();
   }
 
@@ -61,43 +71,95 @@ export class FloatingPenMenu {
     this.render();
   }
 
+  refresh(): void {
+    this.syncAppearance();
+  }
+
   collapse(): void {
     this.open = false;
     this.root.removeClass("is-open");
     this.button.setAttribute("aria-expanded", "false");
     this.stickerMenu.addClass("is-hidden");
+    this.callbacks.onOpenChange?.(false);
+  }
+
+  /** A Pencil squeeze: move to its latest tip position and toggle the ring. */
+  toggleAt(client: { x: number; y: number } | null): boolean {
+    if (client) {
+      const rect = this.host.getBoundingClientRect();
+      this.x = client.x - rect.left;
+      this.y = client.y - rect.top;
+      this.place(true);
+    }
+    this.root.removeClass("is-hidden");
+    this.toggle();
+    return this.open;
   }
 
   private toggle(): void {
     this.open = !this.open;
+    if (this.open) this.syncAppearance();
     this.root.toggleClass("is-open", this.open);
     this.button.setAttribute("aria-expanded", String(this.open));
     if (!this.open) this.stickerMenu.addClass("is-hidden");
+    this.callbacks.onOpenChange?.(this.open);
+  }
+
+  private finishSelection(): void {
+    this.collapse();
+    if (this.callbacks.hideAfterSelection?.() === true) this.root.addClass("is-hidden");
   }
 
   private render(): void {
     this.ring.empty();
-    const radius = companionRadius(this.actions.length);
-    this.actions.forEach((id, index) => {
-      const spec = COMPANION_ACTIONS.find((item) => item.id === id);
+    this.modeButtons.clear();
+    const actions: CompanionAction[] = [...this.actions, ...COMPANION_MODES.map((mode) => mode.id)];
+    const radius = companionRadius(actions.length);
+    actions.forEach((id, index) => {
+      const spec = [...COMPANION_ACTIONS, ...COMPANION_MODES].find((item) => item.id === id);
       if (!spec) return;
-      const angle = -Math.PI / 2 + (index * Math.PI * 2) / this.actions.length;
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / actions.length;
       const button = this.ring.createEl("button", {
-        cls: "finenotes-x-pen-companion-item clickable-icon",
+        cls: `finenotes-x-pen-companion-item finenotes-x-pen-companion-action-${id} clickable-icon`,
         attr: { "aria-label": spec.label, title: spec.label },
       });
       setIcon(button, spec.icon);
+      if (id === "distraction-free" || id === "prevent-scrolling") this.modeButtons.set(id, button);
       button.setCssStyles({
         transform: `translate(${Math.cos(angle) * radius}px, ${Math.sin(angle) * radius}px)`,
       });
       button.addEventListener("click", () => {
+        if (id === "color") return;
         if (id === "stickers") this.toggleStickers();
         else if (id === "sticky") this.toggleStickyNotes();
         else {
           this.callbacks.run(id);
-          this.collapse();
+          this.finishSelection();
         }
       });
+      if (id === "color") {
+        button.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          button.setPointerCapture(event.pointerId);
+          this.callbacks.dragColor?.(event.pointerId, event.clientX, event.clientY, () =>
+            this.finishSelection(),
+          );
+          this.collapse();
+        });
+      }
+    });
+    this.syncAppearance();
+  }
+
+  /** Refresh colours that can change while the menu stays mounted. */
+  private syncAppearance(): void {
+    const color = this.callbacks.activeColor?.();
+    if (color) this.root.style.setProperty("--finenotes-pen-color", color);
+    this.modeButtons?.forEach((button, action) => {
+      const active = this.callbacks.isActive?.(action) === true;
+      button.toggleClass("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
     });
   }
 
@@ -118,7 +180,7 @@ export class FloatingPenMenu {
       button.append(button.ownerDocument.importNode(parsed, true));
       button.addEventListener("click", () => {
         this.callbacks.pickSticker(sticker.id);
-        this.collapse();
+        this.finishSelection();
       });
     }
     this.stickerMenu.removeClass("is-hidden");
@@ -197,7 +259,7 @@ export class FloatingPenMenu {
         color,
         placed.moved ? { x: event.clientX, y: event.clientY } : null,
       );
-      this.collapse();
+      this.finishSelection();
     };
     const cancel = (event: PointerEvent): void => {
       if (!drag || drag.id !== event.pointerId) return;
@@ -247,8 +309,10 @@ export class FloatingPenMenu {
     this.button.addEventListener("pointercancel", end);
   }
 
-  private place(): void {
-    const inset = 30;
+  private place(roomForRing = this.open): void {
+    const inset = roomForRing
+      ? companionRadius(this.actions.length + COMPANION_MODES.length) + 26
+      : 30;
     this.x = Math.min(Math.max(inset, this.x), Math.max(inset, this.host.clientWidth - inset));
     this.y = Math.min(Math.max(inset, this.y), Math.max(inset, this.host.clientHeight - inset));
     this.root.setCssStyles({ left: `${this.x}px`, top: `${this.y}px` });
@@ -257,5 +321,6 @@ export class FloatingPenMenu {
 
 /** Keep shortcuts close to the centre while leaving full touch targets apart. */
 export function companionRadius(items: number): number {
-  return items <= 5 ? 64 : 74;
+  // Keep 44 px buttons separated as more shortcuts join the ring.
+  return Math.max(items <= 5 ? 64 : 74, 48 / (2 * Math.sin(Math.PI / Math.max(2, items))));
 }
