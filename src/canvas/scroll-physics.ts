@@ -157,6 +157,7 @@ export interface ScrollExtent {
    * keyboard's height while a text box is edited, so a box low on a page
    * that fits the screen (a cover) can still be lifted above it.
    */
+  leadY?: number;
   trailY?: number;
 }
 
@@ -269,6 +270,8 @@ export class KineticScroller {
       this.minX = range.min;
       this.maxX = Math.max(range.min, range.max);
     }
+    const leadY = Math.max(0, extent.leadY ?? 0);
+    this.minY = leadY > 0 ? -leadY : 0;
     this.maxY = Math.max(
       0,
       extent.contentHeight - extent.viewportHeight + Math.max(0, extent.trailY ?? 0),

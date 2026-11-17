@@ -135,6 +135,7 @@ export interface StrokeStyle {
   decor?: ShapeDecor | null;
   /** A flat calligraphy nib's angle, degrees; absent for a round nib. */
   nib?: number;
+  penType?: Stroke["penType"];
 }
 
 /** What a shape is drawn with beyond its colour and width (`model/shape-style`). */
@@ -297,7 +298,14 @@ export function drawPlacedImage(
     ctx.clip();
     ctx.scale(image.w / STICKY_NOTE_SIZE, image.h / STICKY_NOTE_SIZE);
     for (const stroke of image.sticky.strokes) {
-      fillStroke(ctx, stroke.pts, styleOf(stroke, true), DEFAULT_HIGHLIGHTER_ALPHA, false);
+      fillStroke(
+        ctx,
+        stroke.pts,
+        styleOf(stroke, true),
+        DEFAULT_HIGHLIGHTER_ALPHA,
+        false,
+        stroke.pose,
+      );
     }
     ctx.restore();
   }
@@ -445,8 +453,14 @@ export function penFor(style: {
   tool: Tool;
   usePressure: boolean;
   nib?: number;
+  penType?: Stroke["penType"];
 }): PenOptions {
-  return penOptions(style.size, pressureFor(style.tool, style.usePressure), style.nib);
+  return penOptions(
+    style.size,
+    pressureFor(style.tool, style.usePressure),
+    style.nib,
+    style.penType,
+  );
 }
 
 /** Give the backing store back now; iOS holds canvas memory until then. */
@@ -1321,7 +1335,7 @@ export class Renderer {
     const pressure = pressureFor(stroke.tool, usePressure);
     const pts = stroke.pts;
     const n = pts.length;
-    const fingerprint = `${pressure ? 1 : 0}|${stroke.size}|${stroke.nib ?? ""}|${n}|${pts[0]}|${pts[1]}|${pts[n - 3]}|${pts[n - 2]}`;
+    const fingerprint = `${pressure ? 1 : 0}|${stroke.size}|${stroke.nib ?? ""}|${stroke.penType ?? ""}|${stroke.pose?.join(",") ?? ""}|${n}|${pts[0]}|${pts[1]}|${pts[n - 3]}|${pts[n - 2]}`;
     const cached = this.paths.get(stroke);
     if (cached && cached.pts === pts && cached.fingerprint === fingerprint) return cached;
     let runs: InkRun[] = [];
@@ -1329,8 +1343,9 @@ export class Renderer {
     if (n >= 3) {
       runs = inkRuns(
         pts,
-        penOptions(stroke.size, pressure, stroke.nib),
+        penOptions(stroke.size, pressure, stroke.nib, stroke.penType),
         stroke.shape !== undefined,
+        stroke.pose,
       );
       const b = strokeBounds(stroke);
       if (b) {
@@ -1631,7 +1646,14 @@ export class Renderer {
     this.enterPage(ctx, box);
     const night = this.nightAt(pageIndex);
     for (const stroke of strokes) {
-      fillStroke(ctx, stroke.pts, styleOf(stroke, false), this.highlighterAlpha, night);
+      fillStroke(
+        ctx,
+        stroke.pts,
+        styleOf(stroke, false),
+        this.highlighterAlpha,
+        night,
+        stroke.pose,
+      );
     }
     ctx.restore();
     this.setWetVisible(true);
@@ -1671,6 +1693,7 @@ export function styleOf(stroke: Stroke, pressure: boolean): StrokeStyle {
     shape: shape !== undefined,
     decor: decorOf(stroke),
     ...(stroke.nib !== undefined ? { nib: stroke.nib } : {}),
+    ...(stroke.penType !== undefined ? { penType: stroke.penType } : {}),
   };
 }
 
@@ -1789,8 +1812,9 @@ function fillStroke(
   style: StrokeStyle,
   highlighterAlpha: number,
   night = false,
+  pose?: readonly number[],
 ): void {
-  const runs = inkRuns(points, penFor(style), style.shape === true);
+  const runs = inkRuns(points, penFor(style), style.shape === true, pose);
   paintStroke(ctx, { runs }, style, highlighterAlpha, night, style.decor ?? null, points);
 }
 
@@ -1867,7 +1891,14 @@ export function renderPageThumbnail(
 
   const alpha = options.highlighterAlpha ?? DEFAULT_HIGHLIGHTER_ALPHA;
   for (const stroke of page.strokes) {
-    fillStroke(ctx, stroke.pts, styleOf(stroke, options.usePressure), alpha, look.night);
+    fillStroke(
+      ctx,
+      stroke.pts,
+      styleOf(stroke, options.usePressure),
+      alpha,
+      look.night,
+      stroke.pose,
+    );
   }
   // Handwriting made a checklist item has its box beside it, in its ink colour.
   for (const task of page.tasks ?? []) paintTaskBox(ctx, page, task, look.night);

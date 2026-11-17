@@ -13,6 +13,7 @@
  *   word to mark it stays ink unless it is held.
  */
 
+import { lineOfHighlight } from "./straighten";
 import { POINT_STRIDE } from "../model/document";
 
 export interface PenGestures {
@@ -20,6 +21,9 @@ export interface PenGestures {
   /** "Erase shapes and highlighter": only while {@link scribbleErase} is on. */
   scribbleErasesAll: boolean;
   circleLasso: boolean;
+  straightenLines: boolean;
+  rotateStrokesToDegree: boolean;
+  rotationDegrees: number;
 }
 
 /** GoodNotes' defaults, less the extra reach of the scribble: handwriting only. */
@@ -27,12 +31,22 @@ export const DEFAULT_PEN_GESTURES: Readonly<PenGestures> = {
   scribbleErase: true,
   scribbleErasesAll: false,
   circleLasso: true,
+  straightenLines: false,
+  rotateStrokesToDegree: false,
+  rotationDegrees: 5,
 };
 
 /** The switches from anything read off disk; a missing or bad one is its default. */
 export function penGesturesOf(raw: unknown): PenGestures {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const flag = (key: keyof PenGestures): boolean => {
+  const flag = (
+    key:
+      | "scribbleErase"
+      | "scribbleErasesAll"
+      | "circleLasso"
+      | "straightenLines"
+      | "rotateStrokesToDegree",
+  ): boolean => {
     const value = o[key];
     return typeof value === "boolean" ? value : DEFAULT_PEN_GESTURES[key];
   };
@@ -40,6 +54,12 @@ export function penGesturesOf(raw: unknown): PenGestures {
     scribbleErase: flag("scribbleErase"),
     scribbleErasesAll: flag("scribbleErasesAll"),
     circleLasso: flag("circleLasso"),
+    straightenLines: flag("straightenLines"),
+    rotateStrokesToDegree: flag("rotateStrokesToDegree"),
+    rotationDegrees:
+      typeof o.rotationDegrees === "number" && Number.isFinite(o.rotationDegrees)
+        ? Math.max(1, Math.min(90, Math.round(o.rotationDegrees)))
+        : 5,
   };
 }
 
@@ -120,4 +140,23 @@ export function gestureLoopOf(pts: readonly number[], closeTolerance: number): n
   const area = Math.abs(twiceArea) / 2;
   if (area < LOOP_MIN_FILL * w * h || area < LOOP_MIN_AREA * diagonal * diagonal) return null;
   return loop;
+}
+
+/** Straighten a sufficiently line-like stroke and optionally snap its angle to a degree. */
+export function straightenPenLine(
+  pts: readonly number[],
+  minLength: number,
+  rotate: boolean,
+  degrees = 1,
+): number[] | null {
+  const line = lineOfHighlight(pts, minLength);
+  if (!line || !rotate) return line;
+  const dx = line[3] - line[0],
+    dy = line[4] - line[1];
+  const length = Math.hypot(dx, dy);
+  const angle =
+    (Math.round((Math.atan2(dy, dx) * 180) / Math.PI / degrees) * degrees * Math.PI) / 180;
+  line[3] = line[0] + Math.cos(angle) * length;
+  line[4] = line[1] + Math.sin(angle) * length;
+  return line;
 }

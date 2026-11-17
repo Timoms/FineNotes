@@ -72,6 +72,27 @@ describe("v2 pages, backdrops, images and shapes", () => {
     return doc;
   }
 
+  it("round-trips an optional Apple Pencil pose channel and pen identity", () => {
+    const doc = pageDoc({
+      strokes: [
+        {
+          id: "s1",
+          color: "#111111",
+          size: 3,
+          tool: "pen",
+          pts: [1, 2, 0.5, 3, 4, 0.6],
+          pose: [0.7, 1.2, 30, Number.NaN, Number.NaN, 31],
+          penType: "brush",
+        },
+      ],
+    });
+    const stroke = decodeDocument(encodeDocument(doc)).pages[0].strokes[0];
+    expect(stroke.penType).toBe("brush");
+    expect(stroke.pose?.slice(0, 3)).toEqual([0.7, 1.2, 30]);
+    expect(stroke.pose?.slice(3, 5).every(Number.isNaN)).toBe(true);
+    expect(stroke.pose?.[5]).toBe(31);
+  });
+
   it("round-trips a lined backdrop with spacing and colour", () => {
     const doc = pageDoc({ backdrop: { kind: "lined", spacing: 36, color: "#eeeeee" } });
     expect(decodeDocument(encodeDocument(doc)).pages[0].backdrop).toEqual({

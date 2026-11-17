@@ -29,6 +29,7 @@ import {
   PAPER_GROWTH_MARGIN,
   SCHEMA_VERSION,
 } from "../constants";
+import { readProtectionZones } from "./ink-lock";
 import { normalizeAttachmentFolders } from "./attachment-folders";
 import { normalizePageTitle, normalizeSections } from "./contents";
 import { normalizeLinks } from "./links";
@@ -147,11 +148,14 @@ export function dequantizePts(pts: number[]): number[] {
 // place.
 
 interface StoredStroke {
+  locked?: boolean;
   id: string;
   color: string;
   size: number;
   tool: string;
   pts: number[];
+  pose?: number[];
+  penType?: string;
   shape?: string;
   fill?: string;
   dash?: string;
@@ -167,6 +171,7 @@ type StoredImage = Omit<ImageElement, "sticky"> & {
 };
 
 interface StoredPage {
+  protectionZones?: Page["protectionZones"];
   id: string;
   kind: string;
   geometry: PageGeometry;
@@ -222,6 +227,9 @@ function storeStroke(stroke: Stroke): StoredStroke {
     size: stroke.size,
     tool: stroke.tool,
     pts: quantizePts(stroke.pts),
+    locked: stroke.locked === true ? true : undefined,
+    pose: stroke.pose?.length ? quantizePose(stroke.pose) : undefined,
+    penType: stroke.penType,
     shape: stroke.shape || undefined,
     fill: stroke.fill,
     dash: stroke.dash,
@@ -233,6 +241,33 @@ function storeStroke(stroke: Stroke): StoredStroke {
     t0: isTime(stroke.t0) ? Math.round(stroke.t0) : undefined,
     samples: stroke.samples?.length ? quantizeSamples(stroke.samples) : undefined,
   };
+}
+
+const POSE_STEPS = 10_000;
+const POSE_MISSING = 2_147_483_647;
+
+function quantizePose(pose: readonly number[]): number[] {
+  return pose.map((value) =>
+    Number.isFinite(value) ? Math.round(value * POSE_STEPS) : POSE_MISSING,
+  );
+}
+
+function readPose(raw: unknown, pointCount: number): number[] | undefined {
+  if (!Array.isArray(raw) || raw.length !== pointCount * 3) return undefined;
+  return raw.map((value) => {
+    const n = typeof value === "number" && Number.isFinite(value) ? value : POSE_MISSING;
+    return n === POSE_MISSING ? Number.NaN : n / POSE_STEPS;
+  });
+}
+
+function readPenType(raw: unknown): Stroke["penType"] {
+  return raw === "fountain" ||
+    raw === "ball" ||
+    raw === "brush" ||
+    raw === "calligraphy" ||
+    raw === "highlighter"
+    ? raw
+    : undefined;
 }
 
 /** Steps per unit a sample's pressure is stored in. */
@@ -298,6 +333,7 @@ function storePage(page: Page): StoredPage {
     tables: page.tables && page.tables.length > 0 ? page.tables : undefined,
     graphs: page.graphs && page.graphs.length > 0 ? page.graphs : undefined,
     comments: page.comments && page.comments.length > 0 ? page.comments : undefined,
+    protectionZones: page.protectionZones?.length ? page.protectionZones : undefined,
     strokes: page.strokes.map(storeStroke),
   };
 }
@@ -666,6 +702,7 @@ function readStroke(raw: unknown, position: number): Stroke | null {
     pts: dequantizePts(Array.isArray(raw.pts) ? raw.pts.map(finiteOrZero) : []),
   };
   const shape = asShape(raw.shape);
+  if (raw.locked === true) stroke.locked = true;
   if (shape) stroke.shape = shape;
   // A shape's style; anything unreadable is simply not there.
   const fill = readFill(raw.fill);
@@ -677,6 +714,10 @@ function readStroke(raw: unknown, position: number): Stroke | null {
   const heads = readHeads(raw.heads);
   if (heads) stroke.heads = heads;
   if (typeof raw.nib === "number" && Number.isFinite(raw.nib)) stroke.nib = raw.nib;
+  const pose = readPose(raw.pose, stroke.pts.length / 3);
+  if (pose) stroke.pose = pose;
+  const penType = readPenType(raw.penType);
+  if (penType) stroke.penType = penType;
   if (isTime(raw.t0)) stroke.t0 = Math.round(raw.t0);
   const samples = readSamples(raw.samples);
   if (samples) stroke.samples = samples;
@@ -967,6 +1008,7 @@ function normalizePage(
     if (normalized) comments.push(normalized);
   });
   const strokes = readStrokes(page.strokes);
+  const protectionZones = readProtectionZones(page.protectionZones);
   return {
     id: typeof page.id === "string" ? page.id : `p${index + 1}`,
     kind: "ink",
@@ -986,6 +1028,7 @@ function normalizePage(
     ...(tables.length > 0 ? { tables } : {}),
     ...(graphs.length > 0 ? { graphs } : {}),
     ...(comments.length > 0 ? { comments } : {}),
+    ...(protectionZones.length > 0 ? { protectionZones } : {}),
   };
 }
 

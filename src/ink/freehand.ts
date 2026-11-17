@@ -38,6 +38,8 @@ export interface PenOptions {
    * calligraphy pen writes. Absent: a round nib, the same in every direction.
    */
   nib?: number;
+  /** The saved preset decides how Apple Pencil pose changes the nib. */
+  poseMode?: "fountain" | "ball" | "brush" | "calligraphy" | "highlighter";
 }
 
 /** The narrowest a flat nib writes, as a share of its full width (moving along its edge). */
@@ -62,11 +64,17 @@ export function nibFactor(nib: number, dx: number, dy: number): number {
  * nib at 0.5, 1.6 of it at full. Without, one width. (These are the widths
  * notes have been drawn at since the first release.)
  */
-export function penOptions(size: number, pressure: boolean, nibDegrees?: number): PenOptions {
+export function penOptions(
+  size: number,
+  pressure: boolean,
+  nibDegrees?: number,
+  poseMode?: PenOptions["poseMode"],
+): PenOptions {
   const pen: PenOptions = { size, thinning: pressure ? 0.6 : 0 };
   if (typeof nibDegrees === "number" && Number.isFinite(nibDegrees)) {
     pen.nib = (nibDegrees * Math.PI) / 180;
   }
+  if (poseMode) pen.poseMode = poseMode;
   return pen;
 }
 
@@ -93,11 +101,17 @@ export interface InkRun {
  * A stored stroke as runs: handwriting traced as it was written, a shape
  * (`shape`) along its exact centreline at the nib's width. Empty for no points.
  */
-export function inkRuns(pts: readonly number[], pen: PenOptions, shape = false): InkRun[] {
+export function inkRuns(
+  pts: readonly number[],
+  pen: PenOptions,
+  shape = false,
+  pose?: readonly number[],
+): InkRun[] {
   if (shape) return centrelineRuns(pts, pen.size);
   const tracer = new InkTracer(pen);
   for (let i = 0; i + POINT_STRIDE <= pts.length; i += POINT_STRIDE) {
-    tracer.push(pts[i], pts[i + 1], pts[i + 2]);
+    const p = (i / POINT_STRIDE) * 3;
+    tracer.push(pts[i], pts[i + 1], pts[i + 2], pose?.[p], pose?.[p + 1], pose?.[p + 2]);
   }
   return tracer.runs();
 }
@@ -129,15 +143,38 @@ export class InkTracer {
     return this.pushed;
   }
 
-  push(x: number, y: number, pressure: number): void {
+  push(
+    x: number,
+    y: number,
+    pressure: number,
+    altitude = Number.NaN,
+    azimuth = Number.NaN,
+    twist = Number.NaN,
+  ): void {
     this.pushed++;
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     const { prev, last } = this;
     let r = radiusAt(pressure, this.pen);
+    const mode = this.pen.poseMode;
+    if (Number.isFinite(altitude) && mode && mode !== "ball" && mode !== "calligraphy") {
+      const laidDown = 1 - Math.min(Math.PI / 2, Math.max(0, altitude)) / (Math.PI / 2);
+      r *= 1 + laidDown * (mode === "brush" ? 0.55 : mode === "highlighter" ? 0.35 : 0.18);
+    }
     // A flat nib: as wide as the direction it arrived from allows. The first
     // point has no direction yet and starts at the nib's middle width.
-    if (this.pen.nib !== undefined) {
-      r *= last ? nibFactor(this.pen.nib, x - last.x, y - last.y) : (1 + NIB_HAIRLINE) / 2;
+    let nib = this.pen.nib;
+    if (
+      nib === undefined &&
+      Number.isFinite(azimuth) &&
+      (altitude < 1.45 || (Number.isFinite(twist) && twist !== 0)) &&
+      mode &&
+      mode !== "ball" &&
+      mode !== "calligraphy"
+    ) {
+      nib = azimuth + (Number.isFinite(twist) ? (twist * Math.PI) / 180 : 0);
+    }
+    if (nib !== undefined) {
+      r *= last ? nibFactor(nib, x - last.x, y - last.y) : (1 + NIB_HAIRLINE) / 2;
     }
     const dab: Dab = { x, y, r };
     if (last && Math.hypot(x - last.x, y - last.y) < SAME_POINT) {

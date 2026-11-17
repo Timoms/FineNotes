@@ -165,6 +165,34 @@ describe("StrokeBuilder: recording a practice file's raw samples", () => {
   });
 });
 
+describe("StrokeBuilder: Apple Pencil pose", () => {
+  it("aligns pose to the final kept points and derives angles from tilt", () => {
+    const b = new StrokeBuilder({ minDistance: 5 });
+    b.add({ x: 0, y: 0, pressure: 0.5, pointerType: "pen", tiltX: 30, tiltY: 0, twist: 12 });
+    b.add({ x: 1, y: 0, pressure: 0.5, pointerType: "pen", tiltX: 35, tiltY: 0, twist: 14 });
+    b.addFinal({
+      x: 10,
+      y: 0,
+      pressure: 0.5,
+      pointerType: "pen",
+      altitudeAngle: 0.7,
+      azimuthAngle: 1.1,
+      twist: 20,
+    });
+    const pose = b.pose(b.points());
+    expect(pose).not.toBeNull();
+    expect(pose).toHaveLength(b.points().length);
+    expect(pose?.[0]).toBeCloseTo(Math.PI / 3);
+    expect(pose?.slice(-3)).toEqual([0.7, 1.1, 20]);
+  });
+
+  it("does not attach pose to mouse input", () => {
+    const b = new StrokeBuilder();
+    b.addFinal({ x: 0, y: 0, pressure: 0.5, pointerType: "mouse", tiltX: 20, tiltY: 5 });
+    expect(b.pose(b.points())).toBeNull();
+  });
+});
+
 describe("the Brush pen's pressure curve", () => {
   it("draws a usual hand at the brush's width, and swells and thins far more than the reading", () => {
     expect(shapePressure(0.3, BRUSH_PRESSURE)).toBeCloseTo(0.5);

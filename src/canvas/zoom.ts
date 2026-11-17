@@ -51,6 +51,26 @@ export function fitPageZoom(
   return Math.min(1, Math.max(MIN_SCALE, paneHeight / shown));
 }
 
+/** Zoom relative to base scale that fits the complete page to both viewport dimensions. */
+export function fitSheetZoom(
+  width: number,
+  height: number,
+  base: number,
+  viewportWidth: number,
+  viewportHeight: number,
+): number {
+  if (
+    ![width, height, base, viewportWidth, viewportHeight].every(
+      (value) => Number.isFinite(value) && value > 0,
+    )
+  )
+    return 1;
+  return Math.max(
+    MIN_SCALE,
+    Math.min(MAX_SCALE, viewportWidth / (width * base), viewportHeight / (height * base)),
+  );
+}
+
 /** What {@link nextZoomFloor} decides: the new floor, and the zoom to show. */
 export interface ZoomFloorStep {
   floor: number;

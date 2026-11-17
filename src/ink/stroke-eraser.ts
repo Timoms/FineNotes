@@ -37,7 +37,11 @@ export function eraserFilterOf(raw: unknown): EraserFilter {
 }
 
 /** Whether the eraser, set to `filter`, erases this stroke at all. */
-export function eraserTakes(stroke: Pick<Stroke, "tool">, filter: EraserFilter): boolean {
+export function eraserTakes(
+  stroke: Pick<Stroke, "tool" | "locked">,
+  filter: EraserFilter,
+): boolean {
+  if (stroke.locked === true) return false;
   if (filter === "highlighter") return stroke.tool === "highlighter";
   if (filter === "pen") return stroke.tool !== "highlighter";
   return true;
@@ -185,6 +189,7 @@ export function eraseCircleFromStroke(
   radius: number,
   nextId: () => string,
 ): Stroke[] | null {
+  if (stroke.locked) return null;
   const pieces = eraseCircleFromPoints(stroke.pts, stroke.size, cx, cy, radius);
   if (pieces === null) return null;
   return pieces.map((pts) => {

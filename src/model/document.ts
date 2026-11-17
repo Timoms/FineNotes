@@ -69,12 +69,22 @@ export interface ArrowHeads {
 }
 
 export interface Stroke {
+  /** Protected from erasers; selection can unlock it. */
+  locked?: boolean;
   id: string;
   color: string;
   size: number;
   tool: Tool;
   /** x, y, pressure, x, y, pressure, …: whole points only, so the length divides by 3. */
   pts: number[];
+  /**
+   * Pen pose aligned one-for-one with `pts`: altitude and azimuth in radians,
+   * then barrel twist in degrees. A NaN means the browser did not expose the
+   * value. Optional, so every notebook written before pose ink remains valid.
+   */
+  pose?: number[];
+  /** The physical pen preset that interprets `pose`; absent keeps legacy ink. */
+  penType?: "fountain" | "ball" | "brush" | "calligraphy" | "highlighter";
   /**
    * Milliseconds from this page's first pen-down to this stroke's pen-down.
    *
@@ -548,7 +558,13 @@ export interface GraphElement {
 
 export type PageKind = "ink";
 
+/** A transparent protection foil; its frame is never eraser ink. */
+export interface ProtectionZone extends Bounds {
+  strokes: string[];
+}
+
 export interface Page {
+  protectionZones?: ProtectionZone[];
   id: string;
   kind: PageKind;
   geometry: PageGeometry;

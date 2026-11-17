@@ -4,7 +4,12 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PEN_GESTURES, gestureLoopOf, penGesturesOf } from "../../src/ink/pen-gestures";
+import {
+  DEFAULT_PEN_GESTURES,
+  gestureLoopOf,
+  penGesturesOf,
+  straightenPenLine,
+} from "../../src/ink/pen-gestures";
 import { presetGeometry } from "../../src/ink/shape-geometry";
 import { type Pt, arc, pencilInk, segment } from "./ink-synth";
 import realPencil from "./fixtures/real-pencil-ipad.json";
@@ -32,13 +37,21 @@ describe("penGesturesOf", () => {
       scribbleErase: true,
       scribbleErasesAll: false,
       circleLasso: true,
+      straightenLines: false,
+      rotateStrokesToDegree: false,
+      rotationDegrees: 5,
     });
   });
 
   it("keeps every switch that is a boolean", () => {
     expect(
       penGesturesOf({ scribbleErase: false, scribbleErasesAll: true, circleLasso: false }),
-    ).toEqual({ scribbleErase: false, scribbleErasesAll: true, circleLasso: false });
+    ).toEqual({
+      ...DEFAULT_PEN_GESTURES,
+      scribbleErase: false,
+      scribbleErasesAll: true,
+      circleLasso: false,
+    });
     expect(penGesturesOf({ circleLasso: false })).toEqual({
       ...DEFAULT_PEN_GESTURES,
       circleLasso: false,
@@ -119,4 +132,35 @@ describe("gestureLoopOf", () => {
     holed[9] = Number.NaN;
     expect(gestureLoopOf(holed, TOLERANCE)).not.toBeNull();
   });
+});
+
+describe("straightenPenLine", () => {
+  it("straightens a near horizontal stroke and snaps its angle", () => {
+    const line = straightenPenLine([0, 0, 0.5, 50, 0.2, 0.5, 100, 0.5, 0.5], 20, true)!;
+    expect(line[4]).toBeCloseTo(line[1], 8);
+  });
+  it("leaves a curved stroke alone", () => {
+    expect(straightenPenLine([0, 0, 0.5, 50, 40, 0.5, 100, 0, 0.5], 20, true)).toBeNull();
+  });
+});
+
+it("snaps a line to the chosen angle interval", () => {
+  const angle = (27 * Math.PI) / 180;
+  const line = straightenPenLine(
+    [
+      0,
+      0,
+      0.5,
+      50 * Math.cos(angle),
+      50 * Math.sin(angle),
+      0.5,
+      100 * Math.cos(angle),
+      100 * Math.sin(angle),
+      0.5,
+    ],
+    20,
+    true,
+    45,
+  )!;
+  expect((Math.atan2(line[4] - line[1], line[3] - line[0]) * 180) / Math.PI).toBeCloseTo(45);
 });

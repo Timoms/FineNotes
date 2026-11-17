@@ -6,6 +6,7 @@ import {
   anchorScrollDelta,
   pinchOpensOverview,
   fitPageZoom,
+  fitSheetZoom,
   nextZoomFloor,
   wheelZoomFactor,
 } from "../../src/canvas/zoom";
@@ -139,4 +140,13 @@ describe("pinchOpensOverview", () => {
       expect(pinchOpensOverview(raw, floor)).toBe(false);
     }
   });
+});
+
+describe("fitSheetZoom", () => {
+  it("fits to the limiting width or height and may enlarge a small page", () => {
+    expect(fitSheetZoom(1200, 600, 1, 600, 800)).toBeCloseTo(0.5);
+    expect(fitSheetZoom(600, 1200, 1, 800, 600)).toBeCloseTo(0.5);
+    expect(fitSheetZoom(200, 100, 1, 800, 600)).toBe(4);
+  });
+  it("rejects invalid dimensions", () => expect(fitSheetZoom(0, 100, 1, 600, 600)).toBe(1));
 });

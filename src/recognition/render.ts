@@ -62,7 +62,12 @@ function frameAround(strokes: readonly Stroke[], maxEdge: number, pad: number): 
 }
 
 function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke): void {
-  const runs = inkRuns(stroke.pts, penOptions(stroke.size, true), stroke.shape !== undefined);
+  const runs = inkRuns(
+    stroke.pts,
+    penOptions(stroke.size, true, stroke.nib, stroke.penType),
+    stroke.shape !== undefined,
+    stroke.pose,
+  );
   if (runs.length === 0) return;
   const style = stroke.tool === "highlighter" ? HIGHLIGHTER_INK : PEN_INK;
   ctx.globalAlpha = style.alpha;

@@ -37,6 +37,16 @@ export interface PointerSample {
   pressure: number;
   tiltX: number;
   tiltY: number;
+  /** Pen barrel rotation, clockwise degrees. WebKit calls this `twist`. */
+  twist: number;
+  /** Pressure against a barrel sensor, -1…1; Apple Pencil currently reports 0. */
+  tangentialPressure: number;
+  /** Contact ellipse in CSS px. Useful for devices that expose a broad nib. */
+  width: number;
+  height: number;
+  /** Direct pen pose where the browser exposes Pointer Events Level 3. */
+  altitudeAngle?: number;
+  azimuthAngle?: number;
   /** The event's time stamp, ms (the page's clock). */
   t?: number;
   /** "pen", "mouse" or "touch". */
@@ -62,6 +72,14 @@ export interface PointerDebugRecord {
   timeStamp: number;
   /** Its position is whole CSS px on both axes ({@link isWholePixel}). */
   wholePixel: boolean;
+  /** Latest pose values, for checking what the current WebView really delivers. */
+  altitudeAngle?: number;
+  azimuthAngle?: number;
+  twist?: number;
+  tiltX?: number;
+  tiltY?: number;
+  width?: number;
+  height?: number;
 }
 
 /**
@@ -115,6 +133,8 @@ export interface PointerControllerCallbacks {
   onFingerTapReport?(report: TapReport): void;
   /** A finger reported its contact size, CSS px (on landing and as it moves). */
   onFingerContact?(width: number, height: number): void;
+  /** The latest Apple Pencil position in client px, hovering or touching. */
+  onPenPosition?(x: number, y: number): void;
   /**
    * A finger ended in `pointercancel`, just before the gesture hears of it
    * as a lift: WebKit's own long press takes a finger held still that way.
@@ -130,6 +150,7 @@ type Phase = (typeof PHASES)[number];
 export class PointerController {
   /** The pointer drawing the open stroke; null between strokes. */
   private stroke: number | null = null;
+  private readonly acceptedTouches = new Set<number>();
   /** A pen has reported a position with a fraction: this device does not round. */
   private penIsPrecise = false;
   /** See {@link strokeRounded}. */
@@ -149,6 +170,7 @@ export class PointerController {
     private readonly handHeld: () => boolean = () => false,
     /** Where a pen or mouse press goes otherwise: the margin, a stylus button (FineNotes#25). */
     private readonly route: (event: PointerEvent) => PressRoute = () => "draw",
+    private readonly acceptTouch: (event: PointerEvent) => boolean = () => true,
   ) {
     this.fingers = new FingerGesture(listener);
     this.taps = new MultiFingerTap(
@@ -169,6 +191,13 @@ export class PointerController {
 
   detach(): void {
     for (const phase of PHASES) this.element.removeEventListener(phase, this.handlers[phase]);
+  }
+
+  /** A navigation lock drops existing fingers as well as refusing new touches. */
+  cancelTouches(): void {
+    this.acceptedTouches.clear();
+    for (const finger of this.fingers.cancel()) this.releaseCapture(finger);
+    this.taps.penDown();
   }
 
   /** Whether a finger gesture is in progress. */
@@ -198,6 +227,12 @@ export class PointerController {
   private pressed(event: PointerEvent): void {
     const { pointerId, clientX, clientY, timeStamp } = event;
     this.notePenSeen(event);
+    this.reportPenPosition(event);
+    if (event.pointerType === "touch" && !this.acceptTouch(event)) {
+      event.preventDefault();
+      return;
+    }
+    if (event.pointerType === "touch") this.acceptedTouches.add(event.pointerId);
     // The right mouse button opens the page's menu (`contextmenu`); it never draws.
     if (event.pointerType === "mouse" && event.button === 2) return;
     const role = roleOf(event.pointerType, this.stroke !== null);
@@ -250,7 +285,12 @@ export class PointerController {
   }
 
   private moved(event: PointerEvent): void {
+    if (event.pointerType === "touch" && !this.acceptedTouches.has(event.pointerId)) {
+      event.preventDefault();
+      return;
+    }
     this.notePenSeen(event);
+    this.reportPenPosition(event);
     if (event.pointerId !== this.stroke) {
       if (event.pointerType === "touch") this.listener.onFingerContact?.(event.width, event.height);
       this.taps.move(event.pointerId, event.clientX, event.clientY);
@@ -268,8 +308,15 @@ export class PointerController {
   }
 
   private released(event: PointerEvent, cancelled: boolean): void {
+    if (event.pointerType === "touch" && !this.acceptedTouches.has(event.pointerId)) {
+      event.preventDefault();
+      this.releaseCapture(event.pointerId);
+      return;
+    }
     const id = event.pointerId;
+    this.acceptedTouches.delete(id);
     this.notePenSeen(event);
+    this.reportPenPosition(event);
     if (id !== this.stroke) {
       // A cancelled finger counts as lifted (`multi-finger-tap.ts` says why).
       if (cancelled) this.taps.cancel(id, event.timeStamp);
@@ -294,13 +341,23 @@ export class PointerController {
   /** The event as a stroke sample, in the surface's space. */
   private sample(event: PointerEvent): PointerSample {
     const at = this.toLocal(event.clientX, event.clientY);
-    const { pressure, tiltX, tiltY } = event;
+    const { pressure, tiltX, tiltY, twist, tangentialPressure, width, height } = event;
+    const pose = event as PointerEvent & {
+      altitudeAngle?: number;
+      azimuthAngle?: number;
+    };
     return {
       x: at.x,
       y: at.y,
       pressure,
       tiltX,
       tiltY,
+      twist,
+      tangentialPressure,
+      width,
+      height,
+      ...(Number.isFinite(pose.altitudeAngle) ? { altitudeAngle: pose.altitudeAngle } : {}),
+      ...(Number.isFinite(pose.azimuthAngle) ? { azimuthAngle: pose.azimuthAngle } : {}),
       t: event.timeStamp,
       pointerType: event.pointerType,
     };
@@ -308,6 +365,12 @@ export class PointerController {
 
   private notePenSeen(event: PointerEvent): void {
     if (event.pointerType === "pen") this.penSeenAt = event.timeStamp;
+  }
+
+  private reportPenPosition(event: PointerEvent): void {
+    if (event.pointerType === "pen") {
+      this.listener.onPenPosition?.(event.clientX, event.clientY);
+    }
   }
 
   /** One position with a fraction is enough: this device's pen does not round. */
@@ -326,6 +389,13 @@ export class PointerController {
       coalesced,
       timeStamp,
       wholePixel,
+      altitudeAngle: Number.isFinite(event.altitudeAngle) ? event.altitudeAngle : undefined,
+      azimuthAngle: Number.isFinite(event.azimuthAngle) ? event.azimuthAngle : undefined,
+      twist: event.twist,
+      tiltX: event.tiltX,
+      tiltY: event.tiltY,
+      width: event.width,
+      height: event.height,
     });
   }
 

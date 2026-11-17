@@ -541,3 +541,25 @@ describe("glideTo from a start outside the range", () => {
     expect(s.position.x).toBe(3000);
   });
 });
+
+it("allows a centred page to extend above and below the document", () => {
+  const scroller = new KineticScroller();
+  scroller.setExtent({
+    contentWidth: 500,
+    contentHeight: 400,
+    viewportWidth: 600,
+    viewportHeight: 800,
+    leadY: 150,
+    trailY: 150,
+  });
+  scroller.setPosition(0, -150);
+  expect(scroller.position.y).toBe(-150);
+  expect(scroller.bounds.minY).toBe(-150);
+  scroller.setExtent({
+    contentWidth: 500,
+    contentHeight: 400,
+    viewportWidth: 600,
+    viewportHeight: 800,
+  });
+  expect(scroller.position.y).toBe(0);
+});

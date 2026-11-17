@@ -53,6 +53,10 @@ interface Contact {
   pressure?: number;
   tiltX?: number;
   tiltY?: number;
+  twist?: number;
+  tangentialPressure?: number;
+  altitudeAngle?: number;
+  azimuthAngle?: number;
   /** The contact's size, CSS px; left out, the event has none (as WebKit reports 1). */
   width?: number;
   height?: number;
@@ -72,6 +76,10 @@ interface StandInEvent {
   pressure: number;
   tiltX: number;
   tiltY: number;
+  twist: number;
+  tangentialPressure: number;
+  altitudeAngle?: number;
+  azimuthAngle?: number;
   timeStamp: number;
   width: number;
   height: number;
@@ -91,6 +99,10 @@ function eventFor(id: number, pointerType: string, c: Contact): StandInEvent {
     pressure: c.pressure ?? 0.5,
     tiltX: c.tiltX ?? 0,
     tiltY: c.tiltY ?? 0,
+    twist: c.twist ?? 0,
+    tangentialPressure: c.tangentialPressure ?? 0,
+    ...(c.altitudeAngle === undefined ? {} : { altitudeAngle: c.altitudeAngle }),
+    ...(c.azimuthAngle === undefined ? {} : { azimuthAngle: c.azimuthAngle }),
     timeStamp: c.t ?? 0,
     width: c.width ?? 1,
     height: c.height ?? 1,
@@ -124,9 +136,12 @@ class Rig {
   readonly log: string[] = [];
   readonly records: PointerDebugRecord[] = [];
   readonly samples: PointerSample[] = [];
+  readonly penPositions: Array<{ x: number; y: number }> = [];
   readonly controller: PointerController;
   /** Space held down (FineNotes#7). */
   readonly hand = { held: false };
+  touchEnabled = true;
+  touchRegion: ((event: PointerEvent) => boolean) | null = null;
 
   constructor(only?: "required") {
     const log = this.log;
@@ -155,6 +170,7 @@ class Rig {
             onPinch: (i) => log.push(`pinch x${i.scaleFactor} at ${i.centerX},${i.centerY}`),
             onPinchEnd: () => log.push("pinchEnd"),
             onFingerDoubleTap: (fingers) => log.push(`doubleTap ${fingers}`),
+            onPenPosition: (x, y) => this.penPositions.push({ x, y }),
             onDebug: (r) => {
               this.records.push(r);
               log.push(
@@ -167,6 +183,8 @@ class Rig {
       toSurface,
       callbacks,
       () => this.hand.held,
+      () => "draw",
+      (event) => this.touchEnabled || this.touchRegion?.(event) === true,
     );
     this.controller.attach();
   }
@@ -194,6 +212,58 @@ class Rig {
     return [...this.el.captured].sort((a, b) => a - b);
   }
 }
+
+describe("touch navigation lock", () => {
+  it("allows geometry touches and tracks them outside the geometry while blocking page touches", () => {
+    const rig = new Rig();
+    rig.touchEnabled = false;
+    rig.touchRegion = (event) => event.clientX >= 100 && event.clientX <= 200;
+    rig.finger("pointerdown", 1, 10, 10, 0);
+    rig.finger("pointermove", 1, 150, 10, 5);
+    expect(rig.take()).toEqual([]);
+    rig.finger("pointerdown", 2, 150, 10, 10);
+    rig.finger("pointermove", 2, 250, 10, 20);
+    rig.finger("pointerup", 2, 250, 10, 30);
+    const log = rig.take();
+    expect(log.some((entry) => entry.startsWith("panStart"))).toBe(true);
+    expect(log.some((entry) => entry.startsWith("panMove"))).toBe(true);
+    expect(log.some((entry) => entry.startsWith("panEnd"))).toBe(true);
+    expect(rig.captured).toEqual([]);
+  });
+
+  it("ignores finger pans, pinches and taps while letting the pen draw", () => {
+    const rig = new Rig("required");
+    rig.touchEnabled = false;
+    rig.finger("pointerdown", 1, 10, 10, 0);
+    rig.finger("pointerdown", 2, 30, 10, 10);
+    rig.finger("pointermove", 2, 70, 40, 20);
+    rig.finger("pointerup", 1, 10, 10, 30);
+    rig.finger("pointerup", 2, 70, 40, 40);
+    expect(rig.take()).toEqual([]);
+    expect(rig.captured).toEqual([]);
+    rig.pen("pointerdown", 3, { x: 20, y: 20 });
+    rig.pen("pointermove", 3, { x: 30, y: 30 });
+    rig.pen("pointerup", 3, { x: 40, y: 40 });
+    expect(rig.take().map((item) => item.split(" ")[0])).toEqual(["start", "move", "end"]);
+  });
+
+  it("releases active touches when locking and accepts new gestures after unlocking", () => {
+    const rig = new Rig();
+    rig.finger("pointerdown", 1, 10, 10, 0);
+    expect(rig.captured).toEqual([1]);
+    rig.touchEnabled = false;
+    rig.controller.cancelTouches();
+    expect(rig.captured).toEqual([]);
+    expect(rig.controller.isTouching).toBe(false);
+    rig.take();
+    rig.finger("pointermove", 1, 10, 100, 20);
+    expect(rig.take()).toEqual([]);
+    rig.touchEnabled = true;
+    rig.finger("pointerdown", 2, 20, 20, 30);
+    rig.finger("pointermove", 2, 20, 50, 40);
+    expect(rig.take().some((item) => item.startsWith("panMove"))).toBe(true);
+  });
+});
 
 describe("attaching", () => {
   it("listens for the four pointer events, and detach stops listening", () => {
@@ -253,7 +323,20 @@ describe("a drawing pointer", () => {
 
   it("hands over samples and HUD records with exactly these fields", () => {
     const rig = new Rig();
-    rig.pen("pointerdown", 7, { x: 1, y: 2, t: 3, pressure: 0.25, tiltX: -5, tiltY: 6 });
+    rig.pen("pointerdown", 7, {
+      x: 1,
+      y: 2,
+      t: 3,
+      pressure: 0.25,
+      tiltX: -5,
+      tiltY: 6,
+      twist: 47,
+      tangentialPressure: 0.2,
+      width: 2,
+      height: 3,
+      altitudeAngle: 0.8,
+      azimuthAngle: 1.2,
+    });
     rig.pen("pointermove", 7, { x: 2, y: 3, t: 4, coalesced: [{ x: 2, y: 3 }] });
     expect(rig.samples[0]).toEqual({
       x: 1001,
@@ -261,6 +344,12 @@ describe("a drawing pointer", () => {
       pressure: 0.25,
       tiltX: -5,
       tiltY: 6,
+      twist: 47,
+      tangentialPressure: 0.2,
+      width: 2,
+      height: 3,
+      altitudeAngle: 0.8,
+      azimuthAngle: 1.2,
       // The event's time and pointer kind: a practice file records both.
       t: 3,
       pointerType: "pen",
@@ -274,6 +363,13 @@ describe("a drawing pointer", () => {
         coalesced: 0,
         timeStamp: 3,
         wholePixel: true,
+        altitudeAngle: 0.8,
+        azimuthAngle: 1.2,
+        twist: 47,
+        tiltX: -5,
+        tiltY: 6,
+        width: 2,
+        height: 3,
       },
       {
         type: "move",
@@ -283,6 +379,13 @@ describe("a drawing pointer", () => {
         coalesced: 1,
         timeStamp: 4,
         wholePixel: true,
+        altitudeAngle: undefined,
+        azimuthAngle: undefined,
+        twist: 0,
+        tiltX: 0,
+        tiltY: 0,
+        width: 1,
+        height: 1,
       },
     ]);
   });
@@ -401,6 +504,11 @@ describe("a drawing pointer", () => {
     rig.pen("pointerup", 1, { x: 1, y: 1 });
     rig.pen("pointercancel", 1, { x: 1, y: 1 });
     expect(rig.take()).toEqual([]);
+    expect(rig.penPositions).toEqual([
+      { x: 1, y: 1 },
+      { x: 1, y: 1 },
+      { x: 1, y: 1 },
+    ]);
     expect(hover.prevented).toBe(false);
   });
 });

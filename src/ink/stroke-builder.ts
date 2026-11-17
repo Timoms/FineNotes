@@ -17,6 +17,36 @@ export interface InputSample {
   pressure: number;
   /** When it was sampled, ms; needed only when the builder records samples. */
   t?: number;
+  tiltX?: number;
+  tiltY?: number;
+  twist?: number;
+  altitudeAngle?: number;
+  azimuthAngle?: number;
+  pointerType?: string;
+}
+
+/** Values per kept point in a stroke's pose channel. */
+export const POSE_STRIDE = 3;
+
+const finite = (value: number | undefined): number =>
+  typeof value === "number" && Number.isFinite(value) ? value : Number.NaN;
+
+/** Prefer Level 3 angles; derive them from Level 2 tilt when necessary. */
+function anglesOf(sample: InputSample): { altitude: number; azimuth: number } {
+  const altitude = finite(sample.altitudeAngle);
+  const azimuth = finite(sample.azimuthAngle);
+  if (Number.isFinite(altitude) && Number.isFinite(azimuth)) return { altitude, azimuth };
+  const tx = finite(sample.tiltX);
+  const ty = finite(sample.tiltY);
+  if (!Number.isFinite(tx) || !Number.isFinite(ty) || (tx === 0 && ty === 0)) {
+    return { altitude, azimuth };
+  }
+  const x = Math.tan((tx * Math.PI) / 180);
+  const y = Math.tan((ty * Math.PI) / 180);
+  return {
+    altitude: Number.isFinite(altitude) ? altitude : Math.atan(1 / Math.hypot(x, y)),
+    azimuth: Number.isFinite(azimuth) ? azimuth : Math.atan2(y, x),
+  };
 }
 
 /**
@@ -227,6 +257,14 @@ export class StrokeBuilder {
   private rewrites = 0;
   /** Recording: x, y, pressure, t of every sample offered, as offered. */
   private readonly raw: number[] = [];
+  /** Every hardware pose offered, retained until the stroke is committed. */
+  private readonly poses: Array<{
+    x: number;
+    y: number;
+    altitude: number;
+    azimuth: number;
+    twist: number;
+  }> = [];
 
   constructor(overrides: Partial<StrokeBuilderOptions> = {}) {
     this.options = { ...DEFAULTS, ...overrides };
@@ -250,8 +288,42 @@ export class StrokeBuilder {
   }
 
   private recordSample(sample: InputSample): void {
+    if (sample.pointerType === "pen") {
+      const converted = anglesOf(sample);
+      this.poses.push({ x: sample.x, y: sample.y, ...converted, twist: finite(sample.twist) });
+    }
     if (!this.options.record) return;
     this.raw.push(sample.x, sample.y, sample.pressure, sample.t ?? Number.NaN);
+  }
+
+  /**
+   * Pose aligned to a finished point buffer. Smoothing and densification can
+   * invent positions between hardware samples, so each point takes the
+   * nearest still-forward sample. This preserves ordering around loops.
+   */
+  pose(points: readonly number[]): number[] | null {
+    if (this.poses.length === 0 || points.length < POINT_STRIDE) return null;
+    const out: number[] = [];
+    let at = 0;
+    let useful = false;
+    for (let i = 0; i + 2 < points.length; i += POINT_STRIDE) {
+      let best = at;
+      let distance = Infinity;
+      for (let j = at; j < this.poses.length; j++) {
+        const p = this.poses[j];
+        const d = (p.x - points[i]) ** 2 + (p.y - points[i + 1]) ** 2;
+        if (d <= distance) {
+          best = j;
+          distance = d;
+        } else if (j > best + 2) break;
+      }
+      at = best;
+      const p = this.poses[best];
+      out.push(p.altitude, p.azimuth, p.twist);
+      if (Number.isFinite(p.altitude) || Number.isFinite(p.azimuth) || Number.isFinite(p.twist))
+        useful = true;
+    }
+    return useful ? out : null;
   }
 
   /**
