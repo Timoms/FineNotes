@@ -155,6 +155,7 @@ export interface GoodObsidianSettings {
   shapeColor: string;
   /** Vault folder of the user's sticker collections: one subfolder per collection. */
   stickerFolder: string;
+  stickerFavorites: string[];
   /**
    * Where notebooks without a folder of their own save new files, by kind;
    * "" keeps each kind's own default (Obsidian's attachment setting, next to
@@ -287,6 +288,7 @@ export interface GoodObsidianSettings {
    * where read (`parseCalculatorData`, model/calculator-store.ts).
    */
   calculator?: unknown;
+  calculatorInkHeight: number;
   /** Appearance and units of the movable drawing ruler. Checked where read. */
   ruler?: unknown;
   /** Actions arranged around the floating pen companion. Checked where read. */
@@ -345,6 +347,8 @@ export const DEFAULT_SETTINGS: GoodObsidianSettings = {
   penGestures: { ...DEFAULT_PEN_GESTURES },
   shapeColor: DEFAULT_SHAPE_COLOR,
   stickerFolder: DEFAULT_STICKER_FOLDER,
+  stickerFavorites: [],
+  calculatorInkHeight: 8,
   imagesFolder: "",
   recordingsFolder: "",
   transcriptsFolder: "",

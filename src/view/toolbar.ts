@@ -504,6 +504,7 @@ export interface ToolbarCallbacks {
   /** Open the image menu (Photos, camera, files, vault, scan, AI); `anchor` is the button. */
   onLock?: () => void;
   onPaste?: () => void;
+  onStickers?: (anchor: HTMLElement) => void;
   onInsertImage?: (anchor: HTMLElement) => void;
   /** Import whole or selected PDF pages. */
   onInsertPdf?: (anchor: HTMLElement) => void;
@@ -526,6 +527,7 @@ export interface ToolbarCallbacks {
   onRecord?: (anchor: HTMLElement) => void;
   /** Open this note's settings (where its pictures and recordings go); `anchor` is the gear. */
   onSettings?: (anchor: HTMLElement) => void;
+  onPluginSettings?: (anchor: HTMLElement) => void;
   /** Export pages as a PDF and share it (GoodNotes' share button); `anchor` is the button. */
   onShare?: (anchor: HTMLElement) => void;
   /** Open the ⋯ panel for the page being read; `anchor` is the button. */
@@ -963,7 +965,7 @@ export class Toolbar {
     );
     this.penMenuButton = item(
       "pencil-menu",
-      this.foldButton(left, FOLD_RANK.penMenu, "circle-dot", "Pencil quick tools", () =>
+      this.foldButton(left, FOLD_RANK.penMenu, "circle-dot", "Radial menu", () =>
         this.tapPenMenu(),
       ),
     );
@@ -1017,7 +1019,7 @@ export class Toolbar {
     this.toolsGroup = tools;
     // First, so every button paints over it.
     this.toolIndicator = tools.createDiv({ cls: "finenotes-x-tool-indicator is-hidden" });
-    keep(item("select", this.addToolButton(tools, "select", "lasso", "Lasso select (V)")));
+    keep(item("select", this.addToolButton(tools, "select", "lasso", "Select (V)")));
     item("pen", this.addToolButton(tools, "pen", "pen-tool", "Pen (P or W)"));
     item(
       "eraser",
@@ -1061,6 +1063,7 @@ export class Toolbar {
         this.foldButton(tools, FOLD_RANK.image, "image", "Insert image", cb.onInsertImage),
       ),
     );
+    keep(item("stickers", this.foldButton(tools, FOLD_RANK.image, "sticker", "Stickers", cb.onStickers)));
     keep(
       item("pdf", this.foldButton(tools, FOLD_RANK.pdf, "file-text", "Insert PDF", cb.onInsertPdf)),
     );
@@ -1071,6 +1074,8 @@ export class Toolbar {
       this.foldButton(tools, FOLD_RANK.record, "mic", "Record audio", cb.onRecord),
     );
     keep(this.recordButton);
+
+    keep(item("plugin-settings", this.foldButton(tools, FOLD_RANK.settings, "settings-2", "FineNotes settings", cb.onPluginSettings)));
 
     // The document's own actions, right: add a page, GoodNotes' share
     // button (export as PDF), its ⋯ sheet for the page being read
@@ -2093,7 +2098,7 @@ export class Toolbar {
     // Less margin than the card's, so it is as large as the icons beside it.
     glyph.setAttribute("viewBox", "2.5 2.5 27 27");
     button.prepend(glyph);
-    button.setAttribute("aria-label", `Lasso select: ${LASSO_MODE_LABELS[mode].toLowerCase()} (V)`);
+    button.setAttribute("aria-label", `Select: ${LASSO_MODE_LABELS[mode].toLowerCase()} (V)`);
   }
 
   /**

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("obsidian", () => import("./fake-obsidian"));
 const { Toolbar } = await import("../../src/view/toolbar");
 describe("PDF toolbar button", () => {
-  it("places PDF immediately after Image and wires the import action", () => {
+  it("places PDF after the media tools and wires the import action", () => {
     const importPdf = vi.fn();
     const buttons: Array<{
       label: string;
@@ -40,7 +40,9 @@ describe("PDF toolbar button", () => {
     });
     (state as unknown as { buildBar(): void }).buildBar();
     const image = buttons.findIndex((button) => button.label === "Insert image");
-    const pdf = buttons[image + 1];
+    const sticker = buttons[image + 1];
+    expect(sticker.label).toBe("Stickers");
+    const pdf = buttons[image + 2];
     expect(pdf.label).toBe("Insert PDF");
     expect(pdf.parent).toBe(buttons[image].parent);
     expect(pdf.addClass).not.toHaveBeenCalledWith("clickable-icon");

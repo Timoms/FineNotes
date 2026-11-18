@@ -18,7 +18,7 @@
 
 import { SetFurniture, furnitureText } from "../model/furniture";
 import { SetPageTab, nextTabColor } from "../model/page-tabs";
-import { SAVED_STICKERS_COLLECTION } from "./sticker-modal";
+import { StickerPicker, SAVED_STICKERS_COLLECTION } from "./sticker-modal";
 import { STICKERS, stickerFileName, stickerFolderOf, stickerSvg } from "../model/stickers";
 import { STICKY_NOTE_COLORS, stickyNoteFileName, stickyNoteSvg } from "../model/sticky-notes";
 import { readShapeToolStyle } from "../model/shape-style";
@@ -153,9 +153,10 @@ import {
 } from "../model/calculator-store";
 import { GraphWindow } from "./graph-window";
 import { centredOrigin } from "../model/calculator-keys";
-import { evaluate, formatValue } from "../model/calculator";
+import { evaluate, formatValue, type NumberBase } from "../model/calculator";
 import { calculateNote } from "../model/calculation-notes";
 import { canInkMath, inkFromSample, inkMath } from "../ink/math-glyphs";
+import { calculatorInk } from "../ink/calculator-ink";
 import { parseRulerSettings } from "./ruler";
 import { FloatingPenMenu } from "./floating-pen-menu";
 import { MathSymbolPopover } from "./math-symbol-popover";
@@ -1014,6 +1015,31 @@ export class InkView extends TextFileView {
     this.toolbar?.setToolbarItems(toolbarItemsOf(items));
   }
 
+  /** Apply settings-page tool defaults to this open notebook without changing the active pen. */
+  refreshToolOptions(): void {
+    this.calculator?.refreshPreferences();
+    const next = toolStateFrom(this.settings);
+    Object.assign(this.toolState, {
+      shapeSnapEnabled: next.shapeSnapEnabled,
+      eraserMode: next.eraserMode,
+      eraserSize: next.eraserSize,
+      eraserFilter: next.eraserFilter,
+      lassoMode: next.lassoMode,
+      lassoFilter: next.lassoFilter,
+      textStyle: next.textStyle,
+      textPinned: next.textPinned,
+      textDragSize: next.textDragSize,
+      penAutoShape: next.penAutoShape,
+      penGestures: next.penGestures,
+      shapeColor: next.shapeColor,
+      shapeStyle: next.shapeStyle,
+    });
+    this.toolbar?.setState(this.toolState);
+    const ruler = parseRulerSettings(this.settings.ruler);
+    this.toolbar?.setRulerSettings(ruler);
+    this.surface?.setRulerSettings(ruler);
+  }
+
   /** Toggle the radial Pencil menu at the latest tip position. */
   private customizeMenuWasVisible = false;
   private customizePreviewActive = false;
@@ -1428,6 +1454,8 @@ export class InkView extends TextFileView {
       load: () => parseCalculatorData(this.settings.calculator),
       save: (data) => this.plugin.saveCalculator(data),
       insert: (text) => this.insertCalculation(text),
+      insertScreen: (expression, answer, base) =>
+        this.insertCalculatorScreen(expression, answer, base),
       insertGraph: (spec) => this.insertGraph(spec),
       popOutGraph: () => this.openGraphWindow(),
     };
@@ -1483,6 +1511,8 @@ export class InkView extends TextFileView {
         load: () => parseCalculatorData(this.settings.calculator),
         save: (data) => this.plugin.saveCalculator(data),
         insert: (text) => this.insertCalculation(text),
+        insertScreen: (expression, answer, base) =>
+          this.insertCalculatorScreen(expression, answer, base),
       },
       {
         editGraph: {
@@ -1497,6 +1527,34 @@ export class InkView extends TextFileView {
    * A calculation as a text box in the middle of what is in view of the
    * current page, in the Text tool's style, sized to its text: one undo step.
    */
+  private insertCalculatorScreen(
+    expression: string | null,
+    answer: string,
+    base: NumberBase,
+  ): boolean {
+    const surface = this.surface;
+    if (!surface || this.isProtected()) return false;
+    const index = surface.currentPage;
+    const page = surface.document.pages[index];
+    if (!page) return false;
+    const configuredHeight = this.settings.calculatorInkHeight;
+    const height =
+      typeof configuredHeight === "number" && Number.isFinite(configuredHeight)
+        ? Math.min(16, Math.max(4, configuredHeight))
+        : 8;
+    const ink = calculatorInk(expression, answer, base, this.toolState.color, height);
+    if (!ink) {
+      new Notice("This calculation contains symbols that cannot yet be inserted as ink.");
+      return false;
+    }
+    const at = centredOrigin(surface.visiblePageRect(index), page.geometry, ink.width, ink.height);
+    const drafts = ink.strokes.map((stroke) => ({
+      ...stroke,
+      pts: stroke.pts.map((value, i) => value + (i % 3 === 0 ? at.x : i % 3 === 1 ? at.y : 0)),
+    }));
+    return surface.insertGeneratedInk(page.id, drafts);
+  }
+
   private insertCalculation(text: string): boolean {
     const surface = this.surface;
     if (!surface || this.isProtected()) return false;
@@ -2639,6 +2697,7 @@ export class InkView extends TextFileView {
           this.toolbar?.setState(this.toolState);
         },
         onPaste: () => this.surface?.pasteFromClipboard(),
+        onStickers: () => this.openStickerMenu(),
         onInsertImage: (anchor) => this.openImageMenu(anchor),
         onInsertPdf: (anchor) => this.openImageMenu(anchor, true),
         onAi: (anchor) => this.openAiMenu(anchor),
@@ -2659,6 +2718,7 @@ export class InkView extends TextFileView {
         // Inside the tap: the microphone is only granted from a user gesture.
         onRecord: () => this.audio?.toggleRecording(),
         onSettings: () => this.openNoteSettings(),
+        onPluginSettings: () => this.plugin.openSettingsTab(),
         onShare: () => this.exportPdf(),
         onSearch: () => void this.openSearch(),
         onStripAction: (id, anchor) => this.runStripAction(id, anchor),
@@ -4878,6 +4938,49 @@ export class InkView extends TextFileView {
    * it. Entries come from `imageMenuEntries()`, so a feature that registered
    * one (see image-menu.ts) appears here without this view knowing of it.
    */
+  private openStickerMenu(): void {
+    if (this.isProtected() || !this.file) return;
+    const container = this.toolbar?.openIntelligentTool("stickers", "Stickers", () =>
+      picker?.destroy(),
+    );
+    if (!container) return;
+    const favorites = Array.isArray(this.settings.stickerFavorites)
+      ? this.settings.stickerFavorites.filter((id): id is string => typeof id === "string")
+      : [];
+    const context = this.imageMenuContext();
+    const picker = new StickerPicker(
+      this.app,
+      stickerFolderOf(this.settings.stickerFolder),
+      container.createDiv(),
+      (choice) => {
+        this.toolbar?.closeIntelligentTool("stickers");
+        void (async () => {
+          if (choice.kind === "builtin") {
+            await context.insertBytes(
+              new TextEncoder().encode(stickerSvg(choice.sticker, choice.color)).buffer,
+              "image/svg+xml",
+              stickerFileName(choice.sticker, choice.color),
+            );
+          } else {
+            await context.insertBytes(
+              await this.app.vault.readBinary(choice.file),
+              mimeForExtension(choice.file.extension) ?? "image/png",
+              choice.file.basename,
+            );
+          }
+        })().catch((error: unknown) => {
+          console.error("FineNotes: sticker insertion failed", error);
+          new Notice("Couldn't insert that sticker.");
+        });
+      },
+      favorites,
+      (ids) => {
+        this.settings.stickerFavorites = ids;
+        void this.plugin.saveSettings();
+      },
+    );
+  }
+
   private openImageMenu(anchor: HTMLElement, pdf = false): void {
     const open = this.imageMenu;
     this.imageMenu = null;

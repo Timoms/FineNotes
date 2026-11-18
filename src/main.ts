@@ -10,9 +10,6 @@ import {
   TemplateGalleryModal,
 } from "./view/template-ui";
 import type { PickedFile } from "./view/import-notebook-modal";
-import { mimeForExtension } from "./canvas/image-raster";
-import { StickerModal } from "./view/sticker-modal";
-import { stickerFileName, stickerFolderOf, stickerSvg } from "./model/stickers";
 import { type ShapeToolStyle, readShapeToolStyle } from "./model/shape-style";
 import { type RulerSettings, parseRulerSettings } from "./view/ruler";
 import { type CompanionAction, companionActionsOf } from "./model/companion-menu";
@@ -394,36 +391,6 @@ export default class GoodObsidianPlugin extends Plugin {
         order: 50,
         isAvailable: () => this.imageAiConfig() !== null,
         run: () => this.app.workspace.getActiveViewOfType(InkView)?.openGenerateImage(),
-      }),
-    );
-    // "Stickers": the built-in pack and the user's own collections. A pick is
-    // saved beside the notebook (a copy, never a link to the stickers folder)
-    // and placed like any picture.
-    this.register(
-      registerImageMenuEntry({
-        id: "stickers",
-        icon: "sticker",
-        label: "Stickers",
-        order: 35,
-        run: (ctx) => {
-          new StickerModal(this.app, stickerFolderOf(this.settings.stickerFolder), (choice) => {
-            void (async () => {
-              if (choice.kind === "builtin") {
-                const svg = stickerSvg(choice.sticker, choice.color);
-                const bytes = new TextEncoder().encode(svg).buffer;
-                await ctx.insertBytes(
-                  bytes,
-                  "image/svg+xml",
-                  stickerFileName(choice.sticker, choice.color),
-                );
-                return;
-              }
-              const bytes = await this.app.vault.readBinary(choice.file);
-              const mime = mimeForExtension(choice.file.extension) ?? "image/png";
-              await ctx.insertBytes(bytes, mime, choice.file.basename);
-            })();
-          }).open();
-        },
       }),
     );
     // "Scan document": straight into the camera from the tap that chose it
@@ -1135,6 +1102,11 @@ export default class GoodObsidianPlugin extends Plugin {
     this.settings.toolbarItems = toolbarItemsOf(items);
     void this.saveSettings();
     for (const view of this.openNotebooks()) view.setToolbarItems(this.settings.toolbarItems);
+  }
+
+  /** Apply settings-tab changes to tool option panels in every open notebook. */
+  refreshToolOptions(): void {
+    for (const view of this.openNotebooks()) view.refreshToolOptions();
   }
 
   /** Remember the custom colours picked lately, for every colour picker. */

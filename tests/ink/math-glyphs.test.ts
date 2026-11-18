@@ -4,7 +4,7 @@ import { canInkMath, inkFromSample, inkMath } from "../../src/ink/math-glyphs";
 describe("bundled math ink glyphs", () => {
   it("turns an answer into ordinary pen strokes", () => {
     const result = inkMath("= 42", { x: 100, y: 200 }, "#123456");
-    expect(result.strokes.length).toBeGreaterThan(4);
+    expect(result.strokes.length).toBeGreaterThan(3);
     expect(result.strokes.every((stroke) => stroke.tool === "pen")).toBe(true);
     expect(result.strokes.every((stroke) => stroke.color === "#123456")).toBe(true);
     expect(result.strokes.flatMap((stroke) => stroke.pts)).not.toContain(undefined);

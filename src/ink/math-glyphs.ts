@@ -3,30 +3,52 @@ import type { Stroke } from "../model/document";
 export type InkStrokeDraft = Omit<Stroke, "id">;
 type Line = readonly number[];
 
-const SEGMENTS: Record<string, Line> = {
-  a: [2, 1, 10, 1],
-  b: [10, 1, 10, 10],
-  c: [10, 10, 10, 19],
-  d: [2, 19, 10, 19],
-  e: [2, 10, 2, 19],
-  f: [2, 1, 2, 10],
-  g: [2, 10, 10, 10],
-};
-
-const DIGITS: Record<string, string> = {
-  "0": "ab cdef".replace(/ /g, ""),
-  "1": "bc",
-  "2": "abdeg",
-  "3": "abcdg",
-  "4": "bcfg",
-  "5": "acdfg",
-  "6": "acdefg",
-  "7": "abc",
-  "8": "abcdefg",
-  "9": "abcdfg",
-};
-
 const GLYPHS: Record<string, readonly Line[]> = {
+  "0": [[6, 1, 3, 3, 2, 8, 2, 14, 4, 19, 8, 19, 10, 15, 10, 6, 8, 2, 6, 1]],
+  "1": [
+    [3, 5, 7, 1, 7, 19],
+    [3, 19, 11, 19],
+  ],
+  "2": [[2, 5, 4, 2, 8, 1, 10, 4, 10, 7, 8, 10, 2, 19, 11, 19]],
+  "3": [[2, 3, 6, 1, 10, 3, 10, 6, 8, 9, 5, 10, 8, 10, 11, 13, 10, 17, 7, 19, 2, 18]],
+  "4": [[9, 19, 9, 1, 1, 13, 11, 13]],
+  "5": [[10, 1, 3, 1, 2, 9, 6, 8, 10, 10, 11, 14, 9, 18, 5, 19, 2, 18]],
+  "6": [[10, 2, 6, 1, 3, 5, 2, 13, 3, 17, 6, 19, 9, 18, 11, 15, 10, 11, 7, 9, 3, 11]],
+  "7": [[2, 1, 11, 1, 5, 19]],
+  "8": [
+    [
+      6, 10, 3, 8, 2, 5, 4, 2, 7, 1, 10, 3, 10, 6, 7, 9, 4, 11, 2, 14, 3, 17, 6, 19, 9, 18, 11, 15,
+      10, 12, 6, 10,
+    ],
+  ],
+  "9": [[10, 9, 7, 11, 4, 10, 2, 7, 3, 3, 6, 1, 9, 2, 11, 6, 10, 14, 8, 18, 4, 19]],
+  a: [[10, 8, 6, 7, 3, 9, 2, 14, 4, 18, 7, 19, 10, 16, 10, 8, 10, 19]],
+  j: [
+    [8, 8, 8, 20, 6, 23, 3, 22],
+    [8, 3, 8.2, 3.2],
+  ],
+  p: [
+    [3, 8, 3, 24],
+    [3, 10, 6, 7, 9, 8, 11, 12, 10, 16, 7, 19, 3, 17],
+  ],
+  q: [[10, 9, 7, 7, 4, 8, 2, 12, 3, 17, 6, 19, 10, 16, 10, 24]],
+  r: [[3, 19, 3, 8, 3, 12, 6, 8, 9, 7, 11, 9]],
+  u: [[3, 8, 3, 15, 4, 18, 7, 19, 10, 16, 10, 8, 10, 19]],
+  v: [[2, 8, 6, 19, 11, 8]],
+  w: [[1, 8, 3, 19, 6, 11, 9, 19, 11, 8]],
+  ":": [
+    [6, 8, 6.2, 8.2],
+    [6, 17, 6.2, 17.2],
+  ],
+  "!": [
+    [6, 2, 6, 14],
+    [6, 19, 6.2, 19.2],
+  ],
+  "|": [[6, 1, 6, 20]],
+  "[": [[9, 1, 4, 1, 4, 20, 9, 20]],
+  "]": [[3, 1, 8, 1, 8, 20, 3, 20]],
+  "^": [[2, 7, 6, 2, 10, 7]],
+
   "=": [
     [1, 7, 11, 7],
     [1, 13, 11, 13],
@@ -168,9 +190,11 @@ export interface SampleInkStroke {
 
 export function canInkMath(text: string): boolean {
   if (text.length === 0 || text.includes("\n")) return false;
+  // UI prose such as "Answer: 36" is not calculator notation.
+  if (/[A-Z][a-z]{2}/.test(text)) return false;
   return [...text].every((raw) => {
     const char = raw === "−" ? "-" : raw === "×" ? "x" : raw;
-    return char === " " || char in DIGITS || char in GLYPHS || "xX*".includes(char);
+    return char === " " || char in GLYPHS || char.toLowerCase() in GLYPHS || "xX*".includes(char);
   });
 }
 
@@ -197,13 +221,11 @@ export function inkMath(
       x += 7 * scale;
       continue;
     }
-    const segments = DIGITS[char];
-    if (segments) for (const segment of segments) add(SEGMENTS[segment]);
-    else if (char === "x" || char === "X" || char === "*") {
+    if (char === "x" || char === "X" || char === "*") {
       add([2, 3, 10, 17]);
       add([10, 3, 2, 17]);
     } else {
-      for (const line of GLYPHS[char] ?? GLYPHS["-"]) add(line);
+      for (const line of GLYPHS[char] ?? GLYPHS[char.toLowerCase()] ?? GLYPHS["-"]) add(line);
     }
     x += 14 * scale;
   }

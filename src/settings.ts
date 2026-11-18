@@ -6,10 +6,8 @@
  * fields that check what is typed, the saved pens, the models, and the API
  * key rows.
  *
- * Compact by rule (CLAUDE.md, "show more by showing less"): every section
- * starts folded with its state beside its heading; a row says its name and
- * at most one short line; the longer explanation waits behind the ⓘ after
- * its name; rows few people need sit under the section's "More".
+ * Related controls are grouped under Obsidian headings, with explanations
+ * in their native descriptions and advanced controls visible to search.
  *
  * What is stored, and how, lives in `settings-data.ts`.
  */
@@ -45,7 +43,6 @@ import { PRACTICE_SETS } from "./recognition/practice";
 import { PLUGIN_PAGE_URL } from "./model/update-check";
 import {
   type App,
-  type ExtraButtonComponent,
   Menu,
   Platform,
   PluginSettingTab,
@@ -53,10 +50,17 @@ import {
   type SettingControl,
   type SettingDefinition,
   type SettingDefinitionItem,
+  type SettingDefinitionPage,
   setIcon,
 } from "obsidian";
 import { SIZES } from "./constants";
 import { DEFAULT_STICKER_FOLDER } from "./model/stickers";
+import { parseRulerSettings } from "./view/ruler";
+import { lassoFilterOf } from "./canvas/lasso";
+import { readShapeToolStyle } from "./model/shape-style";
+import { parseCalculatorData } from "./model/calculator-store";
+import { sanitizeTextStyle } from "./model/text-style";
+import { TOOLBAR_ITEMS, type ToolbarItemId } from "./model/toolbar-items";
 import type GoodObsidianPlugin from "./main";
 import { normalizeFolder } from "./model/new-notebook";
 import {
@@ -90,12 +94,10 @@ import {
   paperWidthFrom,
   parseColorList,
   returnToPenOf,
-  sectionOpen,
   shownValue,
   storeAppearanceChoice,
   storeReturnToPen,
   storeShownValue,
-  withSection,
 } from "./settings-data";
 import { SHORTCUT_GROUPS, shortcutText } from "./model/shortcuts";
 import { ApiKeyModal } from "./ui/api-key-modal";
@@ -246,6 +248,13 @@ export function shortcutList(apple: boolean): Array<[string, string]> {
 
 /** The tools an ink note can open with, as the dropdown names them. */
 const TOOL_NAMES = { pen: "Pen", highlighter: "Highlighter", eraser: "Eraser", select: "Select" };
+const TOOL_SETTINGS_NAMES: Partial<Record<ToolbarItemId, string>> = {
+  "pencil-menu": "Radial menu",
+  "eraser-stroke": "Eraser",
+  "eraser-line": "Eraser",
+  "plugin-settings": "Plugin settings",
+  select: "Select",
+};
 
 /** What each row's ⓘ opens: everything a row's one line leaves out. */
 const DESC = {
@@ -338,20 +347,6 @@ const IMAGE_VENDOR_LABELS: Record<ImageVendorChoice, string> = {
   google: "Google (Gemini)",
   openrouter: "OpenRouter",
 };
-
-const REPO_URL = "https://github.com/Timoms/FineNotes";
-
-/** Where FineNotes' people are: the repository's Discussions and issues, and its accounts. */
-export const COMMUNITY_LINKS = {
-  discussions: `${REPO_URL}/discussions`,
-  bugReport: `${REPO_URL}/issues/new/choose`,
-  social: [
-    { label: "X", url: "https://x.com/finenotes_" },
-    { label: "Instagram", url: "https://www.instagram.com/finenotesobsidian/" },
-    { label: "TikTok", url: "https://www.tiktok.com/@finenotesobsidian" },
-    { label: "YouTube", url: "https://www.youtube.com/@FineNotesAtObsidian" },
-  ],
-} as const;
 
 // --- Row builders ------------------------------------------------------------
 
@@ -458,7 +453,6 @@ interface MenuEntry {
 }
 
 /** The class every folding section carries; `is-folded` beside it hides its rows. */
-const SECTION_CLS = "finenotes-x-section";
 
 /** A row that has its ⓘ already. */
 const INFO_CLS = "finenotes-x-has-info";
@@ -587,16 +581,8 @@ const FOLDER_ROWS = [
 export class GoodObsidianSettingTab extends PluginSettingTab {
   /** The AI group, opened by hand when no AI service is set up. */
   private aiOpen = false;
-  /** Sections whose "More" rows are shown, for this opening of the settings. */
-  private readonly moreOpen = new Set<SettingsSection>();
-  /** Each row's ⓘ text, by row name; filled as the rows are defined. */
+  /** Descriptions for settings, also used by consumers of the settings tab. */
   private readonly infos = new Map<string, string>();
-  /** Each drawn section header's status, redrawn after a value changes. */
-  private readonly statuses = new Map<SettingsSection, () => void>();
-  /** Each section header's current toggle, behind the one click listener it gets. */
-  private readonly headerToggles = new WeakMap<HTMLElement, () => void>();
-  /** Each drawn section's fold, for folding the others when one opens on a tablet. */
-  private readonly folds = new Map<SettingsSection, (open: boolean) => void>();
   /** Which saved pen each drawn pen row shows, behind the one click listener it gets. */
   private readonly penRowTargets = new WeakMap<HTMLElement, number>();
 
@@ -605,10 +591,8 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
     private readonly plugin: GoodObsidianPlugin,
   ) {
     super(app, plugin);
-    // Obsidian draws the plain controls' rows itself: each gets its ⓘ as it
-    // appears.
     if (typeof MutationObserver !== "undefined") {
-      new MutationObserver(() => this.decorate()).observe(this.containerEl, {
+      new MutationObserver(() => this.decorateToolPageIcons()).observe(this.containerEl, {
         childList: true,
         subtree: true,
       });
@@ -620,15 +604,9 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
     this.update();
   }
 
-  /** One section open at a time on an iPad or a phone, where the screen holds one. */
-  private get alone(): boolean {
-    return Platform.isMobile;
-  }
-
-  /** Register `text` as the ⓘ of `def`'s row. */
   private info<T extends SettingDefinition>(def: T, text: string): T {
     this.infos.set(def.name, text);
-    return def;
+    return { ...def, desc: [def.desc, text].filter(Boolean).join(" ") };
   }
 
   /** The ⓘ of the row called `name`, if it has one. */
@@ -636,209 +614,401 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
     return this.infos.get(name);
   }
 
-  /** Give every drawn row that has an ⓘ text and no button yet its button. */
-  private decorate(): void {
-    for (const el of Array.from(this.containerEl.querySelectorAll<HTMLElement>(".setting-item"))) {
-      if (el.hasClass(INFO_CLS)) continue;
-      const name = el.querySelector(".setting-item-name")?.textContent?.trim();
-      const text = name ? this.infos.get(name) : undefined;
-      if (text) addInfo(el, text);
-    }
-  }
-
-  // --- Folding ---------------------------------------------------------------
-
-  /**
-   * A section under a header that folds it: tapping the header (or its
-   * chevron) hides or shows the rows, and the tab remembers which are open
-   * (`settingsOpen`). The header carries the section's icon and, beside the
-   * chevron, its state in a few words, so a folded section rarely needs
-   * opening. Folding is a class on the group, never the rows' `visible`:
-   * Obsidian's search leaves out rows that are not visible, and a folded
-   * row must still be found. Obsidian applies `cls` when it first draws the
-   * group; after that the class on the group is the state.
-   */
+  /** Native Obsidian section headings and always-visible settings. */
   private section(
-    id: SettingsSection,
+    _id: SettingsSection,
     heading: string,
-    icon: string,
+    _icon: string,
     items: SettingDefinition[],
-    status: () => StatusPart[] = () => [],
+    _status: () => StatusPart[] = () => [],
   ): SettingDefinitionItem {
-    const open = sectionOpen(this.plugin.settings.settingsOpen, id, this.alone);
-    const cls = [SECTION_CLS, open ? "" : "is-folded", this.moreOpen.has(id) ? "is-more-open" : ""];
-    return {
-      type: "group",
-      heading,
-      items,
-      cls: cls.filter(Boolean).join(" "),
-      extraButtons: [(button) => this.foldButton(button, id, heading, icon, status)],
-    };
-  }
-
-  /**
-   * The chevron in a section's header, and the header made the control that
-   * folds it. Obsidian puts the button in the header's control column, so
-   * the header and the group are its ancestors.
-   */
-  private foldButton(
-    button: ExtraButtonComponent,
-    id: SettingsSection,
-    heading: string,
-    icon: string,
-    status: () => StatusPart[],
-  ): void {
-    const chevron = button.extraSettingsEl;
-    const header = chevron.closest<HTMLElement>(".setting-item-heading");
-    const group = chevron.closest<HTMLElement>(".setting-group");
-    if (!header || !group) return;
-    button.setIcon("chevron-right");
-    chevron.addClass("finenotes-x-fold-chevron");
-    header.addClass("finenotes-x-fold-header");
-    const nameEl = header.querySelector<HTMLElement>(".setting-item-name");
-    if (nameEl && !nameEl.querySelector(".finenotes-x-section-icon")) {
-      const iconEl = nameEl.createSpan({ cls: "finenotes-x-section-icon" });
-      setIcon(iconEl, icon);
-      nameEl.prepend(iconEl);
-    }
-    const control = chevron.parentElement;
-    if (control) {
-      removeOwn(control, "finenotes-x-section-status");
-      const statusEl = control.createSpan({ cls: "finenotes-x-section-status" });
-      control.prepend(statusEl);
-      const show = (): void => {
-        statusEl.empty();
-        for (const part of status()) {
-          const el = statusEl.createSpan({
-            cls: `finenotes-x-status-part${part.tone ? ` is-${part.tone}` : ""}`,
-          });
-          if (part.tone) el.createSpan({ cls: "finenotes-x-model-dot" });
-          if (part.color) {
-            el.createSpan({ cls: "finenotes-x-status-swatch" }).setCssStyles({
-              backgroundColor: part.color,
-            });
-          }
-          if (part.text) el.createSpan({ text: part.text });
-        }
-      };
-      show();
-      this.statuses.set(id, show);
-    }
-    const sync = (): void => {
-      const open = !group.hasClass("is-folded");
-      chevron.setAttribute("role", "button");
-      chevron.setAttribute("aria-expanded", String(open));
-      chevron.setAttribute("aria-label", `${open ? "Fold" : "Unfold"} ${heading}`);
-    };
-    const setOpen = (open: boolean): void => {
-      group.toggleClass("is-folded", !open);
-      sync();
-    };
-    this.folds.set(id, setOpen);
-    const open = (): void => {
-      setOpen(true);
-      if (!this.alone) return;
-      for (const [other, fold] of this.folds) if (other !== id) fold(false);
-      header.scrollIntoView({ block: "nearest" });
-    };
-    const toggle = (): void => {
-      const opening = group.hasClass("is-folded");
-      if (opening) open();
-      else setOpen(false);
-      this.rememberFold(id, opening);
-    };
-    sync();
-    // The whole header is the target, chevron included: one click, one
-    // toggle. Obsidian may draw a header again in place: it keeps one
-    // listener, which runs the latest toggle.
-    const wired = this.headerToggles.has(header);
-    this.headerToggles.set(header, toggle);
-    if (!wired) header.addEventListener("click", () => this.headerToggles.get(header)?.());
-    chevron.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      toggle();
-    });
-    if (wired) return;
-    this.revealOnFlash(group, () => {
-      open();
-      group.addClass("is-more-open");
-      this.moreOpen.add(id);
-      this.rememberFold(id, true);
-    });
-  }
-
-  /**
-   * A search result opens its row by scrolling to it and flashing it
-   * (`is-flashing`). A row in a folded section, or under a closed "More",
-   * cannot be scrolled to, so the flash opens both, and the row is scrolled
-   * to again.
-   */
-  private revealOnFlash(group: HTMLElement, reveal: () => void): void {
-    if (typeof MutationObserver === "undefined") return;
-    const observer = new MutationObserver((changes) => {
-      if (!group.hasClass("is-folded") && group.hasClass("is-more-open")) return;
-      for (const change of changes) {
-        const target = change.target;
-        if (!target.instanceOf(HTMLElement) || !target.hasClass("is-flashing")) continue;
-        reveal();
-        target.scrollIntoView({ block: "center" });
-        return;
-      }
-    });
-    observer.observe(group, { subtree: true, attributes: true, attributeFilter: ["class"] });
-  }
-
-  /** Save a section opened or folded; on a tablet, opening one folds the rest. */
-  private rememberFold(id: SettingsSection, open: boolean): void {
-    const settings = this.plugin.settings;
-    settings.settingsOpen = withSection(settings.settingsOpen, id, open, this.alone);
-    void this.plugin.saveSettings();
-  }
-
-  /**
-   * "More": the section's rows after it stay hidden until it is tapped, by
-   * a class on the group (so search still finds them, and opens it). It
-   * says what is under it. An action row, so Obsidian draws it as one of
-   * its own tappable rows and handles the tap.
-   */
-  private more(id: SettingsSection, what: string): SettingDefinition {
-    return {
-      name: "More",
-      desc: what,
-      searchable: false,
-      action: (row) => {
-        const group = row.closest<HTMLElement>(".setting-group");
-        if (!group) return;
-        const open = !group.hasClass("is-more-open");
-        group.toggleClass("is-more-open", open);
-        if (open) this.moreOpen.add(id);
-        else this.moreOpen.delete(id);
-      },
-    };
-  }
-
-  /** Redraw every section header's state, after a value changed. */
-  private syncStatuses(): void {
-    for (const show of this.statuses.values()) show();
+    return { type: "group", heading, items };
   }
 
   override getSettingDefinitions(): SettingDefinitionItem[] {
     this.infos.clear();
-    this.statuses.clear();
-    this.folds.clear();
-    // By theme: writing, pens, pages, the models on this device, AI, then
-    // the switches few people need; feedback last.
-    return [
-      ...this.topRows(),
+    // Common writing and notebook choices first, followed by models, AI and advanced controls.
+    const groups = [
       this.writingGroup(),
       this.pensGroup(),
       this.pagesGroup(),
       this.modelsGroup(),
       this.aiGroup(),
       this.advancedGroup(),
-      this.footerRow(),
     ];
+    const tools = this.toolOptionsGroup();
+    if (!("type" in tools) || tools.type !== "page") return groups;
+    const pages = tools.items ?? [];
+    const route = (row: SettingDefinition): string | undefined => {
+      const key = "control" in row ? row.control?.key : undefined;
+      if (
+        [
+          "drawAndHold",
+          "pressureWidth",
+          "penCursor",
+          "barrelButton",
+          "handwritingCleanup",
+          "highlighterAlpha",
+          "straightHighlighter",
+        ].includes(key ?? "") ||
+        row.aliases?.includes("saved pen") ||
+        ["Saved pens", "Back to the pen"].includes(row.name)
+      )
+        return "Pen";
+      if (key === "textDragSize") return "Text box";
+      if (key === "stickerFolder") return "Stickers";
+      if (key === "imagesFolder") return "Insert image";
+      if (key === "recordingsFolder") return "Record audio";
+      if (key === "exportsFolder") return "Export as PDF";
+      if (key === "chatsFolder") return "AI";
+      if (row.name === "Custom colors") return "Colorwheel";
+      return undefined;
+    };
+    for (const group of groups) {
+      if (!("type" in group) || group.type !== "group") continue;
+      group.items = group.items?.filter((row) => {
+        if ("type" in row && row.type === "page") return true;
+        const target = route(row);
+        if (!target) return true;
+        let page = pages.find(
+          (item) => "type" in item && item.type === "page" && item.name === target,
+        );
+        if (!page) {
+          page = { type: "page", name: target, items: [] };
+          pages.push(page);
+        }
+        if ("type" in page && page.type === "page") {
+          const key = "control" in row ? row.control?.key : undefined;
+          page.items = (page.items ?? []).filter(
+            (item) => !("control" in item && key && item.control?.key === key),
+          );
+          page.items.push(row);
+        }
+        return false;
+      });
+    }
+    tools.items = pages;
+    return [
+      ...this.topRows(),
+      tools,
+      ...groups.filter(
+        (group) => !("type" in group) || group.type !== "group" || group.items?.length,
+      ),
+    ];
+  }
+
+  /** Add the toolbar glyph to native page links after Obsidian renders them. */
+  private decorateToolPageIcons(): void {
+    const icons = new Map<string, string>(TOOLBAR_ITEMS.map((item) => [item.label, item.icon]));
+    for (const name of this.containerEl.querySelectorAll<HTMLElement>(".setting-item-name")) {
+      const label = name.textContent?.trim() ?? "";
+      const icon = icons.get(label);
+      if (!icon || name.querySelector(".finenotes-x-tool-settings-icon")) continue;
+      const glyph = document.createElement("span");
+      glyph.addClass("finenotes-x-tool-settings-icon");
+      setIcon(glyph, icon);
+      name.prepend(glyph);
+    }
+  }
+
+  /** One root page, then one native sub-page per toolbar item. */
+  private toolOptionsGroup(): SettingDefinitionItem {
+    const choice = <T extends string>(
+      name: string,
+      values: Record<T, string>,
+      get: () => T,
+      set: (value: T) => void,
+    ): SettingDefinition =>
+      drawnRow(name, "", (setting) =>
+        setting.addDropdown((control) =>
+          control
+            .addOptions(values)
+            .setValue(get())
+            .onChange((value) => set(value as T)),
+        ),
+      );
+    const switchRow = (
+      name: string,
+      get: () => boolean,
+      set: (value: boolean) => void,
+    ): SettingDefinition =>
+      drawnRow(name, "", (setting) =>
+        setting.addToggle((control) => control.setValue(get()).onChange(set)),
+      );
+    const persist = (): void => {
+      void this.plugin.saveSettings();
+      this.plugin.refreshToolOptions();
+    };
+    const ruler = () => parseRulerSettings(this.plugin.settings.ruler);
+    const setRuler = (patch: Partial<ReturnType<typeof ruler>>): void => {
+      this.plugin.settings.ruler = parseRulerSettings({ ...ruler(), ...patch });
+      persist();
+    };
+    const text = () => sanitizeTextStyle(this.plugin.settings.textStyle);
+    const shape = () => readShapeToolStyle(this.plugin.settings.shapeStyle);
+    const calculator = () => parseCalculatorData(this.plugin.settings.calculator);
+    const shared = (id: ToolbarItemId): SettingDefinition[] => {
+      switch (id) {
+        case "calculator":
+          return [
+            choice(
+              "Angle units",
+              { deg: "Degrees", rad: "Radians" },
+              () => calculator().prefs.angle,
+              (angle) => {
+                const data = calculator();
+                data.prefs.angle = angle;
+                this.plugin.saveCalculator(data);
+                this.plugin.refreshToolOptions();
+              },
+            ),
+            switchRow(
+              "Exact fractions",
+              () => calculator().prefs.fractions,
+              (fractions) => {
+                const data = calculator();
+                data.prefs.fractions = fractions;
+                this.plugin.saveCalculator(data);
+                this.plugin.refreshToolOptions();
+              },
+            ),
+            controlRow(
+              "Inserted handwriting height",
+              "Height in millimetres for calculator expressions and answers inserted as strokes.",
+              { type: "slider", key: "calculatorInkHeight", min: 4, max: 16, step: 0.5 },
+              ["answer size", "stroke size", "8 mm"],
+            ),
+          ];
+        case "pen":
+          return [
+            toggle("drawAndHold", "Hold to make shapes", DESC.drawAndHold),
+            toggle("pressureWidth", "Pressure-sensitive pens", DESC.pressure),
+            dropdown("penCursor", "Cursor over the page", "", PEN_CURSOR_NAMES),
+            toggle(
+              "handwritingCleanup",
+              "Clean up handwriting",
+              "Gently reduces sampling wobble while preserving stroke shape.",
+            ),
+          ];
+        case "select":
+          return [
+            dropdown("lassoMode", "Selection method", "Lasso is one of the selection methods.", {
+              freehand: "Lasso",
+              rect: "Rectangle",
+              lines: "Ruled lines",
+              single: "Single element",
+            }),
+            ...(
+              [
+                "handwriting",
+                "images",
+                "shapes",
+                "arrows",
+                "textBoxes",
+                "tables",
+                "graphs",
+              ] as const
+            ).map((key) =>
+              switchRow(
+                `Include ${key === "textBoxes" ? "text boxes" : key}`,
+                () => lassoFilterOf(this.plugin.settings.lassoFilter)[key],
+                (enabled) => {
+                  this.plugin.settings.lassoFilter = {
+                    ...lassoFilterOf(this.plugin.settings.lassoFilter),
+                    [key]: enabled,
+                  };
+                  persist();
+                },
+              ),
+            ),
+          ];
+        case "eraser":
+        case "eraser-stroke":
+        case "eraser-line":
+          return [
+            dropdown("eraserMode", "Default eraser", "", {
+              standard: "Standard eraser",
+              stroke: "Whole stroke eraser",
+              ruled: "Line eraser",
+            }),
+            controlRow("Eraser size", "Diameter in page pixels.", {
+              type: "slider",
+              key: "eraserSize",
+              min: 4,
+              max: 80,
+              step: 1,
+            }),
+            dropdown("eraserFilter", "Erase", "Pictures and text boxes are never erased.", {
+              all: "Pen and highlighter",
+              pen: "Pen only",
+              highlighter: "Highlighter only",
+            }),
+          ];
+        case "text":
+          return [
+            toggle("textDragSize", "Drag to size text boxes", DESC.textDragSize),
+            toggle(
+              "textToolPinned",
+              "Keep Text active after insertion",
+              "Create several text boxes without selecting Text again.",
+            ),
+            drawnRow("Font size", "Size in page pixels for new text boxes.", (setting) =>
+              setting.addSlider((control) =>
+                control
+                  .setLimits(8, 96, 1)
+                  .setValue(text().fontSize)
+                  .setDynamicTooltip()
+                  .onChange((fontSize) => {
+                    this.plugin.settings.textStyle = { ...text(), fontSize };
+                    persist();
+                  }),
+              ),
+            ),
+            switchRow(
+              "Bold",
+              () => text().bold === true,
+              (bold) => {
+                this.plugin.settings.textStyle = { ...text(), bold };
+                persist();
+              },
+            ),
+          ];
+        case "shape":
+          return [
+            toggle("penAutoShape", "Recognize pen shapes", "Snap held pen strokes to shapes."),
+            choice(
+              "Fill",
+              { none: "None", soft: "Soft", solid: "Solid" },
+              () => shape().fill ?? "none",
+              (fill) => {
+                this.plugin.settings.shapeStyle = {
+                  ...shape(),
+                  fill: fill === "none" ? undefined : fill,
+                };
+                persist();
+              },
+            ),
+            choice(
+              "Outline",
+              { solid: "Solid", dash: "Dashed", dot: "Dotted" },
+              () => shape().dash ?? "solid",
+              (dash) => {
+                this.plugin.settings.shapeStyle = {
+                  ...shape(),
+                  dash: dash === "solid" ? undefined : dash,
+                };
+                persist();
+              },
+            ),
+            switchRow(
+              "Rounded corners",
+              () => shape().round === true,
+              (round) => {
+                this.plugin.settings.shapeStyle = { ...shape(), round };
+                persist();
+              },
+            ),
+          ];
+        case "stickers":
+          return [
+            controlRow("Sticker collections folder", "One subfolder per sticker collection.", {
+              type: "text",
+              key: "stickerFolder",
+              placeholder: DEFAULT_STICKER_FOLDER,
+            }),
+          ];
+        case "record":
+          return [
+            controlRow("Folder for recordings", "Audio recordings.", {
+              type: "text",
+              key: "recordingsFolder",
+              placeholder: "Next to the notebook",
+            }),
+          ];
+        case "share":
+          return [
+            controlRow("Folder for PDF exports", "Exported PDFs.", {
+              type: "text",
+              key: "exportsFolder",
+              placeholder: "Next to the notebook",
+            }),
+          ];
+        case "image":
+        case "pdf":
+          return [
+            controlRow("Folder for pictures and PDFs", "Inserted media.", {
+              type: "text",
+              key: "imagesFolder",
+              placeholder: "Next to the notebook",
+            }),
+          ];
+        case "pencil-menu":
+          return [
+            drawnRow(
+              "Radial menu actions",
+              "Choose which shortcuts appear around the floating radial menu.",
+              (s) => this.drawCompanionActions(s),
+            ),
+            toggle(
+              "hideCompanionAfterSelection",
+              "Hide radial menu after selection",
+              "Hide the radial menu after choosing an action.",
+            ),
+            toggle(
+              "showScrollControls",
+              "Show scroll controls",
+              "Show directional controls while touch navigation is locked.",
+            ),
+          ];
+        case "ruler":
+          return [
+            choice(
+              "Type",
+              { ruler: "Straight ruler", triangle: "Triangle", protractor: "Protractor" },
+              () => ruler().kind,
+              (kind) => setRuler({ kind }),
+            ),
+            choice(
+              "Appearance",
+              { clear: "Clear", light: "Light", dark: "Dark", school: "School" },
+              () => ruler().theme,
+              (theme) => setRuler({ theme }),
+            ),
+            choice(
+              "Units",
+              { cm: "Centimetres", inch: "Inches" },
+              () => ruler().unit,
+              (unit) => setRuler({ unit }),
+            ),
+            choice(
+              "Rotation snapping",
+              { off: "Off", "5": "5°", "15": "15°", "30": "30°", "45": "45°" },
+              () => String(ruler().degreeSnap) as "off" | "5" | "15" | "30" | "45",
+              (value) =>
+                setRuler({
+                  degreeSnap: value === "off" ? "off" : (Number(value) as 5 | 15 | 30 | 45),
+                }),
+            ),
+          ];
+        case "ai":
+          return [dropdown("llmVendor", "AI service", "", VENDOR_LABELS)];
+        default:
+          return [];
+      }
+    };
+    const pages: SettingDefinitionPage[] = TOOLBAR_ITEMS.flatMap((item) => {
+      if (item.id === "eraser-stroke" || item.id === "eraser-line") return [];
+      const options = shared(item.id);
+      if (options.length === 0) return [];
+      return [
+        {
+          type: "page" as const,
+          name: TOOL_SETTINGS_NAMES[item.id] ?? item.label,
+          items: options,
+        },
+      ];
+    });
+    return { type: "page", name: "Tools & plugins", items: pages };
   }
 
   override getControlValue(key: string): unknown {
@@ -847,7 +1017,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
 
   override async setControlValue(key: string, value: unknown): Promise<void> {
     await this.storeControlValue(key, value);
-    this.syncStatuses();
   }
 
   private async storeControlValue(key: string, value: unknown): Promise<void> {
@@ -888,6 +1057,20 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
     }
     storeShownValue(this.plugin.settings, key, value);
     await this.plugin.saveSettings();
+    if (
+      [
+        "drawAndHold",
+        "eraserMode",
+        "eraserSize",
+        "eraserFilter",
+        "lassoMode",
+        "textDragSize",
+        "textToolPinned",
+        "penAutoShape",
+      ].includes(key)
+    ) {
+      this.plugin.refreshToolOptions();
+    }
     // A newly chosen speech model is registered before the tab is rebuilt, so its row shows it.
     if (key === "speechModel") this.plugin.speech.store();
     if (changesTabLayout(key)) this.update();
@@ -981,7 +1164,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
           "fingers",
           "tap",
         ]),
-        this.more("writing", "Text boxes, colors, highlighter"),
         this.info(
           toggle("textDragSize", "Drag to size text boxes", "", [
             "text",
@@ -1104,41 +1286,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
           ),
           visible: !Platform.isMobile,
         },
-        this.info(
-          drawnRow("Floating pen menu", "", (s) => this.drawCompanionActions(s), [
-            "radial menu",
-            "quick tools",
-            "floating button",
-            "pin shortcuts",
-          ]),
-          "Choose the shortcuts arranged around the movable round pen button. The button remains available while its menu collapses during writing.",
-        ),
-        this.info(
-          toggle("hideCompanionAfterSelection", "Hide pen menu after selection", "", [
-            "radial menu",
-            "quick tools",
-            "floating button",
-          ]),
-          "Remove the floating pen button after choosing an action. Bring it back with Apple Pencil squeeze or the toolbar button.",
-        ),
-        this.info(
-          toggle("showScrollControls", "Show scroll crosshair", "", [
-            "scroll",
-            "navigation",
-            "crosshair",
-            "touch",
-            "arrows",
-          ]),
-          "Show arrow controls while Prevent scrolling is on. Turn it off from the pen menu when these controls are hidden.",
-        ),
-        this.info(
-          toggle("handwritingCleanup", "Clean up handwriting", "", [
-            "smooth handwriting",
-            "cleanup",
-            "steady ink",
-          ]),
-          "Gently removes sampling wobble while keeping each stroke's endpoints, pressure and character shape.",
-        ),
         this.info(
           drawnRow("Keyboard shortcuts", "", (s) => this.drawShortcutsButton(s), [
             "hotkeys",
@@ -1309,7 +1456,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
       "file-text",
       [
         this.info(
-          drawnRow("Dark / Light Theme", "", (s) => this.drawAppearance(s), [
+          drawnRow("Page appearance", "", (s) => this.drawAppearance(s), [
             "page appearance",
             "dark mode",
             "night mode",
@@ -1326,7 +1473,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
           (s) => this.drawPaperWidth(s),
           ["canvas size", "page width"],
         ),
-        this.more("pages", "Folders, templates, file explorer"),
         this.info(
           drawnRow("New notebooks go in", "", (s) => this.drawNotebookFolder(s), [
             "default folder for new notebooks",
@@ -1348,7 +1494,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
         ),
         this.info(
           controlRow(
-            "Stickers folder",
+            "Sticker collections folder",
             "",
             { type: "text", key: "stickerFolder", placeholder: DEFAULT_STICKER_FOLDER },
             ["sticker", "collection", "folder"],
@@ -1417,7 +1563,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
         storeAppearanceChoice(settings, value);
         // Saved by the plugin, which redraws every open notebook.
         await this.plugin.applyPageAppearance();
-        this.syncStatuses();
       });
     });
   }
@@ -1478,7 +1623,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
             "another model file, such as one tuned to your handwriting. It is read on this " +
             "device only.",
         ),
-        this.more("advanced", "Where files are saved"),
         ...FOLDER_ROWS.map(([key, name, desc, placeholder]) =>
           this.info(
             controlRow(name, "", { type: "text", key, placeholder }, [
@@ -1588,7 +1732,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
         visible: () => settings.recognitionProviderId === LLM_PROVIDER_ID,
       },
       // Pictures are the AI rows fewest people change.
-      this.more("ai", "Pictures: service, model and key"),
       this.info(
         dropdown("imageVendor", "Image generation", "", IMAGE_VENDOR_LABELS, [
           "generate image",
@@ -1635,49 +1778,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
       ],
       () => [{ text: folded() ? "Not set up" : VENDORS[settings.llmVendor].label }],
     );
-  }
-
-  /** Ideas, bugs and FineNotes' accounts: one line of links at the very end. */
-  private footerRow(): SettingDefinition {
-    return {
-      name: "Feedback and community",
-      aliases: [
-        "feedback",
-        "idea",
-        "question",
-        "suggestion",
-        "community",
-        "report a bug",
-        "issue",
-        "problem",
-        "GitHub",
-        "social",
-        "X",
-        "Twitter",
-        "Instagram",
-        "TikTok",
-        "YouTube",
-      ],
-      render: (setting) => {
-        const row = setting.settingEl;
-        row.empty();
-        row.addClass("finenotes-x-plain-row", "finenotes-x-settings-footer");
-        // Each link in its own colour: FineNotes' two with an icon, the
-        // accounts in their brands' colours.
-        const link = (label: string, url: string, icon?: string): void => {
-          const key = label.toLowerCase().split(" ")[0];
-          const button = row.createEl("button", {
-            cls: `finenotes-x-footer-link clickable-icon is-${key}`,
-          });
-          if (icon) setIcon(button.createSpan({ cls: "finenotes-x-footer-icon" }), icon);
-          button.createSpan({ text: label });
-          button.addEventListener("click", () => window.open(url));
-        };
-        link("Ideas and questions", COMMUNITY_LINKS.discussions, "lightbulb");
-        link("Report a bug", COMMUNITY_LINKS.bugReport, "bug");
-        for (const { label, url } of COMMUNITY_LINKS.social) link(label, url);
-      },
-    };
   }
 
   // --- Models on this device ---------------------------------------------------
@@ -1975,7 +2075,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
         return;
       }
       show();
-      this.syncStatuses();
     });
     show();
     void store.check(true);
@@ -2025,7 +2124,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
 
   override hide(): void {
     this.learningState = null;
-    this.moreOpen.clear();
     super.hide();
   }
 
@@ -2252,7 +2350,6 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
         if (width === null) return;
         this.plugin.settings.paperWidth = width;
         await this.plugin.saveSettings();
-        this.syncStatuses();
       });
     });
   }

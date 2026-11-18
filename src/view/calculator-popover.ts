@@ -109,6 +109,7 @@ export interface CalculatorHost {
   save(data: CalculatorData): void;
   /** Put `text` on the page in view as a text box (one undo step); false when it could not. */
   insert(text: string): boolean;
+  insertScreen?(expression: string | null, answer: string, base: NumberBase): boolean;
   /**
    * Put a graph on the page in view (one undo step); false when it could
    * not. Absent: the graph pane offers no Insert graph.
@@ -1012,15 +1013,17 @@ export class CalculatorPopover {
     const line = this.shownLine;
     if (!line) return;
     const worked = this.showing();
-    if (worked) {
-      const answer = worked.answer.map(readable).join(", ");
-      const text = withSum ? `${readable(line.expr)}: ${answer}` : answer;
-      if (this.host.insert(text)) this.close();
-      return;
+    const answer = worked
+      ? worked.answer.map(readable).join(", ")
+      : this.shown !== null
+        ? (this.format(this.shown) ?? line.result)
+        : line.result;
+    const expression = withSum ? line.expr : null;
+    if (this.host.insertScreen) {
+      if (this.host.insertScreen(expression, answer, this.data.prefs.base)) this.close();
+    } else if (this.host.insert(expression ? `${readable(expression)} = ${answer}` : answer)) {
+      this.close();
     }
-    const result = this.shown !== null ? (this.format(this.shown) ?? line.result) : line.result;
-    const text = withSum ? `${line.expr} = ${result}` : result;
-    if (this.host.insert(text)) this.close();
   }
 
   /** The problem, each step (its rule, then its math) and the answer, as lines of a text box. */
@@ -1039,6 +1042,12 @@ export class CalculatorPopover {
   private save(data: CalculatorData): void {
     this.data = data;
     this.host.save(data);
+  }
+
+  /** Apply preferences changed in the plugin settings without replacing the current calculation. */
+  refreshPreferences(): void {
+    this.data = this.host.load();
+    this.refresh();
   }
 
   /** Redraw the display and the switches from the state. */

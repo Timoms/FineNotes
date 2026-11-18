@@ -1,31 +1,7 @@
-/**
- * The sticker picker: the built-in pack (`model/stickers`), recoloured from
- * one row of swatches, and the user's own collections — the subfolders of
- * the stickers folder in the vault, each a set of pictures.
- *
- *   Stickers
- *   (Arrows) (Labels) (Tape) (Icons) (Doodles) (My stickers) (Travel) …
- *   ● ● ● ● ● ● ●                       ← colour, built-in pack only
- *   ┌───┐ ┌───┐ ┌───┐ ┌───┐
- *   │ ↗ │ │ ⟳ │ │ → │ │ ↔ │             ← tap one to place it
- *   └───┘ └───┘ └───┘ └───┘
- *
- * A tap closes the picker and hands the choice to the host, which saves it
- * beside the notebook and places it: a built-in sticker as its SVG, one of
- * the user's as a copy of its file, so the notebook never depends on the
- * plugin or on the stickers folder staying as it is.
- */
-
 import { type App, Modal, TFile, TFolder } from "obsidian";
 import { PALETTE } from "../constants";
 import { isImagePath } from "../canvas/image-raster";
-import {
-  STICKERS,
-  STICKER_CATEGORIES,
-  type Sticker,
-  type StickerCategory,
-  stickerSvg,
-} from "../model/stickers";
+import { STICKERS, STICKER_CATEGORIES, type Sticker, stickerSvg } from "../model/stickers";
 
 /** What the user picked: a built-in sticker in a colour, or a file of theirs. */
 export type StickerChoice =
@@ -36,29 +12,24 @@ export const SAVED_STICKERS_COLLECTION = "My stickers";
 
 /** The colour the picker opens with, remembered for the session. */
 let lastColor: string = PALETTE[3];
-/** The tab it opens on, remembered for the session. */
-let lastTab = "arrows";
 
-export class StickerModal extends Modal {
-  private tab = lastTab;
+export class StickerPicker {
+  private readonly cleanups: Array<() => void> = [];
   private color = lastColor;
 
   constructor(
-    app: App,
-    /** Vault folder of the user's collections; may not exist yet. */
+    private readonly app: App,
     private readonly folder: string,
+    private readonly contentEl: HTMLElement,
     private readonly pick: (choice: StickerChoice) => void,
+    private readonly favorites: string[],
+    private readonly saveFavorites: (ids: string[]) => void,
   ) {
-    super(app);
-  }
-
-  override onOpen(): void {
-    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-sticker-modal");
-    this.titleEl.setText("Stickers");
     this.render();
   }
 
-  override onClose(): void {
+  destroy(): void {
+    this.cleanups.splice(0).forEach((cleanup) => cleanup());
     this.contentEl.empty();
   }
 
@@ -83,49 +54,43 @@ export class StickerModal extends Modal {
 
   private render(): void {
     const body = this.contentEl;
-    body.empty();
+    const scrollTop = body.querySelector(".finenotes-x-sticker-scroll")?.scrollTop ?? 0;
+    this.destroy();
     const collections = this.collections();
-    const tabs: Array<{ id: string; label: string }> = [
-      ...STICKER_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
-      ...collections.map((c) => ({ id: `mine:${c.name}`, label: c.name })),
+    this.renderColors(body);
+    const groups = [
+      ...STICKER_CATEGORIES.map((category) => ({
+        name: category.label,
+        items: STICKERS.filter((sticker) => sticker.category === category.id).map((sticker) => ({
+          id: `builtin:${sticker.id}`,
+          label: sticker.name,
+          src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(stickerSvg(sticker, this.color))}`,
+          choice: { kind: "builtin", sticker, color: this.color } as StickerChoice,
+        })),
+      })),
+      ...collections.map((collection) => ({
+        name: collection.name,
+        items: collection.files.map((file) => ({
+          id: `file:${file.path}`,
+          label: file.basename,
+          src: this.app.vault.getResourcePath(file),
+          choice: { kind: "file", file } as StickerChoice,
+        })),
+      })),
     ];
-    if (!tabs.some((t) => t.id === this.tab)) this.tab = "arrows";
-
-    const chips = body.createDiv({ cls: "finenotes-x-sticker-tabs", attr: { role: "tablist" } });
-    for (const t of tabs) {
-      const chip = chips.createEl("button", {
-        cls: "finenotes-x-sticker-tab clickable-icon",
-        text: t.label,
-        attr: { role: "tab", "aria-selected": String(t.id === this.tab) },
-      });
-      chip.toggleClass("is-active", t.id === this.tab);
-      chip.addEventListener("click", () => {
-        this.tab = t.id;
-        lastTab = t.id;
-        this.render();
-      });
-    }
-
-    const mine = collections.find((c) => `mine:${c.name}` === this.tab);
-    if (!mine) this.renderColors(body);
-    const grid = body.createDiv({ cls: "finenotes-x-sticker-grid" });
-    if (mine) {
-      for (const file of mine.files) {
-        this.cell(grid, file.basename, this.app.vault.getResourcePath(file), () =>
-          this.choose({ kind: "file", file }),
-        );
-      }
-    } else {
-      for (const sticker of STICKERS.filter((s) => s.category === (this.tab as StickerCategory))) {
-        const svg = stickerSvg(sticker, this.color);
-        this.cell(
-          grid,
-          sticker.name,
-          `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
-          () => this.choose({ kind: "builtin", sticker, color: this.color }),
-        );
+    const scroll = body.createDiv({ cls: "finenotes-x-sticker-scroll" });
+    const all = groups.flatMap((group) => group.items);
+    const favorites = this.favorites.flatMap((id) => all.filter((item) => item.id === id));
+    for (const group of [{ name: "Favourites", items: favorites }, ...groups]) {
+      if (!group.items.length) continue;
+      const section = scroll.createDiv({ cls: "finenotes-x-sticker-group" });
+      section.createEl("h3", { text: group.name });
+      const grid = section.createDiv({ cls: "finenotes-x-sticker-grid" });
+      for (const item of group.items) {
+        this.cell(grid, item.id, item.label, item.src, () => this.pick(item.choice));
       }
     }
+    scroll.scrollTop = scrollTop;
     body.createDiv({
       cls: "finenotes-x-sticker-hint",
       text: collections.length
@@ -154,17 +119,101 @@ export class StickerModal extends Modal {
     }
   }
 
-  private cell(grid: HTMLElement, label: string, src: string, onPick: () => void): void {
+  private cell(
+    grid: HTMLElement,
+    id: string,
+    label: string,
+    src: string,
+    onPick: () => void,
+  ): void {
+    const favorite = this.favorites.includes(id);
     const button = grid.createEl("button", {
       cls: "finenotes-x-sticker-cell clickable-icon",
-      attr: { "aria-label": label, title: label },
+      attr: {
+        "aria-label": `${label}${favorite ? ", favourite" : ""}`,
+        title: `${label} — hold to toggle favourite`,
+      },
     });
+    button.toggleClass("is-favorite", favorite);
     button.createEl("img", { attr: { src, alt: "", draggable: "false" } });
-    button.addEventListener("click", onPick);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let held = false;
+    let refresh: ReturnType<typeof setTimeout> | undefined;
+    this.cleanups.push(() => clearTimeout(refresh));
+    let origin: { x: number; y: number } | undefined;
+    const cancel = (): void => {
+      clearTimeout(timer);
+      timer = undefined;
+    };
+    this.cleanups.push(cancel);
+    button.addEventListener("pointerenter", (event) => {
+      if (event.pointerType === "pen" || event.pointerType === "mouse")
+        button.addClass("is-previewing");
+    });
+    button.addEventListener("pointerleave", () => {
+      cancel();
+      button.removeClass("is-previewing");
+    });
+    button.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      cancel();
+      held = false;
+      origin = { x: event.clientX, y: event.clientY };
+      timer = setTimeout(() => {
+        held = true;
+        const index = this.favorites.indexOf(id);
+        if (index < 0) this.favorites.push(id);
+        else this.favorites.splice(index, 1);
+        this.saveFavorites([...this.favorites]);
+        // Keep the pressed element until release, so a hold cannot insert.
+        button.toggleClass("is-favorite", index < 0);
+      }, 550);
+    });
+    button.addEventListener("pointermove", (event) => {
+      if (origin && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > 8) cancel();
+    });
+    button.addEventListener("pointerup", () => {
+      cancel();
+      if (held) refresh = setTimeout(() => this.render(), 0);
+    });
+    button.addEventListener("pointercancel", cancel);
+    button.addEventListener("contextmenu", (event) => event.preventDefault());
+    button.addEventListener("click", (event) => {
+      if (held) {
+        event.preventDefault();
+        return;
+      }
+      onPick();
+    });
   }
+}
 
-  private choose(choice: StickerChoice): void {
-    this.close();
-    this.pick(choice);
+/** Standalone picker retained for callers outside the toolbar. */
+export class StickerModal extends Modal {
+  private picker?: StickerPicker;
+  constructor(
+    app: App,
+    private readonly folder: string,
+    private readonly pick: (choice: StickerChoice) => void,
+  ) {
+    super(app);
+  }
+  override onOpen(): void {
+    this.modalEl.addClass("finenotes-x-dialog", "finenotes-x-sticker-modal");
+    this.titleEl.setText("Stickers");
+    this.picker = new StickerPicker(
+      this.app,
+      this.folder,
+      this.contentEl,
+      (choice) => {
+        this.close();
+        this.pick(choice);
+      },
+      [],
+      () => {},
+    );
+  }
+  override onClose(): void {
+    this.picker?.destroy();
   }
 }
