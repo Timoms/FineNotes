@@ -58,19 +58,37 @@ export function clipBounds(
 
 /** Select part of the current Obsidian window and keep it for FineNotes Paste. */
 export async function startAppSmartClip(): Promise<void> {
+  const overlay = document.body.createDiv({ cls: "finenotes-x-app-clip is-loading" });
+  overlay.tabIndex = -1;
+  overlay.setAttribute("aria-label", "Preparing Smart Clip; press Escape to cancel");
+  overlay.setAttribute("aria-busy", "true");
+  const spinner = overlay.createDiv({ cls: "finenotes-x-app-clip-spinner" });
+  overlay.focus();
+  let cancelled = false;
+  overlay.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    cancelled = true;
+    overlay.remove();
+  });
+
   let screenshot: Screenshot;
   try {
-    screenshot = await captureScreenshot();
+    screenshot = await captureScreenshot(overlay);
   } catch {
+    overlay.remove();
     new Notice("FineNotes: Obsidian could not capture this window.");
     return;
   }
+  if (cancelled) {
+    screenshot.release();
+    return;
+  }
 
-  const overlay = document.body.createDiv({ cls: "finenotes-x-app-clip" });
-  overlay.tabIndex = -1;
+  spinner.remove();
+  overlay.removeClass("is-loading");
   overlay.setAttribute("aria-label", "Drag a rectangle to copy a screenshot; press Escape to cancel");
+  overlay.removeAttribute("aria-busy");
   const selection = overlay.createDiv({ cls: "finenotes-x-app-clip-selection" });
-  overlay.focus();
   new Notice("FineNotes: drag a rectangle anywhere in Obsidian to copy it.");
 
   let start: { x: number; y: number } | null = null;
@@ -115,10 +133,13 @@ export async function startAppSmartClip(): Promise<void> {
   });
 }
 
-async function captureScreenshot(): Promise<Screenshot> {
+async function captureScreenshot(overlay: HTMLElement): Promise<Screenshot> {
   const currentWindow = electronWindow();
   if (currentWindow) {
+    overlay.addClass("is-capture-hidden");
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
     const native = await currentWindow.webContents.capturePage();
+    overlay.removeClass("is-capture-hidden");
     const image = await loadImage(native.toDataURL());
     return {
       image,
@@ -131,6 +152,7 @@ async function captureScreenshot(): Promise<Screenshot> {
   const canvas = await html2canvas(document.body, {
     backgroundColor: null,
     height: window.innerHeight,
+    ignoreElements: (element) => element === overlay,
     logging: false,
     scale: window.devicePixelRatio,
     scrollX: -window.scrollX,
