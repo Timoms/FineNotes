@@ -83,20 +83,20 @@ describe("right-hand toolbar panels", () => {
 
 describe("custom submenu actions", () => {
   it("runs a stored action from the stable submenu anchor and toggles the submenu closed", () => {
-    interface Node {
+    interface MenuNode {
       click?: () => void;
-      children: Node[];
+      children: MenuNode[];
       querySelector(): { childElementCount: number };
       addClass: ReturnType<typeof vi.fn>;
       removeClass: ReturnType<typeof vi.fn>;
       setAttribute: ReturnType<typeof vi.fn>;
       toggleClass: ReturnType<typeof vi.fn>;
-      createEl(tag: string, options: unknown): Node;
-      createDiv(): Node;
+      createEl(tag: string, options: unknown): MenuNode;
+      createDiv(): MenuNode;
       addEventListener(event: string, handler: () => void): void;
     }
-    const nodes: Node[] = [];
-    const make = (): Node => ({
+    const nodes: MenuNode[] = [];
+    const make = (): MenuNode => ({
       children: [],
       querySelector: () => ({ childElementCount: 1 }),
       addClass: vi.fn(),

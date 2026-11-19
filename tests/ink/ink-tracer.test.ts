@@ -171,6 +171,14 @@ describe("the traced line", () => {
     }
   });
 
+  it("keeps a translucent highlighter at one width as Pencil pose changes", () => {
+    const points = [0, 0, 0.2, 10, 0, 0.8, 20, 0, 0.4];
+    const pose = [0.3, 0.2, 0, 1.2, 2.4, 30, 0.5, 1.4, 60];
+    const runs = inkRuns(points, penOptions(12, false, undefined, "highlighter"), false, pose);
+    expect(runs).toHaveLength(1);
+    expect(runs[0].width).toBe(12);
+  });
+
   it("with pressure, cuts runs where the width moves, each joined to the last", () => {
     const pen = penOptions(3, true);
     // Steep: the pressure moves up to 0.02 a point.

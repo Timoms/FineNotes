@@ -217,6 +217,45 @@ export function mapPressure(reading: number, settings: StrokeBuilderOptions): nu
 }
 
 /**
+ * Remove a brief coordinate excursion that jumps away and returns beside the
+ * stroke. Charger interference can make an Apple Pencil report one to three
+ * remote samples between two good ones; a real fast line continues from its
+ * new position and is left alone.
+ */
+export function removeBriefInputSpikes(points: number[], jump: number): number[] {
+  const count = Math.floor(points.length / POINT_STRIDE);
+  if (count < 3 || !(jump > 0)) return points;
+  const cleaned = points.slice(0, POINT_STRIDE);
+  let removed = false;
+  let i = 1;
+  while (i < count) {
+    const a = cleaned.length - POINT_STRIDE;
+    const at = (point: number): number => point * POINT_STRIDE;
+    const distanceFromA = (point: number): number =>
+      Math.hypot(points[at(point)] - cleaned[a], points[at(point) + 1] - cleaned[a + 1]);
+    if (i < count - 1 && distanceFromA(i) > jump) {
+      // shortcut: filters excursions lasting at most three samples; use raw timing if longer noise appears.
+      const lastReturn = Math.min(count - 1, i + 3);
+      let returned = -1;
+      for (let j = i + 1; j <= lastReturn; j++) {
+        if (distanceFromA(j) <= jump / 3) {
+          returned = j;
+          break;
+        }
+      }
+      if (returned !== -1) {
+        removed = true;
+        i = returned;
+        continue;
+      }
+    }
+    cleaned.push(points[at(i)], points[at(i) + 1], points[at(i) + 2]);
+    i++;
+  }
+  return removed ? cleaned : points;
+}
+
+/**
  * The points of one stroke as it is drawn. `add` keeps a sample that lies
  * at least `minDistance` from the last point kept; `addFinal` keeps the
  * pen-up sample regardless, so the stroke ends where the pen lifted.

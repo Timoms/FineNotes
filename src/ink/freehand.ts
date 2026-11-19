@@ -156,9 +156,15 @@ export class InkTracer {
     const { prev, last } = this;
     let r = radiusAt(pressure, this.pen);
     const mode = this.pen.poseMode;
-    if (Number.isFinite(altitude) && mode && mode !== "ball" && mode !== "calligraphy") {
+    if (
+      Number.isFinite(altitude) &&
+      mode &&
+      mode !== "ball" &&
+      mode !== "calligraphy" &&
+      mode !== "highlighter"
+    ) {
       const laidDown = 1 - Math.min(Math.PI / 2, Math.max(0, altitude)) / (Math.PI / 2);
-      r *= 1 + laidDown * (mode === "brush" ? 0.55 : mode === "highlighter" ? 0.35 : 0.18);
+      r *= 1 + laidDown * (mode === "brush" ? 0.55 : 0.18);
     }
     // A flat nib: as wide as the direction it arrived from allows. The first
     // point has no direction yet and starts at the nib's middle width.
@@ -169,7 +175,8 @@ export class InkTracer {
       (altitude < 1.45 || (Number.isFinite(twist) && twist !== 0)) &&
       mode &&
       mode !== "ball" &&
-      mode !== "calligraphy"
+      mode !== "calligraphy" &&
+      mode !== "highlighter"
     ) {
       nib = azimuth + (Number.isFinite(twist) ? (twist * Math.PI) / 180 : 0);
     }

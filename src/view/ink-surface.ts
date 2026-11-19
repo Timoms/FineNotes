@@ -209,6 +209,7 @@ import {
   type Smoothing,
   StrokeBuilder,
   type StrokeBuilderOptions,
+  removeBriefInputSpikes,
   stabilizationReach,
 } from "../ink/stroke-builder";
 import { stabilizationOf } from "../model/pen-stabilization";
@@ -493,6 +494,8 @@ const TEXT_SNAP_SLOP_PX = 8;
 
 /** The shortest highlight, in screen px, that becomes a straight line on lift when drawn as one. */
 const HIGHLIGHT_LINE_MIN_PX = 24;
+/** A shorter jump can be a fast Pencil sample; a longer jump back is electrical noise. */
+const INPUT_SPIKE_JUMP_PX = 24;
 /** How long the snapped text and its Copy stay up. */
 const TEXT_COPY_NOTICE_MS = 6000;
 
@@ -6353,16 +6356,20 @@ export class InkSurface {
     // A cancel has no last sample: the one still waiting is where the stroke ends.
     builder.settle();
     this.penPressure = builder.typicalPressure() ?? this.penPressure;
+    const sampledPoints = removeBriefInputSpikes(
+      builder.points(),
+      this.atFitZoom(INPUT_SPIKE_JUMP_PX),
+    );
     // One sample is a dot, and a dot is ink; only a stroke with none is dropped.
-    if (builder.length === 0) return;
+    if (sampledPoints.length === 0) return;
 
     const page = this.pageAt(box.index);
     if (!page) return;
 
     // Scribble to erase: a scribble over writing erases it and is not kept.
-    if (!snap && this.scribbleErase(box, page, builder.points())) {
+    if (!snap && this.scribbleErase(box, page, sampledPoints)) {
       this.recordDiagnostic(
-        builder.points(),
+        sampledPoints,
         "scribble-erase",
         final ? "up" : cancelledWhileHeld ? "cancel-as-hold" : "cancel",
         heldLongEnough,
@@ -6382,15 +6389,15 @@ export class InkSurface {
       // Held, the pen rested where the stroke ends; snapped on lift, it may
       // have trailed a tail as it left the glass.
       const held = heldLongEnough;
-      shape = recognizeAtZoom(builder.points(), this.userZoom, { held });
+      shape = recognizeAtZoom(sampledPoints, this.userZoom, { held });
       if (shape?.kind === "line" && this.toolState.tool !== "shape") shape = null;
-      this.hudVerdict(cancelledWhileHeld ? "cx-hold" : "lift", builder.points(), shape, held);
+      this.hudVerdict(cancelledWhileHeld ? "cx-hold" : "lift", sampledPoints, shape, held);
     } else if (!shape && this.debug) {
       this.hud.mark(final ? "lift·nohold" : "cx·nohold");
       this.scheduleHud();
     }
     this.recordDiagnostic(
-      builder.points(),
+      sampledPoints,
       shape ? shape.kind : "freehand",
       final ? "up" : cancelledWhileHeld ? "cancel-as-hold" : "cancel",
       heldLongEnough,
@@ -6403,7 +6410,7 @@ export class InkSurface {
     const straight =
       tool === "pen" && gestures.straightenLines
         ? straightenPenLine(
-            builder.points(),
+            sampledPoints,
             this.atFitZoom(20),
             gestures.rotateStrokesToDegree,
             gestures.rotationDegrees,
@@ -6411,8 +6418,8 @@ export class InkSurface {
         : null;
     const points = shape
       ? shape.pts
-      : (straight ?? this.highlightLine(tool, builder.points()) ?? builder.points());
-    const pose = !shape && points.length === builder.points().length ? builder.pose(points) : null;
+      : (straight ?? this.highlightLine(tool, sampledPoints) ?? sampledPoints);
+    const pose = !shape && points.length === sampledPoints.length ? builder.pose(points) : null;
     const stroke: Stroke = {
       id: this.strokeIds.next(),
       color,
@@ -6439,14 +6446,13 @@ export class InkSurface {
     // A stroke the pen was held on ended on purpose; any other may be a
     // flicker of the Pencil's contact, which the next pen-down carries on.
     if (!nested && !snap && !heldLongEnough) {
-      const end = builder.length - 1;
-      const raw = builder.view;
+      const end = sampledPoints.length / 3 - 1;
       this.lastLift = {
         t: now(),
         boxIndex: box.index,
         pageId: page.id,
-        x: raw[end * 3],
-        y: raw[end * 3 + 1],
+        x: sampledPoints[end * 3],
+        y: sampledPoints[end * 3 + 1],
         builder,
         stroke,
         command,

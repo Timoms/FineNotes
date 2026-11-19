@@ -211,6 +211,24 @@ describe("a load that cannot be trusted", () => {
     expect(notices.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("never writes a held load, including on close", async () => {
+    const parent = Object.getPrototypeOf(InkView.prototype) as { save: () => Promise<void> };
+    const save = vi.spyOn(parent, "save").mockResolvedValue();
+    try {
+      const view = openView();
+      view.setViewData("Prose.\n\n%%goodobsidian\nv2:@@@@\n%%\n", true);
+      await view.save();
+      await view.save(true);
+      expect(save).not.toHaveBeenCalled();
+    } finally {
+      save.mockRestore();
+    }
+  });
+
+  it("keeps a synced notebook out of Obsidian's plain-text merge", () => {
+    expect(openView().isPlaintext).toBe(false);
+  });
+
   it("says so once on load", () => {
     const view = openView();
     view.setViewData("", true);

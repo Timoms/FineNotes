@@ -4,6 +4,7 @@ import {
   BRUSH_PRESSURE,
   StrokeBuilder,
   mapPressure,
+  removeBriefInputSpikes,
   shapePressure,
   unshapePressure,
 } from "../../src/ink/stroke-builder";
@@ -22,6 +23,19 @@ describe("mapPressure on one reading", () => {
     expect(mapPressure(-0.1, on)).toBe(0.35);
     expect(mapPressure(Number.NaN, on)).toBe(0.35);
     expect(mapPressure(0.9, { ...on, pressureEnabled: false })).toBe(0.35);
+  });
+});
+
+describe("brief Pencil coordinate spikes", () => {
+  it("drops up to three remote samples when the stroke returns beside its path", () => {
+    expect(
+      removeBriefInputSpikes([0, 0, 0.4, 60, 70, 0.5, 64, 72, 0.6, 4, 1, 0.5, 8, 2, 0.4], 24),
+    ).toEqual([0, 0, 0.4, 4, 1, 0.5, 8, 2, 0.4]);
+  });
+
+  it("keeps a fast line that continues from its new position", () => {
+    const points = [0, 0, 0.4, 60, 0, 0.5, 120, 0, 0.6];
+    expect(removeBriefInputSpikes(points, 24)).toBe(points);
   });
 });
 
