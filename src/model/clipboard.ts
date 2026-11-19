@@ -62,12 +62,13 @@ export interface ClipboardEntry {
 
 export class InkClipboard {
   private entry: ClipboardEntry | null = null;
-  private left = false;
+  private copiedAt = 0;
+  private systemChangedAt = 0;
   private stamp = 0;
 
   /** Hold deep copies of `elements`. An empty selection clears the clipboard. */
   put(elements: PageElements, bounds: Bounds): void {
-    this.left = false;
+    this.copiedAt = nextClipboardStamp();
     this.stamp++;
     if (isEmptySelection(elements)) {
       this.entry = null;
@@ -95,6 +96,11 @@ export class InkClipboard {
     return this.stamp;
   }
 
+  /** Ordering stamp shared with other FineNotes clipboard entries. */
+  get updatedAt(): number {
+    return this.entry ? this.copiedAt : 0;
+  }
+
   /**
    * Whether there is anything to paste. `withImages: false` asks for a
    * surface that shows no pictures (the inline editor): pictures alone do
@@ -118,7 +124,7 @@ export class InkClipboard {
    * system clipboard is now likely the fresher of the two.
    */
   noteWindowLeft(): void {
-    if (this.entry) this.left = true;
+    this.systemChangedAt = nextClipboardStamp();
   }
 
   /**
@@ -127,7 +133,7 @@ export class InkClipboard {
    * just as after {@link noteWindowLeft}.
    */
   noteSystemCopy(): void {
-    if (this.entry) this.left = true;
+    this.systemChangedAt = nextClipboardStamp();
   }
 
   /**
@@ -135,14 +141,26 @@ export class InkClipboard {
    * window was left, or FineNotes wrote to it, since the last copy.
    */
   get leftSinceCopy(): boolean {
-    return this.left;
+    return this.entry !== null && this.systemChangedAt > this.updatedAt;
+  }
+
+  /** Latest point at which the native clipboard may have changed. */
+  get systemUpdatedAt(): number {
+    return this.systemChangedAt;
   }
 
   clear(): void {
     this.entry = null;
-    this.left = false;
+    this.copiedAt = nextClipboardStamp();
     this.stamp++;
   }
+}
+
+let clipboardStamp = 0;
+
+/** A monotonic ordering shared by the native and FineNotes clipboard stores. */
+export function nextClipboardStamp(): number {
+  return ++clipboardStamp;
 }
 
 /**

@@ -6,18 +6,13 @@
  * ink, text boxes and pictures copied with the lasso; the system's holds
  * whatever another app, or Obsidian itself, copied last: a picture, or text.
  *
- * - The plugin's clipboard answers first while the app has not been left
- *   since it was filled: nothing newer can be on the system clipboard, and
- *   the system's is not touched at all (on iPad, reading it shows the
- *   system's Paste bubble).
- * - Otherwise the system clipboard is read, and a picture on it wins, then
- *   text (pasted as a text box). Where it holds neither, or cannot be read,
- *   the plugin's clipboard is pasted after all.
+ * Each store carries a monotonic freshness stamp. The newer store answers;
+ * where the native clipboard cannot be read, FineNotes falls back to its own.
  */
 
-/** Whether the plugin's own clipboard is pasted without reading the system's. */
-export function inkFirst(canPasteInk: boolean, leftSinceCopy: boolean): boolean {
-  return canPasteInk && !leftSinceCopy;
+/** Whether the native clipboard may have changed after FineNotes stored its item. */
+export function systemClipboardIsNewer(fineNotesAt: number, systemAt: number): boolean {
+  return systemAt > fineNotesAt;
 }
 
 /** A clipboard item's type worth pasting: a picture, else text. */

@@ -22,6 +22,7 @@ import { PointerHud } from "../../src/view/pointer-hud";
 import { StrokeIndex } from "../../src/view/stroke-index";
 import { SizeWait } from "../../src/view/surface-size";
 import { type SelectionAction, menuLayout } from "../../src/view/selection-bar-model";
+import { clearStoredSmartClip, storeSmartClip } from "../../src/view/app-smart-clip";
 
 vi.mock("obsidian", () => ({
   Notice: class {},
@@ -48,6 +49,7 @@ function run<T = unknown>(surface: State, method: string, ...args: unknown[]): T
 }
 
 afterEach(() => {
+  clearStoredSmartClip();
   vi.unstubAllGlobals();
 });
 
@@ -2037,6 +2039,26 @@ describe("toolbar Paste and ink locks", () => {
     isLocked.mockReturnValue(true);
     run(surface, "pasteFromClipboard");
     expect(pasteHere).toHaveBeenCalledTimes(1);
+  });
+
+  it("pastes the newest Smart Clip from the FineNotes store", () => {
+    storeSmartClip(new Blob(["png"], { type: "image/png" }));
+    const onPasteImage = vi.fn();
+    const surface = surfaceWith({
+      imagesShown: true,
+      practice: false,
+      pageIndex: 0,
+      doc: { pages: [{ id: "p1" }] },
+      pageAt: () => ({ id: "p1" }),
+      callbacks: { onPasteImage },
+    });
+
+    expect(run(surface, "pasteFineNotes", { pageId: "p1", at: { x: 20, y: 30 } })).toBe(true);
+    expect(onPasteImage).toHaveBeenCalledWith(expect.any(File), {
+      pageIndex: 0,
+      x: 20,
+      y: 30,
+    });
   });
 
   it("does not erase protected fragments through linked whole-stroke erasure", () => {

@@ -2,20 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   PASTED_TEXT_ROOM,
   cleanPastedText,
-  inkFirst,
   pastedTextOrigin,
   pickClipboardType,
+  systemClipboardIsNewer,
 } from "../../src/view/paste-choice";
 
-describe("inkFirst", () => {
-  it("pastes the plugin's clipboard without asking the system's while the app was not left", () => {
-    expect(inkFirst(true, false)).toBe(true);
-  });
-
-  it("asks the system clipboard once the app was left, or when there is no ink", () => {
-    expect(inkFirst(true, true)).toBe(false);
-    expect(inkFirst(false, false)).toBe(false);
-    expect(inkFirst(false, true)).toBe(false);
+describe("clipboard freshness", () => {
+  it("uses the store with the later timestamp", () => {
+    expect(systemClipboardIsNewer(4, 5)).toBe(true);
+    expect(systemClipboardIsNewer(5, 4)).toBe(false);
+    expect(systemClipboardIsNewer(5, 5)).toBe(false);
   });
 });
 

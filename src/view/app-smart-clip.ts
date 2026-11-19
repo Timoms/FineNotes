@@ -1,5 +1,6 @@
 import { Notice } from "obsidian";
 import html2canvas from "html2canvas-pro";
+import { nextClipboardStamp } from "../model/clipboard";
 
 interface NativeImage {
   toDataURL(): string;
@@ -23,6 +24,26 @@ interface Screenshot {
   release(): void;
 }
 
+export interface StoredSmartClip {
+  blob: Blob;
+  updatedAt: number;
+}
+
+let storedClip: StoredSmartClip | null = null;
+
+/** The app-wide FineNotes image clipboard, shared by every notebook view. */
+export function storedSmartClip(): StoredSmartClip | null {
+  return storedClip;
+}
+
+export function storeSmartClip(blob: Blob): void {
+  storedClip = { blob, updatedAt: nextClipboardStamp() };
+}
+
+export function clearStoredSmartClip(): void {
+  storedClip = null;
+}
+
 /** The positive rectangle between two pointer positions, or no usable clip. */
 export function clipBounds(
   start: { x: number; y: number },
@@ -35,7 +56,7 @@ export function clipBounds(
     : null;
 }
 
-/** Select part of the current Obsidian window and copy it as a PNG. */
+/** Select part of the current Obsidian window and keep it for FineNotes Paste. */
 export async function startAppSmartClip(): Promise<void> {
   let screenshot: Screenshot;
   try {
@@ -85,7 +106,9 @@ export async function startAppSmartClip(): Promise<void> {
     start = null;
     if (!bounds) return;
     overlay.remove();
-    void copyClip(screenshot, bounds).finally(() => screenshot.release());
+    void copyClip(screenshot, bounds)
+      .catch(() => new Notice("FineNotes: the clip could not be encoded."))
+      .finally(() => screenshot.release());
   });
   overlay.addEventListener("keydown", (event) => {
     if (event.key === "Escape") close();
@@ -154,11 +177,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 async function copyClip(screenshot: Screenshot, bounds: ClipBounds): Promise<void> {
-  const clipboard = navigator.clipboard;
-  if (!clipboard?.write || typeof ClipboardItem === "undefined") {
-    new Notice("FineNotes: this device cannot copy image clips.");
-    return;
-  }
   const scaleX = screenshot.width / window.innerWidth;
   const scaleY = screenshot.height / window.innerHeight;
   const canvas = createEl("canvas");
@@ -175,16 +193,12 @@ async function copyClip(screenshot: Screenshot, bounds: ClipBounds): Promise<voi
     canvas.width,
     canvas.height,
   );
-  const png = new Promise<Blob>((resolve, reject) =>
+  const png = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("PNG encoding failed"))),
       "image/png",
     ),
   );
-  try {
-    await clipboard.write([new ClipboardItem({ "image/png": png })]);
-    new Notice("Smart Clip copied.");
-  } catch {
-    new Notice("FineNotes: the clipboard refused the clip.");
-  }
+  storeSmartClip(png);
+  new Notice("Smart Clip ready. Use Paste in FineNotes to place it.");
 }

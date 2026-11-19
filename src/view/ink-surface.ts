@@ -419,7 +419,8 @@ import {
 } from "./toolbar";
 import { SelectionActionBar, onTap } from "./selection-bar";
 import { FINGER_HOLD_MS, FingerHold } from "../input/finger-hold";
-import { cleanPastedText, inkFirst, pastedTextOrigin } from "./paste-choice";
+import { cleanPastedText, pastedTextOrigin, systemClipboardIsNewer } from "./paste-choice";
+import { storeSmartClip, storedSmartClip } from "./app-smart-clip";
 import {
   canReadSystemClipboard,
   onSystemTextWritten,
@@ -1481,8 +1482,6 @@ export class InkSurface {
   /** The paper and the committed ink, bottom to top: what `snapshotPage` copies. */
   private readonly paneLayers: HTMLCanvasElement[];
   private laserFrame = 0;
-  /** Smart Clip's local fallback while iPad blocks a system clipboard read. */
-  private smartClipFile: File | null = null;
 
   // The lasso (0.5). A selection is strokes, images and text boxes on one
   // page, held by identity and resolved against the live document. One
@@ -2108,7 +2107,6 @@ export class InkSurface {
     // (see `handlePaste`). Idempotent, so every open surface may report it.
     const noteWindowLeft = (): void => {
       clipboard.noteWindowLeft();
-      this.smartClipFile = null;
     };
     const onLeave = (): void => noteWindowLeft();
     const onVisibility = (): void => {
@@ -8727,6 +8725,7 @@ export class InkSurface {
    * is only known once it is, which on iPad asks the user first).
    */
   private canPasteHere(): boolean {
+    if (!this.practice && this.imagesShown && storedSmartClip()) return true;
     if (clipboard.canPaste(this.imagesShown)) return true;
     return !this.practice && canReadSystemClipboard();
   }
@@ -8766,15 +8765,17 @@ export class InkSurface {
   }
 
   private pasteHere(pageId: string, at: Pt): void {
-    if (this.smartClipFile && this.imagesShown && !this.practice) {
-      const index = this.doc.pages.findIndex((page) => page.id === pageId);
-      if (index >= 0)
-        this.callbacks.onPasteImage?.(this.smartClipFile, { pageIndex: index, ...at });
-      return;
-    }
     const ink = clipboard.canPaste(this.imagesShown);
-    if (this.practice || inkFirst(ink, clipboard.leftSinceCopy) || !canReadSystemClipboard()) {
-      if (!this.paste({ pageId, at }) && !ink) new Notice("FineNotes: nothing to paste.");
+    const fineNotesAt = Math.max(clipboard.updatedAt, storedSmartClip()?.updatedAt ?? 0);
+    if (
+      this.practice ||
+      !systemClipboardIsNewer(fineNotesAt, clipboard.systemUpdatedAt) ||
+      !canReadSystemClipboard()
+    ) {
+      const pasted = this.practice
+        ? this.paste({ pageId, at })
+        : this.pasteFineNotes({ pageId, at });
+      if (!pasted && !ink) new Notice("FineNotes: nothing to paste.");
       return;
     }
     void readSystemClipboard().then((found) => {
@@ -8789,13 +8790,30 @@ export class InkSurface {
         this.addPastedText(index, at, found.text);
         return;
       }
-      if (this.paste({ pageId, at })) return;
+      if (this.pasteFineNotes({ pageId, at })) return;
       new Notice(
         found.kind === "unavailable"
           ? "FineNotes: couldn't read the clipboard here."
           : "FineNotes: nothing to paste.",
       );
     });
+  }
+
+  /** Paste whichever FineNotes-owned entry—ink or Smart Clip—was stored last. */
+  private pasteFineNotes(target: { pageId?: string; at?: Pt } = {}): boolean {
+    const clip = storedSmartClip();
+    if (clip && clip.updatedAt > clipboard.updatedAt && this.imagesShown && !this.practice) {
+      const pageId = target.pageId ?? this.pageAt(this.pageIndex)?.id;
+      const pageIndex = pageId
+        ? this.doc.pages.findIndex((page) => page.id === pageId)
+        : this.pageIndex;
+      const paste = this.callbacks.onPasteImage;
+      if (pageIndex < 0 || !paste) return false;
+      const file = new File([clip.blob], "Smart Clip.png", { type: "image/png" });
+      paste(file, target.at ? { pageIndex, ...target.at } : undefined);
+      return true;
+    }
+    return this.paste(target);
   }
 
   /** Text from the system clipboard as a new text box at `at`, selected: one undo step. */
@@ -8996,7 +9014,7 @@ export class InkSurface {
     window.clearTimeout(this.pasteTimer);
     this.pasteTimer = window.setTimeout(() => {
       this.pasteTimer = 0;
-      this.paste();
+      this.pasteFineNotes();
     }, PASTE_EVENT_WAIT_MS);
     return true;
   }
@@ -9024,10 +9042,11 @@ export class InkSurface {
     const text = this.practice
       ? ""
       : cleanPastedText(event.clipboardData?.getData("text/plain") ?? "");
+    const fineNotesAt = Math.max(clipboard.updatedAt, storedSmartClip()?.updatedAt ?? 0);
     const systemFirst =
       (file !== null || text !== "") &&
-      (clipboard.leftSinceCopy || !clipboard.canPaste(this.imagesShown));
-    if (!systemFirst && this.paste()) {
+      (fineNotesAt === 0 || systemClipboardIsNewer(fineNotesAt, clipboard.systemUpdatedAt));
+    if (!systemFirst && this.pasteFineNotes()) {
       event.preventDefault();
       return true;
     }
@@ -11016,15 +11035,7 @@ export class InkSurface {
     const page = this.pageAt(pageIndex);
     const box = this.pageLayout.boxes[pageIndex];
     const snapshot = this.snapshotPage();
-    const clip = typeof navigator !== "undefined" ? navigator.clipboard : undefined;
-    if (
-      !page ||
-      !box ||
-      !snapshot ||
-      !clip ||
-      typeof clip.write !== "function" ||
-      typeof ClipboardItem === "undefined"
-    ) {
+    if (!page || !box || !snapshot) {
       new Notice("FineNotes: this device cannot copy image clips.");
       return;
     }
@@ -11062,18 +11073,12 @@ export class InkSurface {
         "image/png",
       ),
     );
-    void png.then((blob) => {
-      this.smartClipFile = new File([blob], "Smart Clip.png", { type: "image/png" });
-    });
-    png.catch(() => undefined);
-    try {
-      clip
-        .write([new ClipboardItem({ "image/png": png })])
-        .then(() => new Notice("Smart Clip copied. Use Paste to place it."))
-        .catch(() => new Notice("FineNotes: the clipboard refused the clip."));
-    } catch {
-      new Notice("FineNotes: the clipboard refused the clip.");
-    }
+    void png
+      .then((blob) => {
+        storeSmartClip(blob);
+        new Notice("Smart Clip ready. Use Paste in FineNotes to place it.");
+      })
+      .catch(() => new Notice("FineNotes: the clip could not be encoded."));
   }
 
   /**
