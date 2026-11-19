@@ -22,6 +22,7 @@ import {
   paperWidthFrom,
   parseColorList,
   returnToPenOf,
+  smartClipPositionOf,
   sectionOpen,
   shownPaperTheme,
   shownValue,
@@ -139,6 +140,7 @@ const FRESH_INSTALL = {
   hideCompanionAfterSelection: false,
   showScrollControls: true,
   hideObsidianNavigation: false,
+  smartClipPosition: "view-header",
   settingsOpen: [],
   scribbleTipDismissed: false,
 };
@@ -235,6 +237,7 @@ const USED_VAULT = {
   hideCompanionAfterSelection: true,
   showScrollControls: false,
   hideObsidianNavigation: true,
+  smartClipPosition: "both",
   settingsOpen: ["writing", "ai"],
   scribbleTipDismissed: true,
   experimentalFutureFlag: 7,
@@ -291,6 +294,14 @@ describe("data.json", () => {
     const { DEFAULT_SAVED_PENS } = await import("../../src/model/saved-pens");
     expect(DEFAULT_SETTINGS.savedPens).not.toBe(DEFAULT_SAVED_PENS);
     expect(DEFAULT_SETTINGS.savedPens[0]).not.toBe(DEFAULT_SAVED_PENS[0]);
+  });
+});
+
+describe("Smart Clip position", () => {
+  it("keeps valid placements and defaults unknown values to the right-side view header", () => {
+    expect(smartClipPositionOf("status-bar")).toBe("status-bar");
+    expect(smartClipPositionOf("both")).toBe("both");
+    expect(smartClipPositionOf("somewhere")).toBe("view-header");
   });
 });
 

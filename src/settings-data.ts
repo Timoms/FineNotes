@@ -301,6 +301,14 @@ export interface GoodObsidianSettings {
   showScrollControls: boolean;
   /** Hide Obsidian's view navigation/header bar while a FineNotes notebook is open. */
   hideObsidianNavigation: boolean;
+  /** Where the app-wide Smart Clip button appears. */
+  smartClipPosition: SmartClipPosition;
+}
+
+export type SmartClipPosition = "view-header" | "status-bar" | "both";
+
+export function smartClipPositionOf(value: unknown): SmartClipPosition {
+  return value === "status-bar" || value === "both" ? value : "view-header";
 }
 
 // The records are copies, so a host that edits its settings in place cannot
@@ -383,6 +391,7 @@ export const DEFAULT_SETTINGS: GoodObsidianSettings = {
   hideCompanionAfterSelection: false,
   showScrollControls: true,
   hideObsidianNavigation: false,
+  smartClipPosition: "view-header",
 
   settingsOpen: [],
   scribbleTipDismissed: false,

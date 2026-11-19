@@ -341,6 +341,41 @@ describe("New notebook explorer bar integration", () => {
   });
 });
 
+describe("Smart Clip view-header integration", () => {
+  it("adds the action to a native view header before its ellipsis", async () => {
+    await load();
+    const more = {};
+    const button = {
+      className: "",
+      type: "",
+      setAttribute: vi.fn(),
+      addEventListener: vi.fn(),
+      remove: vi.fn(),
+    };
+    let current: typeof button | null = null;
+    const actions = {
+      querySelector(selector: string) {
+        if (selector === ".finenotes-x-smart-clip-action") return current;
+        return { closest: () => more };
+      },
+      insertBefore(node: typeof button, before: unknown) {
+        current = node;
+        expect(before).toBe(more);
+      },
+    };
+    vi.stubGlobal("document", {
+      querySelectorAll: () => [actions],
+      createElement: () => button,
+    });
+
+    await plugin.setSmartClipPosition("view-header");
+
+    expect(button.className).toContain("finenotes-x-smart-clip-action");
+    expect(button.setAttribute).toHaveBeenCalledWith("aria-label", "Smart Clip");
+    expect(button.addEventListener).toHaveBeenCalledWith("click", expect.any(Function));
+  });
+});
+
 describe("New notebook context menu", () => {
   function menuFor(file: TFile | TFolder, source = "file-explorer-context-menu") {
     const items: Array<{ title: string; icon: string; section: string; click: () => void }> = [];
@@ -477,6 +512,7 @@ describe("registration", () => {
     expect(registered.ribbon.map((r) => r.icon)).toEqual(["notebook-pen"]);
     expect(registered.ribbon[0].title).toBe("New notebook");
     expect(registered.statusBar).toHaveLength(1);
+    expect(registered.statusBar[0].hidden).toBe(true);
     // The import icon is FineNotes' own, so it must be registered before use.
     expect(addedIcons.has("finenotes-x-notebook-import")).toBe(true);
     expect([...registered.protocolHandlers.keys()].sort()).toEqual([

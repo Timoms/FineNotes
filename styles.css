@@ -15733,6 +15733,12 @@ button.finenotes-x-strip-tile {
 .finenotes-x-status-smart-clip {
   cursor: pointer;
 }
+body.is-mobile .finenotes-x-smart-clip-action {
+  display: flex !important;
+  visibility: visible !important;
+  flex: 0 0 auto;
+  opacity: 1 !important;
+}
 .finenotes-x-app-clip {
   position: fixed;
   z-index: 100000;

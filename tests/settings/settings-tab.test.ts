@@ -240,6 +240,11 @@ function makePlugin(overrides: Partial<Settings> = {}, keys: Record<string, stri
       calls.push(`scrollControls:${show}`);
       return Promise.resolve();
     }),
+    setSmartClipPosition: vi.fn((position: Settings["smartClipPosition"]) => {
+      settings.smartClipPosition = position;
+      calls.push(`smartClip:${position}`);
+      return Promise.resolve();
+    }),
     refreshToolOptions: vi.fn(() => calls.push("refreshToolOptions")),
   };
   return plugin;
@@ -1470,6 +1475,7 @@ describe("settings sections", () => {
       "Select",
       "Pen",
       "Standard eraser",
+      "Smart Clip",
       "Text box",
       "Shapes",
       "Stickers",
@@ -1720,5 +1726,15 @@ describe("scroll crosshair setting", () => {
     await tab.setControlValue("showScrollControls", false);
     expect(plugin.setShowScrollControls).toHaveBeenCalledWith(false);
     expect(plugin.settings.showScrollControls).toBe(false);
+  });
+});
+
+describe("Smart Clip setting", () => {
+  it("moves the app-wide button through the plugin so open notebooks update", async () => {
+    const plugin = makePlugin();
+    const { tab } = makeTab(plugin);
+    await tab.setControlValue("smartClipPosition", "both");
+    expect(plugin.setSmartClipPosition).toHaveBeenCalledWith("both");
+    expect(plugin.settings.smartClipPosition).toBe("both");
   });
 });

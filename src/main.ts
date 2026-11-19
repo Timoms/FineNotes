@@ -46,7 +46,12 @@ import {
   VIEW_TYPE_INK,
 } from "./constants";
 import { DEFAULT_SETTINGS, GoodObsidianSettingTab, type GoodObsidianSettings } from "./settings";
-import { type PageAppearance, shownPaperTheme } from "./settings-data";
+import {
+  type PageAppearance,
+  type SmartClipPosition,
+  shownPaperTheme,
+  smartClipPositionOf,
+} from "./settings-data";
 import { type PenCursorStyle, penCursorStyleOf } from "./view/pen-cursor";
 import { buildInkFile, parseInkFile } from "./model/serialize";
 import {
@@ -212,6 +217,7 @@ export interface RecognitionTarget {
 type OpenRouterOutcome = { key: string } | { problem: string };
 
 export default class GoodObsidianPlugin extends Plugin {
+  private smartClipStatusButton: HTMLElement | null = null;
   private readonly explorerNotebookButton = new FileExplorerNotebookButton(() =>
     this.openNewNotebookDialog(),
   );
@@ -499,11 +505,21 @@ export default class GoodObsidianPlugin extends Plugin {
     this.register(() => this.explorerNotebookButton.destroy());
     this.register(() => this.explorerFolderNotebooks.destroy());
     this.registerEvent(
-      this.app.workspace.on("layout-change", () => this.syncExplorerNotebookButton()),
+      this.app.workspace.on("layout-change", () => {
+        this.syncExplorerNotebookButton();
+        this.syncSmartClipPosition();
+      }),
     );
-    this.app.workspace.onLayoutReady(() => this.syncExplorerNotebookButton());
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", () => this.syncSmartClipPosition()),
+    );
+    this.app.workspace.onLayoutReady(() => {
+      this.syncExplorerNotebookButton();
+      this.syncSmartClipPosition();
+    });
     this.addRibbonIcon(ICON_NEW_NOTEBOOK, "New notebook", () => this.openNewNotebookDialog());
     const smartClip = this.addStatusBarItem();
+    this.smartClipStatusButton = smartClip;
     smartClip.addClass("clickable-icon", "finenotes-x-status-smart-clip");
     smartClip.setAttribute("aria-label", "Smart Clip");
     smartClip.setAttribute("title", "Smart Clip");
@@ -514,6 +530,7 @@ export default class GoodObsidianPlugin extends Plugin {
     this.registerDomEvent(smartClip, "keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") void startAppSmartClip();
     });
+    this.syncSmartClipPosition();
     this.addCommands();
 
     this.settingTab = new GoodObsidianSettingTab(this.app, this);
@@ -762,6 +779,7 @@ export default class GoodObsidianPlugin extends Plugin {
     this.settings.savedPens = savedPensOf(this.settings.savedPens);
     // "Crosshair cursor" was a toggle until FineNotes#27: on is now the ink dot.
     this.settings.penCursor = penCursorStyleOf(this.settings.penCursor);
+    this.settings.smartClipPosition = smartClipPositionOf(this.settings.smartClipPosition);
     // Settings found under the old id are written to this id's folder at
     // once, so the carry-over happens exactly one time.
     if (own === null && saved !== null) await this.saveSettings();
@@ -1115,6 +1133,40 @@ export default class GoodObsidianPlugin extends Plugin {
     this.settings.showScrollControls = show;
     await this.saveSettings();
     for (const view of this.openNotebooks()) view.setShowScrollControls(show);
+  }
+
+  async setSmartClipPosition(position: SmartClipPosition): Promise<void> {
+    this.settings.smartClipPosition = position;
+    await this.saveSettings();
+    this.syncSmartClipPosition();
+  }
+
+  private syncSmartClipPosition(): void {
+    const position = this.settings.smartClipPosition;
+    if (this.smartClipStatusButton)
+      this.smartClipStatusButton.hidden = position === "view-header";
+    if (typeof document === "undefined") return;
+    const shown = position === "view-header" || position === "both";
+    document.querySelectorAll<HTMLElement>(".workspace-leaf .view-actions").forEach((actions) => {
+      let button = actions.querySelector<HTMLButtonElement>(".finenotes-x-smart-clip-action");
+      if (!shown) {
+        button?.remove();
+        return;
+      }
+      if (!button) {
+        button = document.createElement("button");
+        button.className = "clickable-icon view-action finenotes-x-smart-clip-action";
+        button.type = "button";
+        button.setAttribute("aria-label", "Smart Clip");
+        button.setAttribute("title", "Smart Clip");
+        setIcon(button, "camera");
+        button.addEventListener("click", () => void startAppSmartClip());
+      }
+      const more = actions
+        .querySelector(".lucide-more-horizontal, .lucide-more-vertical, .lucide-ellipsis")
+        ?.closest(".view-action");
+      actions.insertBefore(button, more ?? null);
+    });
   }
 
   /** Persist the main toolbar order and apply it to every open notebook. */

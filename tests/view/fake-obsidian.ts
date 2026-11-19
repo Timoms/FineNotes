@@ -132,6 +132,7 @@ export class Plugin extends Component {
 
   addStatusBarItem(): HTMLElement {
     const item = {
+      hidden: false,
       tabIndex: -1,
       addClass: (): void => undefined,
       setAttribute: (): void => undefined,

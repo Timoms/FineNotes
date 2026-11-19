@@ -94,6 +94,7 @@ import {
   paperWidthFrom,
   parseColorList,
   returnToPenOf,
+  smartClipPositionOf,
   shownValue,
   storeAppearanceChoice,
   storeReturnToPen,
@@ -992,6 +993,14 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
           ];
         case "ai":
           return [dropdown("llmVendor", "AI service", "", VENDOR_LABELS)];
+        case "smart-clip":
+          return [
+            dropdown("smartClipPosition", "Button position", "", {
+              "view-header": "View header (right)",
+              "status-bar": "Status bar",
+              both: "Both",
+            }),
+          ];
         default:
           return [];
       }
@@ -1020,6 +1029,10 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
   }
 
   private async storeControlValue(key: string, value: unknown): Promise<void> {
+    if (key === "smartClipPosition") {
+      await this.plugin.setSmartClipPosition(smartClipPositionOf(value));
+      return;
+    }
     if (key === "hideObsidianNavigation") {
       this.plugin.settings.hideObsidianNavigation = value === true;
       if (typeof document !== "undefined")
