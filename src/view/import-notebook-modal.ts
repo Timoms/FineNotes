@@ -319,9 +319,18 @@ export class ImportNotebookModal extends Modal {
           const bytes = new Uint8Array(await picked.read());
           if (isPdf(bytes)) {
             // A PDF needs pdf.js to read its pages and ink, so it is read here.
-            one = await importPdf(bytes, picked.name);
-            for (const result of one.results) {
-              written.push({ result, file: await this.save(result) });
+            const converted = await importPdf(bytes, picked.name);
+            one = { results: [], failures: [...converted.failures] };
+            for (const result of converted.results) {
+              try {
+                written.push({ result, file: await this.save(result) });
+                one.results.push(result);
+              } catch (error) {
+                one.failures.push({
+                  name: result.title,
+                  reason: `It could not be saved (${errorMessage(error)}).`,
+                });
+              }
             }
           } else {
             // Each notebook is saved, and its files let go, before the next is read.
@@ -372,30 +381,49 @@ export class ImportNotebookModal extends Modal {
     const notePath = normalizePath(joinVaultPath(paths.folder, paths.fileName));
     if (paths.attachments) result.doc.folders = { ...paths.attachments };
 
-    const saved = new Map<string, string>();
-    for (const attachment of result.attachments) {
-      const dot = attachment.name.lastIndexOf(".");
-      const ext = dot > 0 ? attachment.name.slice(dot + 1) : "bin";
-      const bytes = ownBuffer(attachment.bytes);
-      const file = await saveImageAttachment(
-        this.app,
-        { bytes, mime: attachment.mime, ext, width: 0, height: 0 },
-        attachment.name,
-        notePath,
-        paths.attachments?.images,
-      );
-      saved.set(attachment.name, file.path);
-    }
-    relinkAttachments(result.doc, saved);
+    const created: TFile[] = [];
+    try {
+      const saved = new Map<string, string>();
+      for (const attachment of result.attachments) {
+        const dot = attachment.name.lastIndexOf(".");
+        const ext = dot > 0 ? attachment.name.slice(dot + 1) : "bin";
+        const bytes = ownBuffer(attachment.bytes);
+        const file = await saveImageAttachment(
+          this.app,
+          { bytes, mime: attachment.mime, ext, width: 0, height: 0 },
+          attachment.name,
+          notePath,
+          paths.attachments?.images,
+        );
+        created.push(file);
+        saved.set(attachment.name, file.path);
+      }
+      relinkAttachments(result.doc, saved);
 
-    const heading = cleanTitle(result.title) || stripInkSuffix(paths.fileName);
-    const body = withPageText(
-      newNoteBody(heading, new Date().toISOString()),
-      result.doc,
-      result.pageText,
-    );
-    const content = buildInkFile(body, result.doc);
-    return vault.create(notePath, content);
+      const heading = cleanTitle(result.title) || stripInkSuffix(paths.fileName);
+      const body = withPageText(
+        newNoteBody(heading, new Date().toISOString()),
+        result.doc,
+        result.pageText,
+      );
+      const content = buildInkFile(body, result.doc);
+      return await vault.create(notePath, content);
+    } catch (error) {
+      const cleanupErrors: string[] = [];
+      for (const file of created.reverse()) {
+        try {
+          await this.app.fileManager.trashFile(file);
+        } catch (cleanupError) {
+          cleanupErrors.push(errorMessage(cleanupError));
+        }
+      }
+      if (cleanupErrors.length > 0) {
+        throw new Error(
+          `${errorMessage(error)} Cleanup also failed (${cleanupErrors.join("; ")}).`,
+        );
+      }
+      throw error;
+    }
   }
 
   // --- Step 3: what came over ----------------------------------------------------
