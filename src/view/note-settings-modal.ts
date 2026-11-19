@@ -18,11 +18,12 @@
  * The text fields follow the iPad keyboard (`DialogKeyboard`).
  */
 
-import { type App, type EventRef, Modal, Setting, setIcon } from "obsidian";
+import { type App, type EventRef, Modal, Notice, Setting, setIcon } from "obsidian";
 import type { ScrollDirection } from "../model/document";
 import type { NotebookFurniture } from "../model/furniture";
 import { formatFileSize } from "../model/notebook-info";
 import { DialogKeyboard } from "./dialog-keyboard";
+import { errorMessage } from "../util/errors";
 
 /** What the summary card shows. */
 export interface NotebookInfo {
@@ -168,7 +169,15 @@ export class NoteSettingsModal extends Modal {
         fit();
         return;
       }
-      void this.host.rename(value).then(() => this.render());
+      void this.host.rename(value).then(
+        () => this.render(),
+        (error: unknown) => {
+          field.value = this.host.info().name;
+          fit();
+          const noun = this.host.single ? "page" : "notebook";
+          new Notice(`FineNotes: could not rename the ${noun} — ${errorMessage(error)}`, 8000);
+        },
+      );
     });
     field.addEventListener("keydown", (event) => {
       if (event.key === "Enter") field.blur();

@@ -832,6 +832,44 @@ describe("loading settings", () => {
     expect((plugin.settings as unknown as Record<string, unknown>).futureSetting).toBe(42);
   });
 
+  it("keeps rapid settings writes in order", async () => {
+    await load();
+    const pending: Array<{ value: number; resolve: () => void }> = [];
+    (plugin as unknown as { saveData: (data: unknown) => Promise<void> }).saveData = (data) =>
+      new Promise<void>((resolve) => {
+        const settings = data as { defaultSize: number };
+        pending.push({ value: settings.defaultSize, resolve });
+      });
+
+    plugin.settings.defaultSize = 4;
+    const first = plugin.saveSettings();
+    await Promise.resolve();
+    plugin.settings.defaultSize = 9;
+    const second = plugin.saveSettings();
+    await Promise.resolve();
+
+    expect(pending.map((write) => write.value)).toEqual([9]);
+    pending[0].resolve();
+    await first;
+    await Promise.resolve();
+    expect(pending.map((write) => write.value)).toEqual([9, 9]);
+    pending[1].resolve();
+    await second;
+  });
+
+  it("allows a later settings save after one write fails", async () => {
+    await load();
+    let attempts = 0;
+    (plugin as unknown as { saveData: () => Promise<void> }).saveData = () => {
+      attempts++;
+      return attempts === 1 ? Promise.reject(new Error("Disk busy")) : Promise.resolve();
+    };
+
+    await expect(plugin.saveSettings()).rejects.toThrow("Disk busy");
+    await expect(plugin.saveSettings()).resolves.toBeUndefined();
+    expect(attempts).toBe(2);
+  });
+
   it("keeps a saved key record, and replaces one that is not a record", async () => {
     await load({ apiKeys: { openai: "sk-1" } }, VERSION, false);
     expect(plugin.settings.apiKeys).toEqual({ openai: "sk-1" });

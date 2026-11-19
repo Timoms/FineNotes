@@ -240,6 +240,8 @@ export default class GoodObsidianPlugin extends Plugin {
   }
 
   override settings!: GoodObsidianSettings;
+  /** Settings writes stay ordered even when controls save without awaiting. */
+  private settingsSave: Promise<void> = Promise.resolve();
   /** `![[Notebook#page=3]]` previews in notes; repainted when the page appearance changes. */
   private pageEmbeds: PageEmbeds | null = null;
   /** Transcription engines by id. Manual always; the cloud one is added on load. */
@@ -836,7 +838,9 @@ export default class GoodObsidianPlugin extends Plugin {
   }
 
   async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+    const save = this.settingsSave.catch(() => undefined).then(() => this.saveData(this.settings));
+    this.settingsSave = save;
+    await save;
     this.syncExplorerNotebookButton();
   }
 
