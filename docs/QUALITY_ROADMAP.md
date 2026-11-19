@@ -1,0 +1,42 @@
+# FineNotes X quality roadmap
+
+19 November 2026. Audit-only plan; no application fixes are included in this change. Each batch is one reviewable change with its own tests. Keep existing notebook bytes, schema compatibility, and user-authored Markdown intact. Complete the earlier batch before starting the next unless a blocker makes a later batch independent.
+
+| Order | Status      | Batch                    | Findings                   | Scope and acceptance                                                                                                                                                                                                                                                                                             |
+| ----- | ----------- | ------------------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | In progress | Import rollback safety   | QA-01                      | Reproduce late vault-write failure and make an unsuccessful import leave no new orphan files. Add injected-failure tests. Confirm an older notebook imports with all of its attachments intact.                                                                                                                  |
+| 2     | Pending     | Export memory            | QA-02                      | Measure 200-page export peak on iPad; stream or bound encoded PDF output without changing page order or file readability. Add a scale check and validate the exported file in a PDF reader.                                                                                                                      |
+| 3     | Pending     | Save and rename feedback | QA-03, QA-04               | Reproduce delayed settings writes; serialize if needed. Handle rejected notebook rename and restore the field. Test fast setting edits and failed rename, then reopen the plugin to confirm persistence.                                                                                                         |
+| 4     | Pending     | Release gate             | QA-11, QA-12               | Fix current Obsidian review lint findings, format drift, and the fork deployment path. Run lint, review lint, format check, typecheck, full tests, and build in a temporary deploy target.                                                                                                                       |
+| 5     | Pending     | Interaction consistency  | QA-05, QA-06, QA-07, QA-08 | Consolidate effective CSS rules, reduce More scanning cost, normalize menu/dialog feedback and keyboard movement, and enlarge compact hit boxes. Keep the present visual identity. Review screenshots in light, dark, and a custom accent at desktop, iPad, and phone widths; check keyboard and touch journeys. |
+
+## Follow-on maintainability batch
+
+After the above behavior is stable, address QA-09 and QA-10 one responsibility at a time. First add missing adapter tests and repair the welcome-sticker mock. Then extract a single cohesive area from `ink-surface.ts` or `toolbar.ts`, using existing helpers and preserving cleanup. Avoid a rewrite, new framework, or notebook-format change. A human reviewer should be able to understand each extraction in one pull request.
+
+## Manual journey checklist for batches 1–5
+
+1. Open an existing notebook, draw and erase, undo and redo, close, reopen, and confirm the ink and page position persist.
+2. Select, copy, paste, move, and delete across pages; verify every destructive action is undoable or explicitly confirmed.
+3. Import a PDF and an archive with image and PDF attachments; force a failed write and verify no source or existing vault file changed.
+4. Export selected and all pages, including a PDF backdrop and a long image notebook; open the output and verify page order and annotations.
+5. Change notebook and global settings, navigate More and dialogs by touch and keyboard, restart Obsidian, and verify feedback and persistence.
+
+Record the exact build, Obsidian version, device, theme, input method, screenshots, and observed errors for each manual run. Do not mark a mobile or hardware journey complete from source inspection alone.
+
+## Implementation log
+
+| Finding | Status      | Files changed | Implementation | Tests | Commit | Remaining limitations                                                          |
+| ------- | ----------- | ------------- | -------------- | ----- | ------ | ------------------------------------------------------------------------------ |
+| QA-01   | In progress | —             | —              | —     | —      | Failure injection and rollback behavior still need implementation.             |
+| QA-02   | Pending     | —             | —              | —     | —      | Requires a bounded-memory design and physical iPad measurement.                |
+| QA-03   | Pending     | —             | —              | —     | —      | The suspected write-order race must be reproduced before changing persistence. |
+| QA-04   | Pending     | —             | —              | —     | —      | Rename rejection behavior needs a regression test.                             |
+| QA-05   | Pending     | —             | —              | —     | —      | Requires desktop UI verification and mobile review.                            |
+| QA-06   | Pending     | —             | —              | —     | —      | Requires light, dark, and custom-accent visual review.                         |
+| QA-07   | Pending     | —             | —              | —     | —      | Requires physical touch verification.                                          |
+| QA-08   | Pending     | —             | —              | —     | —      | Requires keyboard, VoiceOver, and touch verification.                          |
+| QA-09   | Pending     | —             | —              | —     | —      | Only incremental extractions are allowed; no major component replacement.      |
+| QA-10   | Pending     | —             | —              | —     | —      | Adapter coverage and manual device evidence remain incomplete.                 |
+| QA-11   | Pending     | —             | —              | —     | —      | Current review lint and formatting failures remain.                            |
+| QA-12   | Pending     | —             | —              | —     | —      | Documentation correction remains.                                              |
