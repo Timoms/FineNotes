@@ -4,6 +4,7 @@ import {
   EXPORT_MAX_PIXELS,
   EXPORT_PIXEL_SCALE,
   POINTS_PER_PAGE_PX,
+  PdfImageWriter,
   type PdfImagePage,
   buildImagePdf,
   exportPixelScale,
@@ -123,6 +124,23 @@ describe("buildImagePdf", () => {
       /Page 2/,
     );
     expect(() => buildImagePdf([{ ...page(100, 100), pixelHeight: Number.NaN }])).toThrow();
+  });
+
+  it("writes the same bytes one page at a time", () => {
+    const pages = [page(1024, 1448, 1), page(1448, 1024, 2), page(1024, 1448, 3)];
+    const meta = { title: "Biology", created: new Date(Date.UTC(2026, 8, 24, 13, 5, 9)) };
+    const writer = new PdfImageWriter(pages.length, meta);
+    const chunks = [...writer.start()];
+    for (const item of pages) chunks.push(...writer.addPage(item));
+    chunks.push(...writer.finish());
+    const streamed = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.length, 0));
+    let at = 0;
+    for (const chunk of chunks) {
+      streamed.set(chunk, at);
+      at += chunk.length;
+    }
+
+    expect(streamed).toEqual(buildImagePdf(pages, meta));
   });
 });
 

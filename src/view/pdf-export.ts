@@ -19,6 +19,7 @@ import { renderPageThumbnail } from "../canvas/renderer";
 import type { PageTexts } from "../model/furniture";
 import {
   POINTS_PER_PAGE_PX,
+  PdfImageWriter,
   type PdfImagePage,
   buildImagePdf,
   exportPixelScale,
@@ -81,6 +82,48 @@ export async function exportPagesToPdf(
   options.onProgress?.(pages.length, pages.length);
   if (composer) return composer.save();
   return buildImagePdf(out, { title: options.title, created: new Date() });
+}
+
+/**
+ * Render ordinary pages into a PDF sink one page at a time. The caller can
+ * append each chunk to a vault file, so encoded pages do not accumulate in
+ * JavaScript memory. PDF backdrops use {@link exportPagesToPdf} instead to
+ * preserve their source vectors.
+ */
+export async function writePagesToPdf(
+  pages: readonly Page[],
+  sources: PdfExportSources,
+  options: PdfExportOptions,
+  write: (chunk: Uint8Array) => Promise<void>,
+): Promise<void> {
+  if (pages.some((page) => page.backdrop.kind === "pdf")) {
+    throw new Error("PDF backdrops require the PDF composer");
+  }
+  const writer = new PdfImageWriter(pages.length, {
+    title: options.title,
+    created: new Date(),
+  });
+  await write(joinChunks(writer.start()));
+  for (const [i, page] of pages.entries()) {
+    if (options.cancelled?.()) throw new DOMException("Export cancelled", "AbortError");
+    options.onProgress?.(i, pages.length);
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await write(joinChunks(writer.addPage(await renderPageJpeg(page, sources))));
+  }
+  if (options.cancelled?.()) throw new DOMException("Export cancelled", "AbortError");
+  options.onProgress?.(pages.length, pages.length);
+  await write(joinChunks(writer.finish()));
+}
+
+/** Join one page's PDF syntax and JPEG while only that page is resident. */
+function joinChunks(chunks: readonly Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.length, 0));
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.length;
+  }
+  return out;
 }
 
 /** One page as a JPEG, sized for print, with its size in points. */

@@ -12,7 +12,7 @@ vi.mock("../../src/canvas/renderer", () => ({
   }),
 }));
 const { renderPageThumbnail } = await import("../../src/canvas/renderer");
-const { exportPagesToPdf } = await import("../../src/view/pdf-export");
+const { exportPagesToPdf, writePagesToPdf } = await import("../../src/view/pdf-export");
 const jpg = readFileSync(new URL("../export/fixtures/white.jpg", import.meta.url));
 const png = Uint8Array.from(
   Buffer.from(
@@ -101,6 +101,22 @@ describe("existing PDF export integration", () => {
     const bytes = await exportPagesToPdf([blankPage("p1")], sources, { title: "Plain" });
     expect(Buffer.from(bytes.subarray(0, 8)).toString()).toBe("%PDF-1.4");
     expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
+  });
+  it("streams a 200-page ordinary notebook as independently writable chunks", async () => {
+    const chunks: Uint8Array[] = [];
+    const pages = Array.from({ length: 200 }, (_, index) => blankPage(`p${index + 1}`));
+    await writePagesToPdf(pages, sources, { title: "Long notebook" }, async (chunk) => {
+      chunks.push(chunk);
+    });
+
+    expect(chunks).toHaveLength(202);
+    const bytes = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.length, 0));
+    let at = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, at);
+      at += chunk.length;
+    }
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(200);
   });
   it("stops on missing PDF sources rather than exporting a placeholder", async () => {
     await expect(

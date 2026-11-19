@@ -63,46 +63,82 @@ export function exportPixelScale(width: number, height: number): number {
  * produce a file readers reject.
  */
 export function buildImagePdf(pages: readonly PdfImagePage[], meta: PdfMetadata = {}): Uint8Array {
-  if (pages.length === 0) throw new Error("A PDF needs at least one page");
-  for (const [i, page] of pages.entries()) {
-    const sizes = [page.pixelWidth, page.pixelHeight, page.widthPt, page.heightPt];
-    if (!sizes.every((n) => Number.isFinite(n) && n > 0)) {
-      throw new Error(`Page ${i + 1} has no size`);
+  const writer = new PdfImageWriter(pages.length, meta);
+  const out = new ByteSink();
+  for (const chunk of writer.start()) out.bytes(chunk);
+  for (const page of pages) {
+    for (const chunk of writer.addPage(page)) out.bytes(chunk);
+  }
+  for (const chunk of writer.finish()) out.bytes(chunk);
+  return out.finish();
+}
+
+/**
+ * Stateful form of {@link buildImagePdf}: each page can be written and
+ * released before the next is rendered. It retains only xref offsets.
+ */
+export class PdfImageWriter {
+  private readonly offsets: number[] = [];
+  private length = 0;
+  private nextPage = 0;
+  private started = false;
+  private finished = false;
+
+  constructor(
+    private readonly pageCount: number,
+    private readonly meta: PdfMetadata = {},
+  ) {}
+
+  start(): readonly Uint8Array[] {
+    if (this.started) throw new Error("The PDF writer has already started");
+    if (!Number.isSafeInteger(this.pageCount) || this.pageCount < 1) {
+      throw new Error("A PDF needs at least one page");
     }
+    this.started = true;
+    const out = new ByteSink();
+    // The binary comment line tells transfer tools the file is not text.
+    out.bytes(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a]));
+    out.bytes(new Uint8Array([0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a]));
+
+    const begin = (n: number): void => {
+      this.offsets[n] = this.length + out.length;
+      out.text(`${n} 0 obj\n`);
+    };
+    const end = (): void => out.text("endobj\n");
+
+    begin(1);
+    out.text("<< /Type /Catalog /Pages 2 0 R >>\n");
+    end();
+
+    begin(2);
+    const kids = Array.from({ length: this.pageCount }, (_, i) => `${pageObject(i)} 0 R`).join(" ");
+    out.text(`<< /Type /Pages /Kids [${kids}] /Count ${this.pageCount} >>\n`);
+    end();
+
+    begin(3);
+    const info = [`/Producer ${pdfString(PRODUCER)}`];
+    if (this.meta.title) info.push(`/Title ${pdfString(this.meta.title)}`);
+    if (this.meta.created) info.push(`/CreationDate ${pdfString(pdfDate(this.meta.created))}`);
+    out.text(`<< ${info.join(" ")} >>\n`);
+    end();
+    return [this.take(out)];
   }
 
-  const out = new ByteSink();
-  // The binary comment line tells transfer tools the file is not text.
-  out.bytes(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a])); // %PDF-1.4\n
-  out.bytes(new Uint8Array([0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a]));
+  addPage(page: PdfImagePage): readonly Uint8Array[] {
+    if (!this.started || this.finished) throw new Error("The PDF writer is not open");
+    if (this.nextPage >= this.pageCount) throw new Error("The PDF has too many pages");
+    const sizes = [page.pixelWidth, page.pixelHeight, page.widthPt, page.heightPt];
+    if (!sizes.every((n) => Number.isFinite(n) && n > 0)) {
+      throw new Error(`Page ${this.nextPage + 1} has no size`);
+    }
 
-  // Object numbers: 1 catalog, 2 page tree, 3 info, then three per page.
-  const pageObj = (i: number): number => 4 + i * 3;
-  const offsets: number[] = [];
-  const begin = (n: number): void => {
-    offsets[n] = out.length;
-    out.text(`${n} 0 obj\n`);
-  };
-  const end = (): void => out.text("endobj\n");
-
-  begin(1);
-  out.text("<< /Type /Catalog /Pages 2 0 R >>\n");
-  end();
-
-  begin(2);
-  const kids = pages.map((_, i) => `${pageObj(i)} 0 R`).join(" ");
-  out.text(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>\n`);
-  end();
-
-  begin(3);
-  const info = [`/Producer ${pdfString(PRODUCER)}`];
-  if (meta.title) info.push(`/Title ${pdfString(meta.title)}`);
-  if (meta.created) info.push(`/CreationDate ${pdfString(pdfDate(meta.created))}`);
-  out.text(`<< ${info.join(" ")} >>\n`);
-  end();
-
-  pages.forEach((page, i) => {
-    const n = pageObj(i);
+    const out = new ByteSink();
+    const begin = (n: number): void => {
+      this.offsets[n] = this.length + out.length;
+      out.text(`${n} 0 obj\n`);
+    };
+    const end = (): void => out.text("endobj\n");
+    const n = pageObject(this.nextPage);
     const w = num(page.widthPt);
     const h = num(page.heightPt);
 
@@ -113,7 +149,6 @@ export function buildImagePdf(pages: readonly PdfImagePage[], meta: PdfMetadata 
     );
     end();
 
-    // Scale the unit square the image occupies up to the whole page.
     const content = `q ${w} 0 0 ${h} 0 0 cm /Im0 Do Q\n`;
     begin(n + 1);
     out.text(`<< /Length ${content.length} >>\nstream\n${content}endstream\n`);
@@ -125,19 +160,47 @@ export function buildImagePdf(pages: readonly PdfImagePage[], meta: PdfMetadata 
         `/Height ${Math.round(page.pixelHeight)} /ColorSpace /DeviceRGB ` +
         `/BitsPerComponent 8 /Filter /DCTDecode /Length ${page.jpeg.length} >>\nstream\n`,
     );
-    out.bytes(page.jpeg);
-    out.text("\nendstream\n");
-    end();
-  });
-
-  const count = pageObj(pages.length);
-  const xref = out.length;
-  out.text(`xref\n0 ${count}\n0000000000 65535 f \n`);
-  for (let n = 1; n < count; n++) {
-    out.text(`${String(offsets[n]).padStart(10, "0")} 00000 n \n`);
+    const head = this.take(out);
+    const tail = textBytes("\nendstream\nendobj\n");
+    this.length += page.jpeg.length + tail.length;
+    this.nextPage++;
+    return [head, page.jpeg, tail];
   }
-  out.text(`trailer\n<< /Size ${count} /Root 1 0 R /Info 3 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
-  return out.finish();
+
+  finish(): readonly Uint8Array[] {
+    if (!this.started || this.finished) throw new Error("The PDF writer is not open");
+    if (this.nextPage !== this.pageCount) throw new Error("The PDF has too few pages");
+    this.finished = true;
+    const out = new ByteSink();
+    const count = pageObject(this.pageCount);
+    const xref = this.length;
+    out.text(`xref\n0 ${count}\n0000000000 65535 f \n`);
+    for (let n = 1; n < count; n++) {
+      out.text(`${String(this.offsets[n]).padStart(10, "0")} 00000 n \n`);
+    }
+    out.text(
+      `trailer\n<< /Size ${count} /Root 1 0 R /Info 3 0 R >>\n` + `startxref\n${xref}\n%%EOF\n`,
+    );
+    return [this.take(out)];
+  }
+
+  private take(out: ByteSink): Uint8Array {
+    const chunk = out.finish();
+    this.length += chunk.length;
+    return chunk;
+  }
+}
+
+/** Object number of page `i`; three objects belong to each page. */
+function pageObject(i: number): number {
+  return 4 + i * 3;
+}
+
+/** ASCII bytes used by PDF syntax. */
+function textBytes(value: string): Uint8Array {
+  const bytes = new Uint8Array(value.length);
+  for (let i = 0; i < value.length; i++) bytes[i] = value.charCodeAt(i) & 0xff;
+  return bytes;
 }
 
 /**
@@ -176,9 +239,7 @@ class ByteSink {
   length = 0;
 
   text(value: string): void {
-    const bytes = new Uint8Array(value.length);
-    for (let i = 0; i < value.length; i++) bytes[i] = value.charCodeAt(i) & 0xff;
-    this.bytes(bytes);
+    this.bytes(textBytes(value));
   }
 
   bytes(value: Uint8Array): void {

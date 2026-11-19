@@ -281,7 +281,12 @@ import {
   transcriptSidecarPath,
 } from "../search/notebook-search";
 import { pageLinkLabel } from "./page-embed-model";
-import { type PdfExportSources, exportPagesToPdf, paintPagePreview } from "./pdf-export";
+import {
+  type PdfExportSources,
+  exportPagesToPdf,
+  paintPagePreview,
+  writePagesToPdf,
+} from "./pdf-export";
 import { exportBaseName } from "../export/page-range";
 import { normalizeFolder, stripInkSuffix, uniqueFileName } from "../model/new-notebook";
 import { TEMPLATE_EXTENSION, buildTemplatePackage } from "../import/template-package";
@@ -3589,11 +3594,69 @@ export class InkView extends TextFileView {
       fileNameFor: (pages) =>
         uniqueFileName(exportBaseName(note.basename, pages, total), ".pdf", taken()),
       export: async (pages, onProgress, cancelled) => {
-        const bytes = await exportPagesToPdf(
-          pages.map((i) => doc.pages[i]),
-          sources,
-          { title: stripInkSuffix(note.basename), onProgress, cancelled },
-        );
+        const selected = pages.map((i) => doc.pages[i]);
+        if (selected.every((page) => page.backdrop.kind !== "pdf")) {
+          if (exports !== undefined && !this.app.vault.getFolderByPath(exports)) {
+            try {
+              await this.app.vault.createFolder(exports);
+            } catch {
+              // Created meanwhile.
+            }
+          }
+          const partialName = uniqueFileName(
+            `${exportBaseName(note.basename, pages, total)} export`,
+            ".partial",
+            taken(),
+          );
+          const partialPath = normalizePath(folder ? `${folder}/${partialName}` : partialName);
+          let file: TFile | null = null;
+          try {
+            await writePagesToPdf(
+              selected,
+              sources,
+              { title: stripInkSuffix(note.basename), onProgress, cancelled },
+              async (chunk) => {
+                const buffer =
+                  chunk.byteOffset === 0 &&
+                  chunk.byteLength === chunk.buffer.byteLength &&
+                  chunk.buffer instanceof ArrayBuffer
+                    ? chunk.buffer
+                    : chunk.slice().buffer;
+                if (file) await this.app.vault.appendBinary(file, buffer);
+                else file = await this.app.vault.createBinary(partialPath, buffer);
+              },
+            );
+            if (!file) throw new Error("The PDF file could not be created");
+            // Named only after rendering: another export may have taken the
+            // predicted name while this one was running.
+            const name = uniqueFileName(
+              exportBaseName(note.basename, pages, total),
+              ".pdf",
+              taken(),
+            );
+            const path = normalizePath(folder ? `${folder}/${name}` : name);
+            await this.app.vault.rename(file, path);
+            const buffer = await this.app.vault.readBinary(file);
+            return { path, name, bytes: buffer };
+          } catch (error) {
+            if (file) {
+              try {
+                await this.app.fileManager.trashFile(file);
+              } catch (cleanupError) {
+                throw new Error(
+                  `${errorMessage(error)} Cleanup also failed (${errorMessage(cleanupError)}).`,
+                );
+              }
+            }
+            throw error;
+          }
+        }
+
+        const bytes = await exportPagesToPdf(selected, sources, {
+          title: stripInkSuffix(note.basename),
+          onProgress,
+          cancelled,
+        });
         // Named at save time, not when the dialog opened: another export may
         // have taken the name since.
         const name = uniqueFileName(exportBaseName(note.basename, pages, total), ".pdf", taken());
