@@ -114,6 +114,14 @@ describe("PageEmbeds' hook into Obsidian's embed registry", () => {
     expect(original).toHaveBeenCalledTimes(4);
   });
 
+  it("hands a call with no file to Obsidian's creator", () => {
+    const { reg, original, embeds } = setUp();
+    embeds.onload();
+    const context = ctx("Plain");
+    expect(reg.embedByExtension.md!(context, null, "")).toBe(markdownEmbed);
+    expect(original).toHaveBeenCalledWith(context, null, "");
+  });
+
   it("puts Obsidian's creator back when the plugin unloads", () => {
     const { reg, original, embeds } = setUp();
     embeds.onload();

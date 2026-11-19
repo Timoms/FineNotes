@@ -83,7 +83,19 @@ describe("right-hand toolbar panels", () => {
 describe("custom submenu actions", () => {
   it("runs a stored action from the stable submenu anchor and toggles the submenu closed", () => {
     const nodes: Array<{ click?: () => void }> = [];
-    const make = (): any => ({
+    interface MenuNode {
+      click?: () => void;
+      children: MenuNode[];
+      querySelector(): { childElementCount: number };
+      addClass(): void;
+      removeClass(): void;
+      setAttribute(): void;
+      toggleClass(): void;
+      createEl(tag: string, options: unknown): MenuNode;
+      createDiv(): MenuNode;
+      addEventListener(event: string, handler: () => void): void;
+    }
+    const make = (): MenuNode => ({
       children: [],
       querySelector: () => ({ childElementCount: 1 }),
       addClass: vi.fn(),

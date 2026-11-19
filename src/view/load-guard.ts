@@ -7,8 +7,8 @@
  * it sometimes does not: iCloud can hand over an empty placeholder for a
  * file whose bytes have not arrived yet, and a sync caught half-way can
  * leave the ink block cut short. Rebuilding from either would replace the
- * user's ink with an empty page, so such a read is held instead: every save
- * writes it back unchanged, and the view refuses edits until a later load
+ * user's ink with an empty page, so such a read is held instead: the view
+ * writes nothing, and refuses edits until a later load
  * comes through clean.
  *
  * No DOM, no Obsidian.

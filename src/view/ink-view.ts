@@ -467,8 +467,10 @@ export class InkView extends TextFileView {
   private doc: InkDocument;
   /** The note's Markdown outside the ink block: frontmatter, prose, text layer. */
   private noteBody = "";
-  /** Whether the note may be saved over, and what to save while it may not. */
+  /** Whether the note may be saved over, and what to show while it may not. */
   private readonly guard = new LoadGuard();
+  /** Let Obsidian hand synced files over whole instead of merging their ink blocks as text. */
+  isPlaintext = false;
 
   /** True from `onOpen` to `onClose`, while the view's DOM exists. */
   private mounted = false;
@@ -603,7 +605,7 @@ export class InkView extends TextFileView {
         target: () => (this.file && !this.guard.locked ? { doc: this.doc, file: this.file } : null),
         body: () => this.syncedBody(),
         write: (contents, behind) => this.writePrepared(contents, behind),
-        writeNow: () => super.save(),
+        writeNow: () => this.writeFile(),
         penBusy: () => this.writeHold.writing(performance.now()),
       },
       // Loaded when first needed, as the recogniser's client is.
@@ -686,6 +688,12 @@ export class InkView extends TextFileView {
     this.saveRequest();
   }
 
+  /** A held load must never write, even if Obsidian asks for a closing save. */
+  private writeFile(clear?: boolean): Promise<void> {
+    if (this.guard.locked) return Promise.resolve();
+    return super.save(clear);
+  }
+
   /**
    * A background save's result: Obsidian's save writes it, `getViewData`
    * answering with it (Obsidian asks before its first `await`). `behind`:
@@ -695,7 +703,7 @@ export class InkView extends TextFileView {
     this.preparedContents = contents;
     let saving: Promise<void>;
     try {
-      saving = super.save();
+      saving = this.writeFile();
     } finally {
       this.preparedContents = null;
     }
@@ -865,7 +873,7 @@ export class InkView extends TextFileView {
     this.writeHold.saved();
     if (clear || now) {
       this.saver.supersede();
-      await super.save(clear);
+      await this.writeFile(clear);
       return;
     }
     await this.saver.save();

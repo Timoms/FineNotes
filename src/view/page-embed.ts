@@ -59,7 +59,7 @@ export interface EmbedContext {
 /** A creator in Obsidian's embed registry; what it returns must have `loadFile()`. */
 export type EmbedCreator = (
   ctx: EmbedContext,
-  file: TFile,
+  file: TFile | null,
   subpath: string,
 ) => (Component & { loadFile(): unknown }) | null;
 
@@ -189,8 +189,8 @@ export class PageEmbeds extends Component {
   }
 
   /** A page embed for `file`, or `null` to leave the embed to Obsidian. */
-  private create(ctx: EmbedContext, file: TFile, subpath: string): NotebookPageEmbed | null {
-    if (!this.active) return null;
+  private create(ctx: EmbedContext, file: TFile | null, subpath: string): NotebookPageEmbed | null {
+    if (!this.active || !(file instanceof TFile)) return null;
     const target = embedTarget(subpath);
     if (target === null || !this.host.isInkFile(file)) return null;
     return new NotebookPageEmbed(this, ctx, file, target);
