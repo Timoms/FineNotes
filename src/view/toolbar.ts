@@ -157,7 +157,6 @@ import {
   tableSizeLabel,
 } from "../ink/table-geometry";
 import {
-  LASSO_FILTER_KEYS,
   LASSO_MODES,
   type LassoFilter,
   type LassoMode,
@@ -197,6 +196,7 @@ import {
 } from "./ruler";
 import {
   compactToolbarLabel,
+  savedPenToolbarIndex,
   stripLayoutOf,
   MORE_ACTIONS,
   TOOLBAR_ITEMS,
@@ -352,17 +352,6 @@ const RULER_KIND_LABELS: Record<RulerKind, string> = {
   protractor: "Degrees",
 };
 
-/** GoodNotes' "What to include in the selection", less what this plugin does not have. */
-const LASSO_FILTER_LABELS: Record<keyof LassoFilter, string> = {
-  handwriting: "Handwriting",
-  images: "Images",
-  shapes: "Shapes",
-  arrows: "Arrows",
-  textBoxes: "Text boxes",
-  tables: "Tables",
-  graphs: "Graphs",
-};
-
 /**
  * The Shape tool's mode a toolbar state implies. The tool no longer offers
  * auto-shape (the pen's Auto shape does that), so a mode remembered as
@@ -503,8 +492,10 @@ export interface ToolbarCallbacks {
   // --- 0.5 (contracts/api.md v7).
   /** Open the image menu (Photos, camera, files, vault, scan, AI); `anchor` is the button. */
   onLock?: () => void;
+  onSmartClip?: () => void;
   onPaste?: () => void;
   onStickers?: (anchor: HTMLElement) => void;
+  onStickyNotes?: (anchor: HTMLElement) => void;
   onInsertImage?: (anchor: HTMLElement) => void;
   /** Import whole or selected PDF pages. */
   onInsertPdf?: (anchor: HTMLElement) => void;
@@ -716,7 +707,10 @@ export class Toolbar {
   // marks the one matching the state; the pill's are rebuilt with the pill.
   private readonly toolButtons = new Map<ActiveTool, HTMLElement>();
   private stripItems: readonly ToolbarItemChoice[] = [];
+  private extraStrips: HTMLElement[] = [];
   private stripMore: HTMLElement | null = null;
+  /** Transient detail whose panel follows its own toolbar button. */
+  private intelligentAnchor: HTMLElement | null = null;
   private stripMoreDispose: (() => void) | null = null;
   private readonly itemButtons = new Map<ToolbarItemId, HTMLElement>();
   private readonly customGroups = new Map<string, HTMLElement>();
@@ -734,6 +728,8 @@ export class Toolbar {
   private thumbnailsButton: HTMLButtonElement | null = null;
   /** The tier-1 pen button, drawn as the pen in hand (`drawPenPreview`). */
   private penToolButton: HTMLElement | null = null;
+  /** Favorite picked explicitly; matching its ink alone does not select it. */
+  private activeSavedPen = -1;
   /** What the pen button last drew, so an unchanged pen is not redrawn. */
   private penPreviewKey = "";
   /** The writing tools, centred on the bar while there is room. */
@@ -836,7 +832,7 @@ export class Toolbar {
     this.palette = [...palette];
     this.optionsTool = state.tool;
     this.optionsVisible = !STARTS_TUCKED.has(optionsKey(state.tool));
-    this.barEl = host.createDiv({ cls: "finenotes-x-toolbar" });
+    this.barEl = host.createDiv({ cls: "finenotes-x-toolbar finenotes-x-main-toolbar" });
     this.barEl.setAttribute("role", "toolbar");
     this.barEl.setAttribute("aria-label", "Handwriting tools");
     // The pill always floats over the page (styles.css, `.is-floating`).
@@ -970,12 +966,20 @@ export class Toolbar {
       ),
     );
     keep(this.penMenuButton);
-    const colorButton = item("colorwheel", this.foldButton(left, FOLD_RANK.ruler, "palette", "Colorwheel", (button) => {
-      if (this.quickColorSuppressClick) { this.quickColorSuppressClick = false; return; }
-      this.toggleQuickColor(button);
-    }));
+    const colorButton = item(
+      "colorwheel",
+      this.foldButton(left, FOLD_RANK.ruler, "palette", "Colorwheel", (button) => {
+        if (button.hasClass("is-favorite-locked")) return;
+        if (this.quickColorSuppressClick) {
+          this.quickColorSuppressClick = false;
+          return;
+        }
+        this.toggleQuickColor(button);
+      }),
+    );
     keep(colorButton);
     colorButton.addEventListener("pointerdown", (event) => {
+      if (colorButton.hasClass("is-favorite-locked")) return;
       if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
       event.preventDefault();
       this.quickColorSuppressClick = true;
@@ -1021,6 +1025,17 @@ export class Toolbar {
     this.toolIndicator = tools.createDiv({ cls: "finenotes-x-tool-indicator is-hidden" });
     keep(item("select", this.addToolButton(tools, "select", "lasso", "Select (V)")));
     item("pen", this.addToolButton(tools, "pen", "pen-tool", "Pen (P or W)"));
+    item("laser", this.addToolButton(tools, "laser", "pointer", "Laser pointer (L)"));
+    for (let index = 0; index < MAX_SAVED_PENS; index++) {
+      const id = `saved-pen-${index + 1}` as ToolbarItemId;
+      item(
+        id,
+        this.foldButton(tools, FOLD_RANK.image, "pen-tool", `Favorite pen ${index + 1}`, () => {
+          const pen = this.callbacks.savedPens?.()[index];
+          if (pen) this.applySavedPen(pen);
+        }),
+      );
+    }
     item(
       "eraser",
       this.foldButton(tools, FOLD_RANK.image, "eraser", "Standard eraser", () =>
@@ -1051,6 +1066,12 @@ export class Toolbar {
     );
     keep(
       item(
+        "smart-clip",
+        this.foldButton(tools, FOLD_RANK.image, "camera", "Smart Clip", cb.onSmartClip),
+      ),
+    );
+    keep(
+      item(
         "paste",
         this.foldButton(tools, FOLD_RANK.image, "clipboard-paste", "Paste", cb.onPaste),
       ),
@@ -1063,7 +1084,18 @@ export class Toolbar {
         this.foldButton(tools, FOLD_RANK.image, "image", "Insert image", cb.onInsertImage),
       ),
     );
-    keep(item("stickers", this.foldButton(tools, FOLD_RANK.image, "sticker", "Stickers", cb.onStickers)));
+    keep(
+      item(
+        "stickers",
+        this.foldButton(tools, FOLD_RANK.image, "sticker", "Stickers", cb.onStickers),
+      ),
+    );
+    keep(
+      item(
+        "sticky-notes",
+        this.foldButton(tools, FOLD_RANK.image, "sticky-note", "Sticky Notes", cb.onStickyNotes),
+      ),
+    );
     keep(
       item("pdf", this.foldButton(tools, FOLD_RANK.pdf, "file-text", "Insert PDF", cb.onInsertPdf)),
     );
@@ -1075,7 +1107,18 @@ export class Toolbar {
     );
     keep(this.recordButton);
 
-    keep(item("plugin-settings", this.foldButton(tools, FOLD_RANK.settings, "settings-2", "FineNotes settings", cb.onPluginSettings)));
+    keep(
+      item(
+        "plugin-settings",
+        this.foldButton(
+          tools,
+          FOLD_RANK.settings,
+          "settings-2",
+          "FineNotes settings",
+          cb.onPluginSettings,
+        ),
+      ),
+    );
 
     // The document's own actions, right: add a page, GoodNotes' share
     // button (export as PDF), its ⋯ sheet for the page being read
@@ -1110,7 +1153,29 @@ export class Toolbar {
       );
     }
     this.applyToolbarItems(toolbarItemsOf(cb.toolbarItems?.()));
+    this.refreshSavedPens();
     this.watchCrowding();
+  }
+
+  /** Redraw favorite actions after their saved pen is edited. */
+  refreshSavedPens(): void {
+    const pens = this.callbacks.savedPens?.() ?? [];
+    for (const [id, button] of this.itemButtons) {
+      const index = savedPenToolbarIndex(id);
+      if (index < 0) continue;
+      const pen = pens[index];
+      button.empty();
+      if (pen) {
+        button.append(penGlyph(pen.type, pen.color, button.ownerDocument));
+        button.createSpan({ cls: "finenotes-x-favorite-pen-number", text: String(index + 1) });
+      } else iconOrText(button, "pen-tool", "");
+      (button as HTMLButtonElement).disabled = !pen;
+      const label = pen
+        ? `Favorite pen ${index + 1}: ${savedPenLabel(pen)}`
+        : `Favorite pen ${index + 1} (empty)`;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("title", label);
+    }
   }
 
   /** Put every existing button into its ordered left, centre or right group. */
@@ -1122,6 +1187,7 @@ export class Toolbar {
 
   private applyToolbarItems(items: readonly ToolbarItemChoice[]): void {
     this.closeStripMore();
+    this.extraStrips.splice(0).forEach((strip) => strip.remove());
     items = stripLayoutOf(items);
     this.stripItems = items;
     for (const button of this.itemButtons.values()) button.remove();
@@ -1156,6 +1222,8 @@ export class Toolbar {
         });
         iconOrText(button, choice.icon || "panel-left-open", "");
         button.addEventListener("click", () => this.toggleCustomSubmenu(choice, button));
+      } else if (choice.id === "menu-strip") {
+        return;
       } else if (isToolbarLayoutItem(choice.id)) {
         parent.createDiv({
           cls: `finenotes-x-strip-${choice.id}`,
@@ -1171,6 +1239,22 @@ export class Toolbar {
     };
     for (const choice of items.filter((i) => i.visible && i.group === "strip" && !i.container))
       append(choice, lane);
+    for (const strip of items.filter((item) => item.id === "menu-strip" && item.visible)) {
+      const dock = this.host.createDiv({
+        cls: `finenotes-x-toolbar is-unified-strip finenotes-x-added-menu-strip is-${strip.position ?? "top"} align-${strip.alignment ?? "center"}`,
+        attr: { role: "toolbar", "aria-label": "Additional menu strip" },
+      });
+      const hostBox = this.host.getBoundingClientRect();
+      const barBox = this.barEl.getBoundingClientRect();
+      const barBottom = Math.max(0, barBox.bottom - hostBox.top);
+      dock.style.setProperty("--added-strip-top-edge", `${barBottom}px`);
+      dock.style.setProperty("--added-strip-top", `${barBottom + 8}px`);
+      this.extraStrips.push(dock);
+      for (const child of items.filter(
+        (item) => item.visible && item.group === "strip" && item.container === strip.key,
+      ))
+        append(child, dock);
+    }
     // Keep hidden controls connected for state updates, without taking space.
     const stash = this.barEl.createDiv({ cls: "finenotes-x-strip-stash" });
     for (const [id, button] of this.itemButtons) {
@@ -1200,31 +1284,56 @@ export class Toolbar {
   private quickColorSuppressClick = false;
 
   private toggleQuickColor(anchor: HTMLElement, initial?: PointerEvent): void {
-    if (this.quickColorClose) { if (!initial) this.quickColorClose(); return; }
+    if (this.quickColorClose) {
+      if (!initial) this.quickColorClose();
+      return;
+    }
     const button = this.itemButtons.get("colorwheel") ?? anchor;
     button.addClass("is-color-expanded");
     button.setAttribute("aria-expanded", "true");
-    const track = button.createSpan({ cls: "finenotes-x-inline-color-track", attr: { role: "slider", tabindex: "0", "aria-label": "Ink color", "aria-valuemin": "0", "aria-valuemax": "359" } });
+    const track = button.createSpan({
+      cls: "finenotes-x-inline-color-track",
+      attr: {
+        role: "slider",
+        tabindex: "0",
+        "aria-label": "Ink color",
+        "aria-valuemin": "0",
+        "aria-valuemax": "359",
+      },
+    });
     let hue = Math.round(rgbToHsv(hexToRgb(this.state.color) ?? { r: 0, g: 0, b: 0 }).h);
     let color = this.state.color;
     let pointer = initial?.pointerId;
     const doc = this.host.ownerDocument;
     const show = (): void => {
-      button.querySelector<HTMLElement>(".finenotes-x-current-color")?.setCssStyles({ backgroundColor: color });
+      button
+        .querySelector<HTMLElement>(".finenotes-x-current-color")
+        ?.setCssStyles({ backgroundColor: color });
       track.setAttribute("aria-valuenow", String(hue));
       track.setAttribute("aria-valuetext", color);
-      track.setCssProps({ "--color-position": `${hue / 359 * 100}%` });
+      track.setCssProps({ "--color-position": `${(hue / 359) * 100}%` });
     };
     const pick = (event: PointerEvent): void => {
       const box = track.getBoundingClientRect();
       const vertical = getComputedStyle(this.barEl).flexDirection === "column";
-      hue = Math.round(Math.max(0, Math.min(1, vertical ? (event.clientY - box.top) / Math.max(1, box.height) : (event.clientX - box.left) / Math.max(1, box.width))) * 359);
+      hue = Math.round(
+        Math.max(
+          0,
+          Math.min(
+            1,
+            vertical
+              ? (event.clientY - box.top) / Math.max(1, box.height)
+              : (event.clientX - box.left) / Math.max(1, box.width),
+          ),
+        ) * 359,
+      );
       color = rgbToHex(hsvToRgb({ h: hue, s: 1, v: 1 }));
       show();
     };
     const close = (): void => {
       this.quickColorClose = null;
-      track.remove(); button.removeClass("is-color-expanded");
+      track.remove();
+      button.removeClass("is-color-expanded");
       button.setAttribute("aria-expanded", "false");
       doc.removeEventListener("pointermove", move, true);
       doc.removeEventListener("pointerup", up, true);
@@ -1233,20 +1342,47 @@ export class Toolbar {
       doc.removeEventListener("keydown", key, true);
       this.syncActive();
     };
-    const commit = (): void => { close(); this.setPenColor(color); };
-    const move = (event: PointerEvent): void => { if (event.pointerId === pointer) { event.preventDefault(); pick(event); } };
-    const up = (event: PointerEvent): void => { if (event.pointerId === pointer) { event.preventDefault(); commit(); } };
-    const cancel = (event: PointerEvent): void => { if (event.pointerId === pointer) close(); };
+    const commit = (): void => {
+      close();
+      this.setPenColor(color);
+    };
+    const move = (event: PointerEvent): void => {
+      if (event.pointerId === pointer) {
+        event.preventDefault();
+        pick(event);
+      }
+    };
+    const up = (event: PointerEvent): void => {
+      if (event.pointerId === pointer) {
+        event.preventDefault();
+        commit();
+      }
+    };
+    const cancel = (event: PointerEvent): void => {
+      if (event.pointerId === pointer) close();
+    };
     const down = (event: PointerEvent): void => {
-      if (!button.contains(event.target as Node)) { close(); return; }
-      pointer = event.pointerId; event.preventDefault(); pick(event);
+      if (!button.contains(event.target as Node)) {
+        close();
+        return;
+      }
+      pointer = event.pointerId;
+      event.preventDefault();
+      pick(event);
     };
     const key = (event: KeyboardEvent): void => {
       if (event.key === "Escape") close();
-      else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); commit(); }
-      else if (["ArrowLeft", "ArrowDown", "ArrowRight", "ArrowUp"].includes(event.key)) {
-        event.preventDefault(); hue = Math.max(0, Math.min(359, hue + (["ArrowLeft", "ArrowDown"].includes(event.key) ? -1 : 1)));
-        color = rgbToHex(hsvToRgb({ h: hue, s: 1, v: 1 })); show();
+      else if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        commit();
+      } else if (["ArrowLeft", "ArrowDown", "ArrowRight", "ArrowUp"].includes(event.key)) {
+        event.preventDefault();
+        hue = Math.max(
+          0,
+          Math.min(359, hue + (["ArrowLeft", "ArrowDown"].includes(event.key) ? -1 : 1)),
+        );
+        color = rgbToHex(hsvToRgb({ h: hue, s: 1, v: 1 }));
+        show();
       }
     };
     this.quickColorClose = close;
@@ -1285,7 +1421,10 @@ export class Toolbar {
     let anchor: HTMLElement | null = null;
     const clear = (): void => {
       if (timer !== null) clearTimeout(timer);
-      timer = null; tip?.remove(); tip = null; anchor = null;
+      timer = null;
+      tip?.remove();
+      tip = null;
+      anchor = null;
     };
     const over = (event: PointerEvent): void => {
       if (event.pointerType === "touch" || event.buttons || event.pressure > 0) return;
@@ -1298,13 +1437,23 @@ export class Toolbar {
         timer = null;
         const name = button.getAttribute("aria-label") ?? button.getAttribute("title");
         if (!name) return;
-        tip = this.host.createDiv({ cls: "finenotes-x-tool-tooltip", text: name, attr: { role: "tooltip" } });
-        const host = this.host.getBoundingClientRect(), box = button.getBoundingClientRect();
+        tip = this.host.createDiv({
+          cls: "finenotes-x-tool-tooltip",
+          text: name,
+          attr: { role: "tooltip" },
+        });
+        const host = this.host.getBoundingClientRect(),
+          box = button.getBoundingClientRect();
         const vertical = getComputedStyle(this.barEl).flexDirection === "column";
-        tip.setCssStyles({ left: `${Math.max(8, Math.min(host.width - tip.offsetWidth - 8, (vertical ? box.left - tip.offsetWidth - 8 : (box.left + box.right - tip.offsetWidth) / 2) - host.left))}px`, top: `${Math.max(8, Math.min(host.height - tip.offsetHeight - 8, (vertical ? (box.top + box.bottom - tip.offsetHeight) / 2 : box.bottom + 8) - host.top))}px` });
+        tip.setCssStyles({
+          left: `${Math.max(8, Math.min(host.width - tip.offsetWidth - 8, (vertical ? box.left - tip.offsetWidth - 8 : (box.left + box.right - tip.offsetWidth) / 2) - host.left))}px`,
+          top: `${Math.max(8, Math.min(host.height - tip.offsetHeight - 8, (vertical ? (box.top + box.bottom - tip.offsetHeight) / 2 : box.bottom + 8) - host.top))}px`,
+        });
       }, 500);
     };
-    const out = (event: PointerEvent): void => { if (!anchor?.contains(event.relatedTarget as Node | null)) clear(); };
+    const out = (event: PointerEvent): void => {
+      if (!anchor?.contains(event.relatedTarget as Node | null)) clear();
+    };
     this.barEl.addEventListener("pointerover", over);
     this.barEl.addEventListener("pointermove", over);
     this.barEl.addEventListener("pointerout", out);
@@ -1322,12 +1471,15 @@ export class Toolbar {
   private intelligentDispose: (() => void) | null = null;
 
   /** Dock tool-owned content; cleanup runs before another toolkit replaces it. */
-  closeIntelligentTool(kind: string): void {
-    if (this.popoverKind === kind) this.closePopover();
+  closeIntelligentTool(kind: string): boolean {
+    if (this.popoverKind !== kind) return false;
+    this.closePopover();
+    return true;
   }
 
   openIntelligentTool(kind: string, title: string, dispose: () => void): HTMLElement {
     const body = this.openPopover(kind, this.barEl);
+    if (kind === "stickers") this.popover?.querySelector(".finenotes-x-strip-back")?.remove();
     body.addClass("finenotes-x-intelligent-external");
     body.setAttribute("aria-label", title);
     body.createDiv({ cls: "finenotes-x-popover-title", text: title });
@@ -1392,13 +1544,17 @@ export class Toolbar {
   }
 
   private closeStripMore(): void {
+    const hideTools = this.stripMore?.hasClass("is-strip-detail") === true;
     this.moreButton?.removeClass("is-active");
     this.moreButton?.setAttribute("aria-expanded", "false");
     this.stripMoreDispose?.();
     this.stripMoreDispose = null;
     this.stripMore?.remove();
     this.stripMore = null;
+    this.intelligentAnchor = null;
     if (!this.popover) this.optionsEl?.removeClass("has-strip-detail");
+    if (hideTools && this.optionsEl.hasClass("is-intelligent-strip"))
+      this.setIntelligentVisible(false);
   }
 
   private toggleStripMore(anchor: HTMLElement): void {
@@ -1413,21 +1569,27 @@ export class Toolbar {
       cls: "finenotes-x-strip-more" + (docked ? " is-strip-detail" : ""),
       attr: { role: "menu", "aria-label": "More actions" },
     });
+    const controls = panel.createDiv({ cls: "finenotes-x-strip-menu-controls" });
     if (docked) {
+      this.intelligentAnchor = anchor;
       this.setIntelligentVisible(true);
       this.optionsEl.addClass("has-strip-detail");
-      const back = panel.createEl("button", {
-        cls: "finenotes-x-strip-back",
-        attr: { "aria-label": "Back to tools", title: "Back to tools" },
-      });
-      iconOrText(back, "arrow-left", "←");
-      back.addEventListener("click", () => this.closeStripMore());
     }
+    const customize = controls.createEl("button", {
+      cls: "finenotes-x-strip-customize clickable-icon",
+      attr: { role: "menuitem", "aria-label": "Customize menu strip", title: "Customize strip" },
+    });
+    iconOrText(customize, "sliders-horizontal", "Customize strip");
+    customize.addEventListener("click", () => {
+      this.closeStripMore();
+      this.callbacks.onEditToolbar?.();
+    });
     const dark = this.host.closest(".finenotes-x-view")?.hasClass("theme-dark") === true;
     panel.addClass(dark ? "theme-dark" : "theme-light", "finenotes-x-themed-menu");
     this.stripMore = panel;
     this.moreButton?.addClass("is-active");
     this.moreButton?.setAttribute("aria-expanded", "true");
+    if (docked) this.applyPosition();
     const add = (
       label: string,
       icon: string,
@@ -1528,14 +1690,6 @@ export class Toolbar {
       ? panel.createDiv({ cls: "finenotes-x-strip-menu-shortcuts" })
       : panel;
     for (const item of folded) add(item.label, item.icon, () => item.run(anchor), true, shortcuts);
-    const footer = panel.createDiv({ cls: "finenotes-x-strip-menu-footer" });
-    add(
-      "Customize menu strip…",
-      "sliders-horizontal",
-      () => this.callbacks.onEditToolbar?.(),
-      true,
-      footer,
-    );
     const rect = anchor.getBoundingClientRect();
     const win = doc.defaultView;
     const width = win?.innerWidth ?? 800,
@@ -1647,7 +1801,6 @@ export class Toolbar {
     button.toggleClass("is-active", active);
     button.setAttribute("aria-pressed", String(active));
     if (!active && this.popoverKind === "ruler") this.closePopover();
-
   }
 
   private toggleRulerPopover(anchor: HTMLElement): void {
@@ -2134,10 +2287,17 @@ export class Toolbar {
     // The pen button stands for every pen type, the highlighter included:
     // it picks the type in hand. Picking plain "pen" with the highlighter as
     // the type wrote opaque pen ink in the highlighter's colour.
-    if (tool === "pen") tool = this.activePenType().tool;
+    if (tool === "pen") {
+      this.activeSavedPen = -1;
+      tool = this.activePenType().tool;
+    }
     const current = this.state.tool;
     this.drawingTool = drawingToolOf(this.drawingTool, current);
-    if (tool === "select" && current === "select" && !this.optionsEl?.hasClass("is-intelligent-strip")) {
+    if (
+      tool === "select" &&
+      current === "select" &&
+      !this.optionsEl?.hasClass("is-intelligent-strip")
+    ) {
       this.toggleLassoPopover(button);
       return;
     }
@@ -2315,8 +2475,10 @@ export class Toolbar {
   private buildPenOptions(): void {
     // One live pen button, not four permanent swatches. The three pen styles
     // remain one tap away in its menu, keeping the writing area clear.
+    this.toolSubheading("Colour");
     this.buildCompactColorRow();
     this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
+    this.toolSubheading("Pen type");
     const active = this.activePenType();
     const pen = this.optionsEl.createEl("button", { cls: "finenotes-x-pentype" });
     pen.append(penGlyph(active.id, this.state.color));
@@ -2327,6 +2489,7 @@ export class Toolbar {
     caretIn(pen);
 
     this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
+    this.toolSubheading("Stroke width");
 
     // Stroke widths, drawn as literal strokes of increasing weight.
     for (const width of this.quickWidths()) {
@@ -2584,6 +2747,8 @@ export class Toolbar {
   applySavedPen(pen: SavedPen): void {
     const spec = PEN_TYPES.find((type) => type.id === pen.type) ?? PEN_TYPES[0];
     if (this.practice && spec.tool === "highlighter") return;
+    this.activeSavedPen =
+      this.callbacks.savedPens?.().findIndex((saved) => samePen(saved, pen)) ?? -1;
     if (this.state.tool !== spec.tool) {
       this.drawingTool = drawingToolOf(this.drawingTool, spec.tool);
       this.leaveToolFor(spec.tool);
@@ -2655,6 +2820,7 @@ export class Toolbar {
     // (Auto-shape is the pen's switch now, not a mode here.)
     const groups: ShapeMode[][] = [[...SHAPE_PRESETS], [...CONNECTOR_PRESETS], ["table"]];
     this.tableCaption = null;
+    this.toolSubheading("Shape type");
     groups.forEach((modes, g) => {
       if (g > 0) this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
       for (const mode of modes) {
@@ -2686,6 +2852,7 @@ export class Toolbar {
     // The shapes' own colour, black until another is picked: a disc of it
     // and a caret, opening the colour picker.
     this.optionsEl.createDiv({ cls: "finenotes-x-sep" });
+    this.toolSubheading("Colour");
     const color = this.state.shapeColor ?? DEFAULT_SHAPE_COLOR;
     const button = this.optionsEl.createEl("button", {
       cls: "finenotes-x-shape-color clickable-icon",
@@ -2704,6 +2871,7 @@ export class Toolbar {
 
     // Fill, line, corners and arrowheads, in one popover; the button shows
     // the fill and line a new shape gets.
+    this.toolSubheading("Style");
     const styleButton = this.optionsEl.createEl("button", {
       cls: "finenotes-x-shape-style clickable-icon",
     });
@@ -2712,6 +2880,10 @@ export class Toolbar {
     styleButton.setAttribute("aria-label", "Shape style: fill, line, corners and arrowheads");
     styleButton.setAttribute("title", "Shape style");
     styleButton.addEventListener("click", () => this.toggleShapeStylePopover(styleButton));
+  }
+
+  private toolSubheading(text: string): void {
+    this.optionsEl.createDiv({ cls: "finenotes-x-tool-subheading", text });
   }
 
   private toggleShapeStylePopover(anchor: HTMLElement): void {
@@ -2928,18 +3100,6 @@ export class Toolbar {
         this.state.lassoMode = option;
         this.saveLasso();
         this.drawLassoIcon();
-        if (body === this.optionsEl) this.buildOptions();
-        else this.popoverRender?.();
-      });
-    }
-
-    body.createDiv({ cls: "finenotes-x-popover-label", text: "What to include in the selection" });
-    const list = body.createDiv({ cls: "finenotes-x-switch-list" });
-    const filter = lassoFilterFor(this.state);
-    for (const key of LASSO_FILTER_KEYS) {
-      this.switchRow(list, LASSO_FILTER_LABELS[key], filter[key], (on) => {
-        this.state.lassoFilter = { ...lassoFilterFor(this.state), [key]: on };
-        this.saveLasso();
         if (body === this.optionsEl) this.buildOptions();
         else this.popoverRender?.();
       });
@@ -3840,21 +4000,6 @@ export class Toolbar {
       });
     }
     if (this.practice) return;
-    // The laser pointer has no bar button (FineNotes#25): here, and L.
-    const laser = body.createEl("button", {
-      cls: "finenotes-x-wide finenotes-x-pen-row finenotes-x-laser-row",
-    });
-    iconOrText(laser.createSpan({ cls: "finenotes-x-laser-row-icon" }), "pointer", "");
-    laser.createSpan({ text: "Laser pointer" });
-    laser.createEl("kbd", { cls: "finenotes-x-saved-pen-key", text: "L" });
-    laser.addEventListener("click", () => {
-      this.closePopover();
-      this.leaveToolFor("laser");
-      this.state.tool = "laser";
-      this.callbacks.onToolChange("laser");
-      this.buildOptions();
-      this.syncActive();
-    });
     body.createDiv({ cls: "finenotes-x-popover-divider" });
     this.popoverLink(body, "Pen settings", "sliders-horizontal", openSettings);
     this.popoverLink(body, "Pen gestures", "signature", openGestures);
@@ -4074,7 +4219,9 @@ export class Toolbar {
   }
 
   private closePopover(): void {
+    const hideRulerTools = this.popoverKind === "ruler";
     const dispose = this.intelligentDispose;
+    const hideExternalTools = dispose !== null;
     this.intelligentDispose = null;
     dispose?.();
     this.submenuAnchor?.removeClass("is-active");
@@ -4091,6 +4238,8 @@ export class Toolbar {
     this.popover = null;
     this.popoverKind = null;
     this.popoverRender = null;
+    if ((hideRulerTools || hideExternalTools) && this.optionsEl.hasClass("is-intelligent-strip"))
+      this.setIntelligentVisible(false);
   }
 
   /**
@@ -4261,14 +4410,41 @@ export class Toolbar {
       const host = this.host.getBoundingClientRect();
       const bar = this.barEl.getBoundingClientRect();
       const vertical = getComputedStyle(this.barEl).flexDirection === "column";
-      const width = Math.min(280, Math.max(0, host.width - (vertical ? host.right - bar.left + 16 : 20)));
+      const active =
+        this.intelligentAnchor && this.intelligentAnchor.isConnected !== false
+          ? this.intelligentAnchor
+          : this.barEl.querySelector<HTMLElement>(
+              ".finenotes-x-tool.is-active:not(.is-user-hidden)",
+            );
+      const activeBox = active?.getBoundingClientRect();
+      const width = Math.min(
+        280,
+        Math.max(0, host.width - (vertical ? host.right - bar.left + 16 : 20)),
+      );
+      const panelWidth = this.optionsEl.offsetWidth || width;
       const height = this.optionsEl.offsetHeight;
-      const top = Math.max(10, vertical
-        ? Math.min(host.height - height - 10, (bar.top + bar.bottom) / 2 - host.top - height / 2)
-        : bar.bottom + 6 - host.top);
-      const right = Math.max(10, vertical ? host.right - bar.left + 6 : host.right - (bar.left + bar.right) / 2 - width / 2);
+      const top = Math.max(
+        10,
+        vertical
+          ? Math.min(
+              host.height - height - 10,
+              activeBox
+                ? activeBox.top - host.top
+                : (bar.top + bar.bottom) / 2 - host.top - height / 2,
+            )
+          : bar.bottom + 6 - host.top,
+      );
+      const right = Math.max(
+        10,
+        vertical ? host.right - bar.left + 6 : host.right - (bar.left + bar.right) / 2 - width / 2,
+      );
       this.optionsEl.setCssStyles({
-        left: "auto", right: `${right}px`, top: `${top}px`,
+        left:
+          !vertical && activeBox
+            ? `${Math.max(10, Math.min(host.width - panelWidth - 10, (activeBox.left + activeBox.right) / 2 - host.left - panelWidth / 2))}px`
+            : "auto",
+        right: !vertical && activeBox ? "auto" : `${right}px`,
+        top: `${top}px`,
         maxHeight: `${Math.max(80, host.height - top - 10)}px`,
         maxWidth: `${Math.max(0, host.width - right - 10)}px`,
       });
@@ -4711,7 +4887,9 @@ export class Toolbar {
     const colorButton = this.itemButtons?.get("colorwheel");
     if (colorButton && !this.quickColorClose) {
       colorButton.empty();
-      colorButton.createSpan({ cls: "finenotes-x-current-color" }).setCssStyles({ backgroundColor: state.color });
+      colorButton
+        .createSpan({ cls: "finenotes-x-current-color" })
+        .setCssStyles({ backgroundColor: state.color });
       colorButton.setAttribute("aria-label", `Colorwheel: ${state.color}`);
     }
     // Highlighter is a pen type, so the pen button stands for both.
@@ -4732,6 +4910,36 @@ export class Toolbar {
     markChosen(this.eraserSizeButtons, eraserSizeFor(state));
     markChosen(this.penTypeButtons, this.activePenType().id);
     markChosen(this.shapeButtons, shapeModeFor(state), true);
+    const currentPen =
+      state.tool === "pen" || state.tool === "highlighter" ? penOfState(state) : null;
+    let favoriteActive = false;
+    const selectedFavorite =
+      this.activeSavedPen >= 0 ? this.callbacks.savedPens?.()[this.activeSavedPen] : undefined;
+    if (!currentPen || !selectedFavorite || !samePen(selectedFavorite, currentPen))
+      this.activeSavedPen = -1;
+    for (const [id, button] of this.itemButtons) {
+      const index = savedPenToolbarIndex(id);
+      if (index < 0) continue;
+      const active = index === this.activeSavedPen;
+      favoriteActive ||= active;
+      button.toggleClass("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    }
+    if (colorButton) {
+      colorButton.toggleClass("is-favorite-locked", favoriteActive);
+      if (favoriteActive) {
+        const lock = colorButton.createSpan({ cls: "finenotes-x-colorwheel-lock" });
+        iconOrText(lock, "lock", "Locked");
+        colorButton.setAttribute("aria-label", "Colorwheel locked by favorite pen");
+        colorButton.setAttribute("title", "Color is locked while a favorite pen is selected");
+      }
+    }
+    if (favoriteActive) {
+      const penButton = this.toolButtons.get("pen");
+      penButton?.removeClass("is-active");
+      penButton?.setAttribute("aria-pressed", "false");
+    }
+    if ((this.optionsEl as HTMLElement | undefined)?.isConnected) this.applyPosition();
 
     this.drawPenPreview();
     this.drawLassoIcon();

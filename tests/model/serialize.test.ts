@@ -163,6 +163,7 @@ describe("v2 pages, backdrops, images and shapes", () => {
           h: 180,
           sticky: {
             color: "#ffd95a",
+            type: "index-tab",
             strokes: [
               { id: "s9", color: "#123456", size: 2, tool: "pen", pts: [12.34, 56.78, 0.5] },
             ],
@@ -173,6 +174,7 @@ describe("v2 pages, backdrops, images and shapes", () => {
     const sticky = decodeDocument(encodeDocument(doc)).pages[0].images[0].sticky;
     expect(sticky).toMatchObject({
       color: "#ffd95a",
+      type: "index-tab",
       strokes: [{ id: "s9", color: "#123456", size: 2, tool: "pen" }],
     });
     expect(sticky?.strokes[0].pts.slice(0, 2)).toEqual([12.34, 56.78]);

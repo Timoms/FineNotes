@@ -128,6 +128,7 @@ describe("saved pens on the toolbar (FineNotes#24, #25)", () => {
         ["highlighter", row("highlighter")],
       ]),
       toolButtons: new Map(),
+      itemButtons: new Map(),
       colorSwatches: new Map(),
       widthButtons: new Map(),
       eraserSizeButtons: new Map(),

@@ -1,16 +1,18 @@
 import { type App, Modal, Notice, setIcon } from "obsidian";
 import {
   stripSlots,
-  isRequiredStripItem,
   stripItemSlots,
   DEFAULT_TOOLBAR_ITEMS,
   TOOLBAR_ITEMS,
   TOOLBAR_LAYOUT_ITEMS,
   isToolbarLayoutItem,
   moveStripItem,
+  savedPenToolbarIndex,
   stripLayoutOf,
   type ToolbarItemChoice,
 } from "../model/toolbar-items";
+import { savedPenLabel, type SavedPen } from "../model/saved-pens";
+import { penGlyph } from "./pen-glyph-svg";
 const specs = new Map([...TOOLBAR_ITEMS, ...TOOLBAR_LAYOUT_ITEMS].map((s) => [s.id, s]));
 type Destination = "strip" | "more" | "library";
 
@@ -25,6 +27,8 @@ export class ToolbarEditorModal extends Modal {
     value: unknown,
     private readonly save: (items: ToolbarItemChoice[]) => void,
     private readonly reveal?: (visible: boolean) => void,
+    private readonly savedPens?: () => readonly SavedPen[],
+    private readonly editPens?: () => void,
   ) {
     super(app);
     this.items = stripLayoutOf(value);
@@ -75,6 +79,43 @@ export class ToolbarEditorModal extends Modal {
     const preview = root.createDiv({ cls: "finenotes-x-strip-preview-row" });
     this.area(preview, "strip", "Menu strip");
     this.area(preview, "more", "… More (hidden strip)");
+    for (const strip of this.items.filter((item) => item.id === "menu-strip" && item.visible)) {
+      const editor = root.createDiv({ cls: "finenotes-x-added-strip-editor" });
+      const controls = editor.createDiv({ cls: "finenotes-x-added-strip-controls" });
+      controls.createEl("strong", { text: "Added menu strip" });
+      this.stripChoice(
+        controls,
+        "Position",
+        strip.position ?? "top",
+        ["top", "bottom", "left", "right"],
+        (value) => {
+          strip.position = value as ToolbarItemChoice["position"];
+        },
+      );
+      this.stripChoice(
+        controls,
+        "Alignment",
+        strip.alignment ?? "center",
+        ["left", "right", "center", "stretch"],
+        (value) => {
+          strip.alignment = value as ToolbarItemChoice["alignment"];
+        },
+      );
+      controls.createEl("button", { text: "Remove" }).addEventListener("click", () => {
+        this.items = this.items
+          .map((item) =>
+            item.container === strip.key ? { ...item, visible: false, container: undefined } : item,
+          )
+          .filter((item) => item !== strip);
+        this.render();
+      });
+      this.area(
+        editor,
+        "strip",
+        `${strip.position ?? "top"} · ${strip.alignment ?? "center"}`,
+        strip.key,
+      );
+    }
     const submenu = this.items.find(
       (item) => item.key === this.editingSubmenu && item.id === "submenu" && item.visible,
     );
@@ -131,12 +172,43 @@ export class ToolbarEditorModal extends Modal {
     for (const spec of TOOLBAR_LAYOUT_ITEMS)
       this.tile(library, { id: spec.id, visible: false, group: "strip" }, -1);
     this.items.forEach((item, index) => {
-      if (!isToolbarLayoutItem(item.id) && !isRequiredStripItem(item.id))
-        this.tile(library, item, index, true);
+      if (!isToolbarLayoutItem(item.id)) this.tile(library, item, index, true);
     });
     const foot = root.createDiv({ cls: "finenotes-x-toolbar-editor-footer" });
+    foot.createEl("button", { text: "Add menu strip" }).addEventListener("click", () => {
+      this.items.push({
+        id: "menu-strip",
+        key: `strip-${Date.now()}-${++this.sequence}`,
+        visible: true,
+        group: "strip",
+        position: "top",
+        alignment: "center",
+      });
+      this.render();
+    });
+    if (this.editPens)
+      foot
+        .createEl("button", { text: "Edit favorite pens" })
+        .addEventListener("click", () => this.editPens?.());
     foot.createEl("button", { text: "Restore defaults" }).addEventListener("click", () => {
       this.items = stripLayoutOf(DEFAULT_TOOLBAR_ITEMS);
+      this.render();
+    });
+  }
+  private stripChoice(
+    host: HTMLElement,
+    label: string,
+    value: string,
+    choices: readonly string[],
+    changed: (value: string) => void,
+  ): void {
+    const field = host.createEl("label", { text: label });
+    const select = field.createEl("select");
+    for (const choice of choices)
+      select.createEl("option", { value: choice, text: choice[0].toUpperCase() + choice.slice(1) });
+    select.value = value;
+    select.addEventListener("change", () => {
+      changed(select.value);
       this.render();
     });
   }
@@ -156,6 +228,7 @@ export class ToolbarEditorModal extends Modal {
     if (container) list.dataset.container = container;
     this.items.forEach((item, index) => {
       if (!item.visible || item.group !== destination || item.container !== container) return;
+      if (item.id === "menu-strip" && !container) return;
       if (item.id === "group") {
         const pill = list.createDiv({ cls: "finenotes-x-strip-preview-pill" });
         pill.setCssProps({ "--preview-slots": String(stripItemSlots(item, this.items)) });
@@ -185,12 +258,12 @@ export class ToolbarEditorModal extends Modal {
       more.setAttribute("title", "More remains available for overflow actions");
     }
     if (destination === "strip" || container) {
-      const used = stripSlots(this.items, container) + (!container ? 2 : 0);
+      const used = stripSlots(this.items, container);
       section.createDiv({
         cls: "finenotes-x-strip-slot-count",
-        text: `${used} / 24 slots (2 required)`,
+        text: `${used} / 22 slots`,
       });
-      for (let i = used; i < (container ? 22 : 24); i++)
+      for (let i = used; i < 22; i++)
         list.createDiv({ cls: "finenotes-x-strip-empty-slot", attr: { "aria-hidden": "true" } });
     }
   }
@@ -201,23 +274,30 @@ export class ToolbarEditorModal extends Modal {
     catalogue = false,
   ): HTMLElement {
     const spec = specs.get(item.id)!;
+    const savedPen = this.savedPens?.()[savedPenToolbarIndex(item.id)];
+    const label = savedPen
+      ? `${spec.label}: ${savedPenLabel(savedPen)}`
+      : (item.name ?? spec.label);
     const tile = host.createEl("button", {
       cls: `finenotes-x-strip-tile is-${item.id}`,
       attr: {
-        title: item.name ?? spec.label,
+        title: label,
         "aria-label": `${spec.label}: drag to place; Enter moves to strip; Delete removes`,
         type: "button",
       },
     });
     if (index >= 0 && !catalogue) tile.dataset.index = String(index);
     tile.toggleClass("is-placed", catalogue && item.visible);
-    if (isRequiredStripItem(item.id)) {
-      tile.addClass("is-required");
-      tile.setAttribute("title", `${spec.label} (required; drag to reorder)`);
-    }
     tile.setCssProps({ "--preview-slots": String(stripItemSlots(item, this.items)) });
-    setIcon(tile.createSpan({ cls: "finenotes-x-strip-tile-icon" }), item.icon ?? spec.icon);
-    tile.createSpan({ cls: "finenotes-x-strip-tile-label", text: item.name ?? spec.label });
+    const icon = tile.createSpan({ cls: "finenotes-x-strip-tile-icon" });
+    if (savedPen) {
+      icon.append(penGlyph(savedPen.type, savedPen.color, tile.ownerDocument));
+      icon.createSpan({
+        cls: "finenotes-x-favorite-pen-number",
+        text: String(savedPenToolbarIndex(item.id) + 1),
+      });
+    } else setIcon(icon, item.icon ?? spec.icon);
+    tile.createSpan({ cls: "finenotes-x-strip-tile-label", text: label });
     tile.addEventListener("keydown", (event) => {
       let destination: Destination | null = null;
       if (event.key === "Enter" && item.id === "submenu" && index >= 0) {

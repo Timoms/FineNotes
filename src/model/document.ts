@@ -364,6 +364,7 @@ export interface ImageElement {
 
 export interface StickyNoteData {
   color: string;
+  type?: "note" | "index-tab";
   strokes: Stroke[];
 }
 

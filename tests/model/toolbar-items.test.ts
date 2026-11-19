@@ -8,6 +8,7 @@ import {
   moveStripItem,
   DEFAULT_TOOLBAR_ITEMS,
   TOOLBAR_ITEMS,
+  savedPenToolbarIndex,
   toolbarItemsOf,
 } from "../../src/model/toolbar-items";
 
@@ -17,6 +18,16 @@ describe("toolbar item settings", () => {
     expect(DEFAULT_TOOLBAR_ITEMS.map((item) => item.id)).toEqual(
       TOOLBAR_ITEMS.map((item) => item.id),
     );
+  });
+
+  it("offers laser and eight favorite pens without placing them by default", () => {
+    const items = toolbarItemsOf(undefined);
+    expect(items.find((item) => item.id === "laser")?.visible).toBe(false);
+    for (let index = 0; index < 8; index++) {
+      const item = items.find((choice) => choice.id === `saved-pen-${index + 1}`);
+      expect(item?.visible).toBe(false);
+      expect(savedPenToolbarIndex(item!.id)).toBe(index);
+    }
   });
 
   it("keeps order and visibility, removes duplicates and appends new items", () => {
@@ -160,7 +171,7 @@ describe("fixed strip capacity and submenus", () => {
       { ...space("c"), container: "g" },
     ];
     expect(stripItemSlots(items[1], items)).toBe(2);
-    expect(stripSlots(items)).toBe(5);
+    expect(stripSlots(items)).toBe(3);
   });
   it("rejects drops beyond 22 slots without losing the source item", () => {
     const items = Array.from({ length: 21 }, (_, i) => space(String(i)));
@@ -189,27 +200,52 @@ describe("fixed strip capacity and submenus", () => {
     expect(stripLayoutOf(normalized)).toEqual(normalized);
     expect(moveStripItem(items, 0, "more", "g")).toEqual(items);
   });
+  it("keeps added-strip placement and accepts ordinary actions as its children", () => {
+    const items = stripLayoutOf([
+      {
+        id: "menu-strip",
+        key: "extra",
+        visible: true,
+        group: "strip",
+        position: "left",
+        alignment: "stretch",
+      },
+      { id: "pen", visible: true, group: "strip" },
+    ]);
+    expect(items[0]).toMatchObject({ position: "left", alignment: "stretch" });
+    const moved = moveStripItem(items, 1, "strip", "extra");
+    expect(moved.find((item) => item.id === "pen")?.container).toBe("extra");
+    expect(stripSlots(moved, "extra")).toBe(1);
+    expect(stripSlots(moved)).toBeLessThanOrEqual(22);
+    expect(stripLayoutOf(moved)).toEqual(moved);
+  });
   it("preserves excess legacy actions intact in More", () => {
     const migrated = stripLayoutOf(undefined);
     expect(stripSlots(migrated)).toBeLessThanOrEqual(22);
-    expect(migrated.filter((i) => !i.key && i.visible)).toHaveLength(TOOLBAR_ITEMS.length);
+    expect(migrated.filter((i) => !i.key && i.visible)).toHaveLength(
+      DEFAULT_TOOLBAR_ITEMS.filter((item) => item.visible).length,
+    );
     expect(stripLayoutOf(migrated)).toEqual(migrated);
   });
 });
 
-it("keeps the two required controls movable but not removable", () => {
+it("lets users remove Collapse and Fullscreen", () => {
   const items = stripLayoutOf(undefined);
   for (const id of ["fullscreen", "collapse-menu"] as const) {
     const index = items.findIndex((item) => item.id === id);
-    expect(items[index]).toMatchObject({ visible: true, group: "strip" });
-    expect(moveStripItem(items, index, "library")).toEqual(items);
-    expect(moveStripItem(items, index, "more")).toEqual(items);
+    expect(moveStripItem(items, index, "library").find((item) => item.id === id)?.visible).toBe(
+      false,
+    );
+    expect(moveStripItem(items, index, "more").find((item) => item.id === id)?.group).toBe("more");
   }
   expect(stripSlots(items)).toBeLessThanOrEqual(22);
 });
 
 it("removes retired wheel and Intelligent Strip toggle actions", () => {
-  const items = toolbarItemsOf([{ id: "color-wheel", visible: true, group: "strip" }, { id: "intelligent-strip", visible: true, group: "strip" }]);
+  const items = toolbarItemsOf([
+    { id: "color-wheel", visible: true, group: "strip" },
+    { id: "intelligent-strip", visible: true, group: "strip" },
+  ]);
   expect(items.some((item) => String(item.id) === "intelligent-strip")).toBe(false);
   expect(items.some((item) => String(item.id) === "color-wheel")).toBe(false);
 });

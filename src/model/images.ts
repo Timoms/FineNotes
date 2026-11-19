@@ -119,6 +119,7 @@ export function duplicateImage(
   if (image.sticky) {
     copy.sticky = {
       color: image.sticky.color,
+      ...(image.sticky.type ? { type: image.sticky.type } : {}),
       strokes: image.sticky.strokes.map((stroke) => ({
         ...stroke,
         pts: [...stroke.pts],

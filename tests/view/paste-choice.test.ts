@@ -31,6 +31,10 @@ describe("pickClipboardType", () => {
     });
   });
 
+  it("accepts image formats supplied by the platform beyond the preferred set", () => {
+    expect(pickClipboardType(["image/heic"])).toEqual({ kind: "image", type: "image/heic" });
+  });
+
   it("reads any picture type a page shows, whatever its case", () => {
     expect(pickClipboardType(["IMAGE/GIF"])).toEqual({ kind: "image", type: "image/gif" });
     expect(pickClipboardType(["image/webp"])).toEqual({ kind: "image", type: "image/webp" });
@@ -44,9 +48,9 @@ describe("pickClipboardType", () => {
     });
   });
 
-  it("finds nothing in HTML alone, a picture type the page cannot show, or nothing", () => {
+  it("finds nothing in HTML alone, a non-picture app type, or nothing", () => {
     expect(pickClipboardType(["text/html"])).toBeNull();
-    expect(pickClipboardType(["image/heic", "web application/x-goodnotes"])).toBeNull();
+    expect(pickClipboardType(["web application/x-goodnotes"])).toBeNull();
     expect(pickClipboardType([])).toBeNull();
   });
 });

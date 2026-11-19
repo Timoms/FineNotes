@@ -37,6 +37,24 @@ function page(): Page {
     images: [
       { id: "under", path: "a.png", x: 30, y: 60, w: 100, h: 80 },
       { id: "over", path: "b.png", x: 150, y: 60, w: 100, h: 80, front: true },
+      {
+        id: "sticky",
+        path: "sticky.svg",
+        x: 150,
+        y: 60,
+        w: 100,
+        h: 80,
+        sticky: { color: "#ffd95a", strokes: [] },
+      },
+      {
+        id: "tab",
+        path: "index-tab.svg",
+        x: 150,
+        y: 60,
+        w: 100,
+        h: 80,
+        sticky: { color: "#ffd95a", type: "index-tab", strokes: [] },
+      },
     ],
   };
 }
@@ -63,7 +81,7 @@ describe("a picture in front of the ink", () => {
       usePressure: false,
       images: painter,
     });
-    expect(order(log.lines, "thumb")).toEqual(["under", "ink", "over"]);
+    expect(order(log.lines, "thumb")).toEqual(["under", "ink", "over", "sticky", "tab"]);
   });
 
   it("is painted after the strokes on the page's tiles", () => {
@@ -93,6 +111,10 @@ describe("a picture in front of the ink", () => {
       if (seen.includes("over") && seen.includes("ink")) {
         expect(seen.indexOf("over")).toBeGreaterThan(seen.indexOf("ink"));
         checked++;
+      }
+      if (seen.includes("sticky")) {
+        expect(seen.indexOf("sticky")).toBeGreaterThan(seen.indexOf("over"));
+        expect(seen.indexOf("tab")).toBeGreaterThan(seen.indexOf("sticky"));
       }
       if (seen.includes("under") && seen.includes("ink")) {
         expect(seen.indexOf("under")).toBeLessThan(seen.indexOf("ink"));

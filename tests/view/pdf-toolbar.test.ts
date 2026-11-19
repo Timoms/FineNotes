@@ -19,6 +19,7 @@ describe("PDF toolbar button", () => {
       foldable: [],
       watchCrowding: vi.fn(),
       applyToolbarItems: vi.fn(),
+      refreshSavedPens: vi.fn(),
       barButton: (
         parent: unknown,
         _icon: string,
@@ -42,7 +43,9 @@ describe("PDF toolbar button", () => {
     const image = buttons.findIndex((button) => button.label === "Insert image");
     const sticker = buttons[image + 1];
     expect(sticker.label).toBe("Stickers");
-    const pdf = buttons[image + 2];
+    const sticky = buttons[image + 2];
+    expect(sticky.label).toBe("Sticky Notes");
+    const pdf = buttons[image + 3];
     expect(pdf.label).toBe("Insert PDF");
     expect(pdf.parent).toBe(buttons[image].parent);
     expect(pdf.addClass).not.toHaveBeenCalledWith("clickable-icon");

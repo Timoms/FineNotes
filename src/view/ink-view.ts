@@ -20,7 +20,13 @@ import { SetFurniture, furnitureText } from "../model/furniture";
 import { SetPageTab, nextTabColor } from "../model/page-tabs";
 import { StickerPicker, SAVED_STICKERS_COLLECTION } from "./sticker-modal";
 import { STICKERS, stickerFileName, stickerFolderOf, stickerSvg } from "../model/stickers";
-import { STICKY_NOTE_COLORS, stickyNoteFileName, stickyNoteSvg } from "../model/sticky-notes";
+import {
+  STICKY_NOTE_COLORS,
+  type StickyNoteType,
+  stickyNoteFileName,
+  stickyNoteSvg,
+} from "../model/sticky-notes";
+import { StickyNotePicker } from "./sticky-note-picker";
 import { readShapeToolStyle } from "../model/shape-style";
 import { notebookKeyScope } from "./notebook-keys";
 import { rememberWheelColor } from "../model/color-wheel";
@@ -1015,6 +1021,10 @@ export class InkView extends TextFileView {
     this.toolbar?.setToolbarItems(toolbarItemsOf(items));
   }
 
+  refreshSavedPens(): void {
+    this.toolbar?.refreshSavedPens();
+  }
+
   /** Apply settings-page tool defaults to this open notebook without changing the active pen. */
   refreshToolOptions(): void {
     this.calculator?.refreshPreferences();
@@ -1089,18 +1099,20 @@ export class InkView extends TextFileView {
   private async insertQuickSticky(
     color: string,
     at: { x: number; y: number } | null,
+    type: StickyNoteType = "note",
+    opacity = 1,
   ): Promise<void> {
     if (this.isProtected()) return;
     const point = at ? this.surface?.pagePointAtClient(at.x, at.y) : null;
-    const svg = stickyNoteSvg(color);
+    const svg = stickyNoteSvg(color, type, opacity);
     await this.insertImageBytes(
       new TextEncoder().encode(svg).buffer,
       "image/svg+xml",
-      stickyNoteFileName(color),
+      stickyNoteFileName(color, type),
       {
         ...(point ? { pageIndex: point.pageIndex, center: { x: point.x, y: point.y } } : {}),
         configure: (image) => {
-          image.sticky = { color, strokes: [] };
+          image.sticky = { color, ...(type === "index-tab" ? { type } : {}), strokes: [] };
         },
       },
     );
@@ -2696,8 +2708,10 @@ export class InkView extends TextFileView {
           this.surface?.startLockRectangle();
           this.toolbar?.setState(this.toolState);
         },
+        onSmartClip: () => this.surface?.startSmartClip(),
         onPaste: () => this.surface?.pasteFromClipboard(),
         onStickers: () => this.openStickerMenu(),
+        onStickyNotes: () => this.openStickyNoteMenu(),
         onInsertImage: (anchor) => this.openImageMenu(anchor),
         onInsertPdf: (anchor) => this.openImageMenu(anchor, true),
         onAi: (anchor) => this.openAiMenu(anchor),
@@ -2741,6 +2755,8 @@ export class InkView extends TextFileView {
                 this.writingControls?.setMenuVisible(this.customizeMenuWasVisible);
               }
             },
+            () => savedPensOf(this.settings.savedPens),
+            () => this.plugin.openSettingsTab(),
           ).open(),
         onPillPlaced: () => this.surface?.placeToasts(),
       },
@@ -4940,6 +4956,7 @@ export class InkView extends TextFileView {
    */
   private openStickerMenu(): void {
     if (this.isProtected() || !this.file) return;
+    if (this.toolbar?.closeIntelligentTool("stickers")) return;
     const container = this.toolbar?.openIntelligentTool("stickers", "Stickers", () =>
       picker?.destroy(),
     );
@@ -4979,6 +4996,19 @@ export class InkView extends TextFileView {
         void this.plugin.saveSettings();
       },
     );
+  }
+
+  private openStickyNoteMenu(): void {
+    if (this.isProtected() || !this.file) return;
+    if (this.toolbar?.closeIntelligentTool("sticky-notes")) return;
+    const container = this.toolbar?.openIntelligentTool("sticky-notes", "Sticky Notes", () =>
+      picker?.destroy(),
+    );
+    if (!container) return;
+    const picker = new StickyNotePicker(container.createDiv(), (type, color, opacity) => {
+      this.toolbar?.closeIntelligentTool("sticky-notes");
+      void this.insertQuickSticky(color, null, type, opacity);
+    });
   }
 
   private openImageMenu(anchor: HTMLElement, pdf = false): void {

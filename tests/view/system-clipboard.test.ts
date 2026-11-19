@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { onSystemTextWritten, writeSystemText } from "../../src/view/system-clipboard";
+import {
+  onSystemTextWritten,
+  readSystemClipboard,
+  writeSystemText,
+} from "../../src/view/system-clipboard";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -31,5 +35,21 @@ describe("writeSystemText", () => {
   it("rejects where there is no clipboard", async () => {
     vi.stubGlobal("navigator", {});
     await expect(writeSystemText("x")).rejects.toThrow();
+  });
+});
+
+describe("readSystemClipboard", () => {
+  it("reads any image MIME type exposed by the platform", async () => {
+    const blob = new Blob(["photo"], { type: "image/heic" });
+    vi.stubGlobal("navigator", {
+      clipboard: {
+        read: () =>
+          Promise.resolve([{ types: ["image/heic"], getType: () => Promise.resolve(blob) }]),
+      },
+    });
+    await expect(readSystemClipboard()).resolves.toMatchObject({
+      kind: "image",
+      file: { name: "Pasted image", type: "image/heic" },
+    });
   });
 });

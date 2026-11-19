@@ -167,7 +167,7 @@ interface StoredStroke {
 }
 
 type StoredImage = Omit<ImageElement, "sticky"> & {
-  sticky?: { color: string; strokes: StoredStroke[] };
+  sticky?: { color: string; type?: "note" | "index-tab"; strokes: StoredStroke[] };
 };
 
 interface StoredPage {
@@ -853,7 +853,16 @@ function normalizeImage(raw: unknown, mintId: () => string): ImageElement | null
       ? { opacity: readImageOpacity(raw.opacity) }
       : {}),
     ...(isRecord(raw.sticky) && typeof raw.sticky.color === "string"
-      ? { sticky: { color: raw.sticky.color, strokes: readStrokes(raw.sticky.strokes) } }
+      ? {
+          sticky: {
+            color: raw.sticky.color,
+            ...(raw.sticky.type === "index-tab" ||
+            (typeof raw.path === "string" && /index tab/i.test(raw.path))
+              ? { type: "index-tab" as const }
+              : {}),
+            strokes: readStrokes(raw.sticky.strokes),
+          },
+        }
       : {}),
   };
 }

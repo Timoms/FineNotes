@@ -299,6 +299,8 @@ export interface GoodObsidianSettings {
   hideCompanionAfterSelection: boolean;
   /** Show the four arrows and unlock button while touch scrolling is prevented. */
   showScrollControls: boolean;
+  /** Hide Obsidian's view navigation/header bar while a FineNotes notebook is open. */
+  hideObsidianNavigation: boolean;
 }
 
 // The records are copies, so a host that edits its settings in place cannot
@@ -380,6 +382,7 @@ export const DEFAULT_SETTINGS: GoodObsidianSettings = {
   handwritingCleanup: false,
   hideCompanionAfterSelection: false,
   showScrollControls: true,
+  hideObsidianNavigation: false,
 
   settingsOpen: [],
   scribbleTipDismissed: false,

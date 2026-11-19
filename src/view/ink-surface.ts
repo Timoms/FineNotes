@@ -114,6 +114,7 @@ import {
   sameTransform,
   sweptTurn,
   topImageAt,
+  toImageLocal,
   transformOf,
 } from "../canvas/image-geometry";
 import {
@@ -350,7 +351,12 @@ import {
   RemoveImage,
   TransformImage,
 } from "../model/commands";
-import { AddProtectionZone, UpdateProtectionZone, RemoveProtectionZone, lockStrokeInRect } from "../model/ink-lock";
+import {
+  AddProtectionZone,
+  UpdateProtectionZone,
+  RemoveProtectionZone,
+  lockStrokeInRect,
+} from "../model/ink-lock";
 import { ReplaceStrokesOnPage, type StrokeReplacement } from "../model/erase-commands";
 import { addStrokesTimed } from "../model/recording-commands";
 import { SetTextBoxStyle, SetTextBoxText } from "../model/text-commands";
@@ -1475,6 +1481,8 @@ export class InkSurface {
   /** The paper and the committed ink, bottom to top: what `snapshotPage` copies. */
   private readonly paneLayers: HTMLCanvasElement[];
   private laserFrame = 0;
+  /** Smart Clip's local fallback while iPad blocks a system clipboard read. */
+  private smartClipFile: File | null = null;
 
   // The lasso (0.5). A selection is strokes, images and text boxes on one
   // page, held by identity and resolved against the live document. One
@@ -1485,6 +1493,7 @@ export class InkSurface {
   // boxes, so a finger works them as well as the Pencil.
   private selection: GroupSelection | null = null;
   private drawingLock = false;
+  private drawingSmartClip = false;
   private readonly selectionLockButton: HTMLButtonElement;
   /** A lasso has selected content; return only when its outside click dismisses it. */
   private selectionToolUsed = false;
@@ -2097,9 +2106,13 @@ export class InkSurface {
     // Leaving the app may put something newer on the system clipboard: from
     // then on, a picture pasted from there wins over the plugin's clipboard
     // (see `handlePaste`). Idempotent, so every open surface may report it.
-    const onLeave = (): void => clipboard.noteWindowLeft();
+    const noteWindowLeft = (): void => {
+      clipboard.noteWindowLeft();
+      this.smartClipFile = null;
+    };
+    const onLeave = (): void => noteWindowLeft();
     const onVisibility = (): void => {
-      if (this.surfaceEl.ownerDocument.visibilityState === "hidden") clipboard.noteWindowLeft();
+      if (this.surfaceEl.ownerDocument.visibilityState === "hidden") noteWindowLeft();
       else if (this.layoutWhenShown) {
         this.layoutWhenShown = false;
         this.layout();
@@ -2683,6 +2696,7 @@ export class InkSurface {
 
   setTool(tool: ActiveTool): void {
     this.drawingLock = false;
+    this.drawingSmartClip = false;
     // A colour waiting to be picked was for the tool being left.
     this.eyedropper?.cancel();
     // Another tool ends exploring a graph, keeping where it was left.
@@ -7246,6 +7260,15 @@ export class InkSurface {
     new Notice("FineNotes: draw a rectangle to protect the ink inside it.");
   }
 
+  /** The next selection gesture copies the revealed page rectangle as a PNG. */
+  startSmartClip(): void {
+    if (this.practice || this.callbacks.isLocked?.()) return;
+    this.setTool("select");
+    this.clearSelection();
+    this.drawingSmartClip = true;
+    new Notice("FineNotes: draw a rectangle to copy it.");
+  }
+
   private lockRectangle(index: number, bounds: Bounds): void {
     const page = this.pageAt(index);
     if (!page || this.callbacks.isLocked?.()) return;
@@ -7326,7 +7349,8 @@ export class InkSurface {
     this.deselectImage();
     const path = new LassoPath(box, LASSO_SPACING_PX / this.unitScale);
     path.add(local);
-    let mode = this.drawingLock ? ("rect" as const) : lassoModeFor(this.toolState);
+    let mode =
+      this.drawingLock || this.drawingSmartClip ? ("rect" as const) : lassoModeFor(this.toolState);
     let lines: LineBlock[] = [];
     let space: LassoDraft["space"] = null;
     if (mode === "lines") {
@@ -7379,6 +7403,11 @@ export class InkSurface {
       return;
     }
     const loop = this.lassoLoop(lasso);
+    if (this.drawingSmartClip) {
+      const bounds = polygonOf(loop)?.bounds;
+      if (bounds) this.renderer?.renderSmartClip(lasso.box.index, bounds);
+      return;
+    }
     // Drawn rounded off, as GoodNotes draws it; taken on the loop as drawn.
     this.renderer?.renderLasso(
       lasso.box.index,
@@ -7563,6 +7592,11 @@ export class InkSurface {
     if (this.drawingLock && b) {
       this.drawingLock = false;
       this.lockRectangle(lasso.box.index, b);
+      return;
+    }
+    if (this.drawingSmartClip && b) {
+      this.drawingSmartClip = false;
+      this.copySmartClip(lasso.box.index, b);
       return;
     }
     if (lasso.mode === "lines") {
@@ -8709,13 +8743,35 @@ export class InkSurface {
     const page = this.pageAt(this.pageIndex);
     const region = this.visibleRegion(this.pageIndex);
     if (!page || !region) return;
-    this.pasteHere(page.id, {
+    const at = {
       x: (region.minX + region.maxX) / 2,
       y: (region.minY + region.maxY) / 2,
-    });
+    };
+    // WKWebView often rejects navigator.clipboard.read(), but can still
+    // deliver the same image through its native paste event.
+    if (Platform.isIosApp && typeof document.execCommand === "function") {
+      window.clearTimeout(this.pasteTimer);
+      this.pasteTimer = window.setTimeout(() => {
+        this.pasteTimer = 0;
+        this.pasteHere(page.id, at);
+      }, PASTE_EVENT_WAIT_MS);
+      try {
+        document.execCommand("paste");
+      } catch {
+        // The timed Clipboard API fallback still runs.
+      }
+      return;
+    }
+    this.pasteHere(page.id, at);
   }
 
   private pasteHere(pageId: string, at: Pt): void {
+    if (this.smartClipFile && this.imagesShown && !this.practice) {
+      const index = this.doc.pages.findIndex((page) => page.id === pageId);
+      if (index >= 0)
+        this.callbacks.onPasteImage?.(this.smartClipFile, { pageIndex: index, ...at });
+      return;
+    }
     const ink = clipboard.canPaste(this.imagesShown);
     if (this.practice || inkFirst(ink, clipboard.leftSinceCopy) || !canReadSystemClipboard()) {
       if (!this.paste({ pageId, at }) && !ink) new Notice("FineNotes: nothing to paste.");
@@ -9776,8 +9832,8 @@ export class InkSurface {
               attr: { title: "Delete protection zone", "aria-label": "Delete protection zone" },
             });
             iconInto(remove, "trash-2", "×");
-            remove.addEventListener("pointerdown", event => event.stopPropagation());
-            remove.addEventListener("click", event => {
+            remove.addEventListener("pointerdown", (event) => event.stopPropagation());
+            remove.addEventListener("click", (event) => {
               event.stopPropagation();
               this.selectedProtectionZone = null;
               this.applyCommand(new RemoveProtectionZone(page.id, zone));
@@ -10936,6 +10992,17 @@ export class InkSurface {
   private setImageSelection(pageId: string, image: ImageElement): void {
     // A locked picture cannot be selected until it is unlocked.
     if (image.locked === true) return;
+    const page = image.sticky ? this.doc.pages.find((candidate) => candidate.id === pageId) : null;
+    const textBoxes =
+      page?.textBoxes.filter((textBox) => {
+        const frame = this.textBoxFrameOf(pageId, textBox);
+        const point = toImageLocal(image, { x: frame.x + frame.w / 2, y: frame.y + frame.h / 2 });
+        return Math.abs(point.x) <= image.w / 2 && Math.abs(point.y) <= image.h / 2;
+      }) ?? [];
+    if (textBoxes.length) {
+      this.select(pageId, { strokes: [], images: [image], textBoxes });
+      return;
+    }
     // One selection at a time: a lasso selection gives way to the picture.
     this.endCrop(false);
     this.clearSelection();
@@ -10943,6 +11010,70 @@ export class InkSurface {
     this.imageSel = { pageId, image };
     if (this.toolState.tool === "select") this.selectionToolUsed = true;
     this.syncImageOverlay();
+  }
+
+  private copySmartClip(pageIndex: number, bounds: Bounds): void {
+    const page = this.pageAt(pageIndex);
+    const box = this.pageLayout.boxes[pageIndex];
+    const snapshot = this.snapshotPage();
+    const clip = typeof navigator !== "undefined" ? navigator.clipboard : undefined;
+    if (
+      !page ||
+      !box ||
+      !snapshot ||
+      !clip ||
+      typeof clip.write !== "function" ||
+      typeof ClipboardItem === "undefined"
+    ) {
+      new Notice("FineNotes: this device cannot copy image clips.");
+      return;
+    }
+    const pageRect = {
+      left: snapshot.pane.left + this.offsetX + box.x * this.scale,
+      top: snapshot.pane.top + (box.y - this.viewport.scrollY) * this.scale,
+      width: box.width * this.scale,
+      height: box.height * this.scale,
+    };
+    const scaleX = snapshot.image.width / snapshot.pane.width;
+    const scaleY = snapshot.image.height / snapshot.pane.height;
+    const sx = Math.round(
+      (pageRect.left - snapshot.pane.left + (bounds.minX / page.geometry.width) * pageRect.width) *
+        scaleX,
+    );
+    const sy = Math.round(
+      (pageRect.top - snapshot.pane.top + (bounds.minY / page.geometry.height) * pageRect.height) *
+        scaleY,
+    );
+    const sw = Math.max(
+      1,
+      Math.round(((bounds.maxX - bounds.minX) / page.geometry.width) * pageRect.width * scaleX),
+    );
+    const sh = Math.max(
+      1,
+      Math.round(((bounds.maxY - bounds.minY) / page.geometry.height) * pageRect.height * scaleY),
+    );
+    const canvas = createEl("canvas");
+    canvas.width = sw;
+    canvas.height = sh;
+    canvas.getContext("2d")?.drawImage(snapshot.image, sx, sy, sw, sh, 0, 0, sw, sh);
+    const png = new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("PNG encoding failed"))),
+        "image/png",
+      ),
+    );
+    void png.then((blob) => {
+      this.smartClipFile = new File([blob], "Smart Clip.png", { type: "image/png" });
+    });
+    png.catch(() => undefined);
+    try {
+      clip
+        .write([new ClipboardItem({ "image/png": png })])
+        .then(() => new Notice("Smart Clip copied. Use Paste to place it."))
+        .catch(() => new Notice("FineNotes: the clipboard refused the clip."));
+    } catch {
+      new Notice("FineNotes: the clipboard refused the clip.");
+    }
   }
 
   /**
@@ -11020,12 +11151,6 @@ export class InkSurface {
     let part =
       hitImagePart(start, from, HANDLE_HIT_RADIUS_PX / scale, ROTATE_HANDLE_OFFSET_PX / scale) ??
       "body";
-    // A sticky is picked up by peeling either bottom corner. The remaining
-    // handles retain ordinary resize/rotate behaviour.
-    if (sel.image.sticky && (part === "sw" || part === "se")) {
-      this.imageFrameEl.addClass(part === "sw" ? "is-peeling-left" : "is-peeling-right");
-      part = "body";
-    }
     const grabbed = part === "body" || part === "rotate" ? from : imageHandlePoint(start, part);
     try {
       this.imageFrameEl.setPointerCapture(event.pointerId);
@@ -11122,8 +11247,6 @@ export class InkSurface {
       this.imageFrameEl.releasePointerCapture(drag.pointerId);
     }
     this.imageUiEl.removeClass("is-dragging");
-    this.imageFrameEl.removeClass("is-peeling-left");
-    this.imageFrameEl.removeClass("is-peeling-right");
     if (!drag.lifted) {
       this.syncImageOverlay();
       return;

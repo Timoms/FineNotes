@@ -312,6 +312,15 @@ export function drawPlacedImage(
   ctx.restore();
 }
 
+/** Paint layer and order: ordinary images, sticky notes, then index tabs. */
+function imagePaintRank(image: ImageElement, front: boolean): number {
+  if (image.sticky) {
+    if (!front) return -1;
+    return image.sticky.type === "index-tab" ? 2 : 1;
+  }
+  return (image.front === true) === front ? 0 : -1;
+}
+
 /**
  * The colour a page's paper is: its backdrop's `paperColor` (a cover's
  * cloth, a coloured paper), else the theme's paper; with dark pages, as
@@ -1229,11 +1238,13 @@ export class Renderer {
   ): void {
     const painter = this.imagePainter;
     if (!painter) return;
-    for (const image of page.images) {
-      if ((image.front === true) !== front) continue;
-      if (this.hiddenImages.has(image)) continue;
-      if (!overlaps(imageBounds(image), region)) continue;
-      drawPlacedImage(ctx, image, painter, level);
+    for (let rank = 0; rank <= 2; rank++) {
+      for (const image of page.images) {
+        if (imagePaintRank(image, front) !== rank) continue;
+        if (this.hiddenImages.has(image)) continue;
+        if (!overlaps(imageBounds(image), region)) continue;
+        drawPlacedImage(ctx, image, painter, level);
+      }
     }
   }
 
@@ -1394,6 +1405,26 @@ export class Renderer {
     this.setWetVisible(true);
   }
 
+  /** Darken the page except for the Smart Clip rectangle being revealed. */
+  renderSmartClip(pageIndex: number, bounds: Bounds): void {
+    const box = this.layout.boxes[pageIndex];
+    const ctx = this.wet.ctx;
+    this.wipe(ctx);
+    if (!box) return;
+    this.toLayoutSpace(ctx);
+    this.enterPage(ctx, box);
+    ctx.beginPath();
+    ctx.rect(0, 0, box.width, box.height);
+    ctx.rect(bounds.minX, bounds.minY, bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+    ctx.fillStyle = "rgba(0,0,0,0.48)";
+    ctx.fill("evenodd");
+    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.lineWidth = 1 / this.safeScale;
+    ctx.strokeRect(bounds.minX, bounds.minY, bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+    ctx.restore();
+    this.setWetVisible(true);
+  }
+
   /**
    * Draw a lasso selection being dragged (page space) on the wet layer,
    * moved by (dx, dy): its images, then its ink over them, as the tiles
@@ -1492,9 +1523,11 @@ export class Renderer {
     }
     const pictures = (front: boolean): void => {
       if (!this.imagePainter) return;
-      for (const image of images) {
-        if ((image.front === true) !== front) continue;
-        drawPlacedImage(ctx, image, this.imagePainter, this.deviceScale);
+      for (let rank = 0; rank <= 2; rank++) {
+        for (const image of images) {
+          if (imagePaintRank(image, front) !== rank) continue;
+          drawPlacedImage(ctx, image, this.imagePainter, this.deviceScale);
+        }
       }
     };
     pictures(false);
@@ -1524,7 +1557,9 @@ export class Renderer {
     const bounds = entry.bounds;
     const page = this.doc?.pages[pageIndex];
     if (
-      page?.images.some((image) => image.front === true && overlaps(imageBounds(image), bounds))
+      page?.images.some(
+        (image) => imagePaintRank(image, true) >= 0 && overlaps(imageBounds(image), bounds),
+      )
     ) {
       this.invalidateRegion(pageIndex, bounds);
       return;
@@ -1877,8 +1912,11 @@ export function renderPageThumbnail(
   }
   const pictures = (front: boolean): void => {
     if (!options.images) return;
-    for (const image of page.images) {
-      if ((image.front === true) === front) drawPlacedImage(ctx, image, options.images, k);
+    for (let rank = 0; rank <= 2; rank++) {
+      for (const image of page.images) {
+        if (imagePaintRank(image, front) !== rank) continue;
+        drawPlacedImage(ctx, image, options.images, k);
+      }
     }
   };
   pictures(false);

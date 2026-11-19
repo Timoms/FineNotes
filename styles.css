@@ -5505,35 +5505,73 @@ button.finenotes-x-import-help-toggle.clickable-icon {
   -webkit-user-select: none;
 }
 
-/* A selected sticky can be picked up from either bottom corner. The canvas
-   remains the printable note; this chrome supplies the live physical fold. */
-.finenotes-x-image-frame.is-sticky-note::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  width: 28px;
-  height: 28px;
-  pointer-events: none;
-  opacity: 0;
-  background: linear-gradient(135deg, rgb(255 255 255 / 25%), rgb(255 255 255 / 92%));
-  box-shadow: 3px 5px 5px rgb(0 0 0 / 22%);
-  transition:
-    opacity 100ms ease,
-    transform 160ms ease;
+.finenotes-x-sticky-opacity {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 10px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
 }
 
-.finenotes-x-image-frame.is-sticky-note.is-peeling-left::after {
-  left: 0;
-  opacity: 1;
-  transform-origin: bottom left;
-  transform: perspective(100px) rotateY(145deg) rotateZ(8deg);
+body.finenotes-x-hide-navigation .workspace-leaf:has(.finenotes-x-view) .view-header {
+  display: none !important;
 }
 
-.finenotes-x-image-frame.is-sticky-note.is-peeling-right::after {
-  right: 0;
-  opacity: 1;
-  transform-origin: bottom right;
-  transform: perspective(100px) rotateY(-145deg) rotateZ(-8deg);
+/* Fullscreen keeps the primary menu in its ordinary horizontal place. */
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar.finenotes-x-toolbar.is-unified-strip {
+  inset: max(4px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) auto
+    max(8px, env(safe-area-inset-left, 0px));
+  top: auto;
+  width: auto;
+  max-height: none;
+  flex-direction: row;
+  translate: none;
+  padding: 8px 10px;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-bar-group.is-strip-linear,
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-strip-pill,
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-fullscreen-bar-controls {
+  flex-direction: row;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-bar-group.is-strip-linear {
+  width: 100%;
+  min-height: 0;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-strip-fixed-space {
+  width: 20px;
+  height: 0;
+  flex-basis: 20px;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-strip-flexible-space {
+  width: auto;
+  min-width: 8px;
+  min-height: 0;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-strip-divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 5px;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-writing-menu-toggle.is-docked
+  svg {
+  transform: none;
 }
 
 /* Explore: a live canvas over one graph, its bar just above it. The graph
@@ -13381,6 +13419,99 @@ body:not(.is-phone) .modal.finenotes-x-move-modal {
   flex: 1 1 0;
   min-width: 8px;
 }
+.finenotes-x-added-menu-strip {
+  --added-strip-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  position: absolute;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: var(--gob-gap);
+  min-width: calc(3 * var(--gob-touch));
+  min-height: var(--gob-touch);
+  padding: 6px;
+  border-radius: var(--gob-radius-l);
+  background: var(--background-primary-alt);
+  box-shadow: var(--shadow-s);
+}
+.finenotes-x-view:has(.finenotes-x-scroll-controls:not(.is-hidden)) .finenotes-x-added-menu-strip {
+  --added-strip-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+}
+.finenotes-x-added-menu-strip.is-top {
+  top: var(--added-strip-top, 60px);
+}
+.finenotes-x-added-menu-strip.is-bottom {
+  bottom: var(--added-strip-bottom);
+}
+.finenotes-x-added-menu-strip.is-left,
+.finenotes-x-added-menu-strip.is-right {
+  top: 50%;
+  min-width: var(--gob-touch);
+  min-height: calc(3 * var(--gob-touch));
+  transform: translateY(-50%);
+  flex-direction: column;
+}
+.finenotes-x-added-menu-strip.is-left {
+  left: 10px;
+}
+.finenotes-x-added-menu-strip.is-right {
+  right: 10px;
+}
+.finenotes-x-added-menu-strip.align-left:not(.is-left):not(.is-right) {
+  left: 10px;
+}
+.finenotes-x-added-menu-strip.align-right:not(.is-left):not(.is-right) {
+  right: 10px;
+}
+.finenotes-x-added-menu-strip.align-center:not(.is-left):not(.is-right) {
+  left: 50%;
+  transform: translateX(-50%);
+}
+.finenotes-x-added-menu-strip:is(.is-left, .is-right).align-left {
+  top: var(--added-strip-top);
+  transform: none;
+}
+.finenotes-x-added-menu-strip:is(.is-left, .is-right).align-right {
+  top: auto;
+  bottom: var(--added-strip-bottom);
+  transform: none;
+}
+.finenotes-x-added-menu-strip.align-stretch {
+  gap: 0;
+}
+.finenotes-x-added-menu-strip.align-stretch.is-top,
+.finenotes-x-added-menu-strip.align-stretch.is-bottom {
+  left: 0;
+  right: 0;
+  border-radius: 0;
+  padding: 0;
+}
+.finenotes-x-added-menu-strip.align-stretch.is-top {
+  top: var(--added-strip-top-edge, var(--added-strip-top));
+}
+.finenotes-x-added-menu-strip.align-stretch.is-bottom {
+  bottom: var(--added-strip-bottom);
+}
+.finenotes-x-added-menu-strip.align-stretch.is-left,
+.finenotes-x-added-menu-strip.align-stretch.is-right {
+  top: var(--added-strip-top-edge, var(--added-strip-top));
+  bottom: var(--added-strip-bottom);
+  transform: none;
+  border-radius: 0;
+  padding: 0;
+}
+.finenotes-x-added-strip-controls {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  margin-top: 14px;
+}
+.finenotes-x-added-strip-controls label {
+  display: grid;
+  gap: 3px;
+}
+.finenotes-x-added-strip-editor .finenotes-x-strip-preview {
+  min-width: calc(3 * var(--gob-touch));
+}
 .is-strip-preview-editor .modal-content {
   max-height: 85vh;
 }
@@ -14054,9 +14185,7 @@ button.finenotes-x-strip-tile {
 
 /* Notebook theme also controls its tools, rather than inheriting unreadable app chrome. */
 .finenotes-x-view.theme-dark,
-.finenotes-x-themed-menu.theme-dark,
-body:has(.workspace-leaf.mod-active .finenotes-x-view.theme-dark)
-  :is(.modal[class*="finenotes-x-"], .modal:has([class*="finenotes-x-"])) {
+.finenotes-x-themed-menu.theme-dark {
   --background-primary: #20242c;
   --background-primary-alt: #272d37;
   --background-secondary: #181c23;
@@ -14074,9 +14203,7 @@ body:has(.workspace-leaf.mod-active .finenotes-x-view.theme-dark)
   color: var(--text-normal);
 }
 .finenotes-x-view.theme-light,
-.finenotes-x-themed-menu.theme-light,
-body:has(.workspace-leaf.mod-active .finenotes-x-view.theme-light)
-  :is(.modal[class*="finenotes-x-"], .modal:has([class*="finenotes-x-"])) {
+.finenotes-x-themed-menu.theme-light {
   --background-primary: #f9fafc;
   --background-primary-alt: #f0f3f8;
   --background-secondary: #e9edf4;
@@ -14380,8 +14507,13 @@ body:has(.workspace-leaf.mod-active .finenotes-x-view.theme-light)
   color: var(--text-normal);
 }
 .finenotes-x-custom-submenu-bar button.is-active {
-  background: rgb(0 122 255 / 20%);
-  box-shadow: inset 0 0 0 1.5px #007aff;
+  border-color: transparent !important;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 36%), rgb(255 255 255 / 8%) 48%),
+    color-mix(in srgb, var(--interactive-accent) 30%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 55%),
+    0 4px 12px color-mix(in srgb, var(--interactive-accent) 26%, transparent) !important;
 }
 .finenotes-x-customize-header {
   display: flex;
@@ -15185,12 +15317,14 @@ body:has(.workspace-leaf.mod-active .finenotes-x-view.theme-light)
     0 3px 10px rgb(0 0 0 / 18%) !important;
 }
 .is-strip-preview-editor .finenotes-x-strip-preview-section.is-strip > .finenotes-x-strip-preview {
-  grid-template-columns: repeat(24, minmax(0, 1fr));
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(84px, auto));
+  min-height: 184px;
 }
 .is-strip-preview-editor
   .finenotes-x-strip-preview-section.is-strip
   > .finenotes-x-strip-preview[data-container] {
-  grid-template-columns: repeat(22, minmax(0, 1fr));
+  grid-template-columns: repeat(11, minmax(0, 1fr));
 }
 /* Color control grows in the rail itself: one slot at rest, three while choosing. */
 .finenotes-x-toolbar.is-unified-strip button.is-color-expanded {
@@ -15303,8 +15437,316 @@ body:has(.workspace-leaf.mod-active .finenotes-x-view.theme-light)
 .finenotes-x-toolbar.is-unified-strip :is(.finenotes-x-bar-group, .finenotes-x-strip-pill) {
   overflow: visible;
 }
+
+/* Loose actions and groups are separate panes of refractive glass. */
+.finenotes-x-toolbar.is-unified-strip button.finenotes-x-tool {
+  border: 1px solid rgb(255 255 255 / 38%) !important;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 42%), rgb(255 255 255 / 8%) 48%, rgb(0 0 0 / 5%)),
+    color-mix(in srgb, var(--background-primary) 46%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 72%),
+    inset 0 -1px 0 rgb(0 0 0 / 8%),
+    0 5px 14px rgb(0 0 0 / 18%) !important;
+}
+.finenotes-x-toolbar.is-unified-strip .finenotes-x-strip-pill {
+  min-height: var(--gob-touch, 44px);
+  padding: 3px 5px;
+  border: 1px solid rgb(255 255 255 / 38%);
+  border-radius: 999px;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 42%), rgb(255 255 255 / 8%) 48%, rgb(0 0 0 / 5%)),
+    color-mix(in srgb, var(--background-primary) 46%, transparent);
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 72%),
+    inset 0 -1px 0 rgb(0 0 0 / 8%),
+    0 5px 14px rgb(0 0 0 / 18%);
+}
+.finenotes-x-toolbar.is-unified-strip .finenotes-x-strip-pill > button.finenotes-x-tool,
+.finenotes-x-toolbar.is-unified-strip
+  .finenotes-x-strip-pill
+  > button.finenotes-x-tool:hover:not(:disabled) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.finenotes-x-toolbar.is-unified-strip
+  .finenotes-x-strip-pill
+  > button.finenotes-x-tool:is(.is-active, [aria-pressed="true"]) {
+  border-color: transparent !important;
+  border-radius: 50% !important;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 36%), rgb(255 255 255 / 8%) 48%),
+    color-mix(in srgb, var(--interactive-accent) 30%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 55%),
+    0 4px 12px color-mix(in srgb, var(--interactive-accent) 26%, transparent) !important;
+}
+.finenotes-x-colorwheel-lock {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: grid;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--background-primary);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 28%);
+  pointer-events: none;
+}
+.finenotes-x-toolbar.is-unified-strip button.is-favorite-locked {
+  position: relative;
+  cursor: not-allowed;
+}
+.finenotes-x-colorwheel-lock svg {
+  width: 9px !important;
+  height: 9px !important;
+}
+
+/* More uses the same icon-card language as the strip editor preview. */
+.finenotes-x-strip-more {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  width: min(320px, calc(100vw - 20px));
+  padding: 8px;
+}
+.finenotes-x-strip-more button.finenotes-x-strip-menu-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 86px;
+  padding: 8px 5px;
+  border: 1px solid rgb(255 255 255 / 34%);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 38%), rgb(255 255 255 / 7%) 52%),
+    color-mix(in srgb, var(--background-primary) 48%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 62%),
+    0 4px 12px rgb(0 0 0 / 16%);
+  text-align: center;
+}
+.finenotes-x-strip-more .finenotes-x-strip-menu-icon {
+  flex: 0 0 auto;
+}
+.finenotes-x-strip-more .finenotes-x-strip-menu-label {
+  flex: 0 0 auto;
+  width: 100%;
+  text-align: center;
+}
+.finenotes-x-strip-more :is(.finenotes-x-strip-menu-controls, .finenotes-x-strip-menu-divider) {
+  grid-column: 1 / -1;
+}
+.finenotes-x-strip-menu-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 40px;
+}
+.finenotes-x-strip-menu-controls .finenotes-x-strip-back {
+  margin: 0 auto 0 0;
+}
+.finenotes-x-strip-more button.finenotes-x-strip-customize {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 8px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 34%);
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 38%), rgb(255 255 255 / 7%) 52%),
+    color-mix(in srgb, var(--background-primary) 48%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 62%),
+    0 3px 9px rgb(0 0 0 / 14%);
+}
+.finenotes-x-strip-more :is(.finenotes-x-strip-menu-group, .finenotes-x-strip-menu-shortcuts) {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0;
+  border: 0;
+}
+
+.finenotes-x-tool-subheading {
+  flex: 1 0 100%;
+  width: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  text-align: left;
+}
+
+/* The modal picker also lives inside the 310px Intelligent Strip. */
+.finenotes-x-intelligent-external > div:not(.finenotes-x-popover-title) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+.finenotes-x-intelligent-external .finenotes-x-sticker-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+  width: 100%;
+  gap: 3px;
+}
+.finenotes-x-intelligent-external button.finenotes-x-sticker-swatch.clickable-icon {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+}
+.finenotes-x-intelligent-external .finenotes-x-sticker-swatch-disc {
+  width: 20px;
+  height: 20px;
+}
+.finenotes-x-intelligent-external .finenotes-x-sticker-scroll {
+  box-sizing: border-box;
+  width: 100%;
+  height: min(360px, 50vh);
+  padding: 4px;
+}
+.finenotes-x-intelligent-external .finenotes-x-sticker-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.finenotes-x-intelligent-external button.finenotes-x-sticker-cell.clickable-icon {
+  width: 100%;
+  height: 76px;
+  min-height: 76px;
+  padding: 10px;
+}
+.finenotes-x-intelligent-external button.finenotes-x-sticker-cell.is-previewing img,
+.finenotes-x-intelligent-external button.finenotes-x-sticker-cell:focus-visible img {
+  transform: scale(1.12);
+}
+
+/* Selected menu controls are accent-tinted glass, never outlined buttons. */
+.finenotes-x-toolbar.is-unified-strip button.finenotes-x-tool:is(.is-active, [aria-pressed="true"]),
+.finenotes-x-strip-more button.finenotes-x-strip-menu-action.is-active {
+  border-color: transparent !important;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 36%), rgb(255 255 255 / 8%) 48%),
+    color-mix(in srgb, var(--interactive-accent) 30%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 55%),
+    0 4px 12px color-mix(in srgb, var(--interactive-accent) 26%, transparent) !important;
+}
+.finenotes-x-toolbar [data-toolbar-item^="saved-pen-"],
+.finenotes-x-strip-tile-icon:has(.finenotes-x-favorite-pen-number) {
+  position: relative;
+}
+.finenotes-x-favorite-pen-number {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: grid;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 28%);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
 /* Center and pan pages in the space beside the fullscreen rail. The surface's
    measured viewport drives layout, zoom bounds and Fit Page together. */
 .finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible .finenotes-x-surface {
   margin-right: var(--finenotes-menu-reserve, 88px);
+}
+
+/* Keep the primary strip horizontal at the top in fullscreen. This final
+   override intentionally follows the former right-rail rules above. */
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar.finenotes-x-toolbar.is-unified-strip {
+  inset: max(4px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) auto
+    max(8px, env(safe-area-inset-left, 0px));
+  top: auto;
+  width: auto;
+  max-height: none;
+  flex-direction: row;
+  translate: none;
+  padding: 8px 10px;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  :is(
+    .finenotes-x-bar-group.is-strip-linear,
+    .finenotes-x-strip-pill,
+    .finenotes-x-fullscreen-bar-controls
+  ) {
+  flex-direction: row;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-bar-group.is-strip-linear {
+  width: 100%;
+  min-height: 0;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-strip-fixed-space {
+  width: 20px;
+  height: 0;
+  flex-basis: 20px;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-strip-flexible-space {
+  width: auto;
+  min-width: 8px;
+  min-height: 0;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-strip-divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 5px;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible
+  .finenotes-x-main-toolbar
+  .finenotes-x-writing-menu-toggle.is-docked
+  svg {
+  transform: none;
+}
+.finenotes-x-view.is-distraction-free.is-fullscreen-menu-visible .finenotes-x-surface {
+  margin-right: 0;
+  margin-top: calc(var(--gob-bar-h) + max(4px, env(safe-area-inset-top, 0px)));
+}
+
+.finenotes-x-status-smart-clip {
+  cursor: pointer;
+}
+.finenotes-x-app-clip {
+  position: fixed;
+  z-index: 100000;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+.finenotes-x-app-clip-selection {
+  position: fixed;
+  border: 1px solid var(--interactive-accent);
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 42%);
+  pointer-events: none;
+  visibility: hidden;
+}
+.finenotes-x-app-clip-selection.is-drawing {
+  visibility: visible;
 }

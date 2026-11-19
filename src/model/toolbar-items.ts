@@ -23,6 +23,7 @@ export const TOOLBAR_LAYOUT_ITEMS = [
   { id: "flexible-space", label: "Flexible space", icon: "unfold-horizontal" },
   { id: "group", label: "Group", icon: "group" },
   { id: "submenu", label: "Submenu", icon: "panel-left-open" },
+  { id: "menu-strip", label: "Menu strip", icon: "panel-top" },
 ] as const;
 export type ToolbarLayoutId = (typeof TOOLBAR_LAYOUT_ITEMS)[number]["id"];
 export function isToolbarLayoutItem(id: string): id is ToolbarLayoutId {
@@ -43,14 +44,25 @@ export const TOOLBAR_ITEMS = [
   { id: "redo", label: "Redo", icon: "redo-2" },
   { id: "select", label: "Select", icon: "lasso" },
   { id: "pen", label: "Pen", icon: "pen-tool" },
+  { id: "laser", label: "Laser pointer", icon: "pointer", defaultVisible: false },
+  { id: "saved-pen-1", label: "Favorite pen 1", icon: "pen-tool", defaultVisible: false },
+  { id: "saved-pen-2", label: "Favorite pen 2", icon: "pen-tool", defaultVisible: false },
+  { id: "saved-pen-3", label: "Favorite pen 3", icon: "pen-tool", defaultVisible: false },
+  { id: "saved-pen-4", label: "Favorite pen 4", icon: "pen-tool", defaultVisible: false },
+  { id: "saved-pen-5", label: "Favorite pen 5", icon: "pen-tool", defaultVisible: false },
+  { id: "saved-pen-6", label: "Favorite pen 6", icon: "pen-tool", defaultVisible: false },
+  { id: "saved-pen-7", label: "Favorite pen 7", icon: "pen-tool", defaultVisible: false },
+  { id: "saved-pen-8", label: "Favorite pen 8", icon: "pen-tool", defaultVisible: false },
   { id: "eraser", label: "Standard eraser", icon: "eraser" },
   { id: "eraser-stroke", label: "Whole stroke eraser", icon: "delete" },
   { id: "eraser-line", label: "Line eraser", icon: "list-minus" },
   { id: "lock", label: "Lock rectangle", icon: "lock" },
+  { id: "smart-clip", label: "Smart Clip", icon: "camera" },
   { id: "paste", label: "Paste", icon: "clipboard-paste" },
   { id: "text", label: "Text box", icon: "type" },
   { id: "shape", label: "Shapes", icon: "shapes" },
   { id: "stickers", label: "Stickers", icon: "sticker" },
+  { id: "sticky-notes", label: "Sticky Notes", icon: "sticky-note" },
   { id: "image", label: "Insert image", icon: "image" },
   { id: "pdf", label: "Insert PDF", icon: "file-text" },
   { id: "record", label: "Record audio", icon: "mic" },
@@ -89,17 +101,25 @@ export interface ToolbarItemChoice {
   key?: string;
   name?: string;
   icon?: string;
+  position?: "top" | "bottom" | "left" | "right";
+  alignment?: "left" | "right" | "center" | "stretch";
   /** Identity of the containing group or submenu. */
   container?: string;
   visible: boolean;
   group: ToolbarGroup;
 }
 
-export const DEFAULT_TOOLBAR_ITEMS: ToolbarItemChoice[] = TOOLBAR_ITEMS.map(({ id }) => ({
+export const DEFAULT_TOOLBAR_ITEMS: ToolbarItemChoice[] = TOOLBAR_ITEMS.map(({ id, ...spec }) => ({
   id,
-  visible: true,
+  visible: !("defaultVisible" in spec) || spec.defaultVisible,
   group: defaultToolbarGroup(id),
 }));
+
+/** The saved pen behind a toolbar action, or -1 for another action. */
+export function savedPenToolbarIndex(id: ToolbarItemId): number {
+  const match = /^saved-pen-([1-8])$/.exec(id);
+  return match ? Number(match[1]) - 1 : -1;
+}
 
 /** A complete, unique order; new controls append visibly to older settings. */
 export function toolbarItemsOf(value: unknown): ToolbarItemChoice[] {
@@ -126,6 +146,8 @@ export function toolbarItemsOf(value: unknown): ToolbarItemChoice[] {
         container?: unknown;
         name?: unknown;
         icon?: unknown;
+        position?: unknown;
+        alignment?: unknown;
       };
       if (item.id === "color-wheel" || item.id === "intelligent-strip") continue;
       if (typeof item.id !== "string" || !known.has(item.id as ToolbarItemId)) continue;
@@ -154,6 +176,20 @@ export function toolbarItemsOf(value: unknown): ToolbarItemChoice[] {
               icon: typeof item.icon === "string" ? item.icon.slice(0, 60) : "panel-left-open",
             }
           : {}),
+        ...(id === "menu-strip"
+          ? {
+              position:
+                item.position === "bottom" || item.position === "left" || item.position === "right"
+                  ? item.position
+                  : "top",
+              alignment:
+                item.alignment === "left" ||
+                item.alignment === "right" ||
+                item.alignment === "stretch"
+                  ? item.alignment
+                  : "center",
+            }
+          : {}),
         ...(typeof item.container === "string" ? { container: item.container } : {}),
       });
     }
@@ -162,7 +198,7 @@ export function toolbarItemsOf(value: unknown): ToolbarItemChoice[] {
     if (!seen.has(id))
       out.push({
         id,
-        visible: true,
+        visible: DEFAULT_TOOLBAR_ITEMS.find((item) => item.id === id)?.visible !== false,
         group: linear && defaultToolbarGroup(id) !== "more" ? "strip" : defaultToolbarGroup(id),
       });
   return out;
@@ -198,29 +234,20 @@ export function stripLayoutOf(value: unknown): ToolbarItemChoice[] {
   return limitStrip(cleanContainers(items));
 }
 
-export function isRequiredStripItem(id: ToolbarItemId): boolean {
-  return id === "fullscreen" || id === "collapse-menu";
-}
-
 function cleanContainers(items: ToolbarItemChoice[]): ToolbarItemChoice[] {
   return items.map((item) => {
     const copy = { ...item };
-    if (isRequiredStripItem(copy.id)) {
-      copy.group = "strip";
-      copy.visible = true;
-      delete copy.container;
-      return copy;
-    }
     const parent = items.find(
       (p) =>
-        (p.id === "group" || p.id === "submenu") &&
+        (p.id === "group" || p.id === "submenu" || p.id === "menu-strip") &&
         p.key === copy.container &&
         p.visible &&
         p.group === copy.group,
     );
     if (
-      (copy.id === "group" && parent?.id !== "submenu") ||
+      (copy.id === "group" && parent?.id !== "submenu" && parent?.id !== "menu-strip") ||
       copy.id === "submenu" ||
+      copy.id === "menu-strip" ||
       !parent ||
       !copy.visible
     )
@@ -238,16 +265,12 @@ export function moveStripItem(
   before?: number,
 ): ToolbarItemChoice[] {
   const moving = items[index];
-  if (
-    !moving ||
-    (isRequiredStripItem(moving.id) && (group !== "strip" || container)) ||
-    (moving.id === "submenu" && container)
-  )
+  if (!moving || ((moving.id === "submenu" || moving.id === "menu-strip") && container))
     return [...items];
   const parent = container
     ? items.find(
         (p) =>
-          (p.id === "group" || p.id === "submenu") &&
+          (p.id === "group" || p.id === "submenu" || p.id === "menu-strip") &&
           p.key === container &&
           p.visible &&
           p.group === group,
@@ -330,17 +353,24 @@ export function stripItemSlots(
     );
   return 1;
 }
+function stripCapacitySlots(item: ToolbarItemChoice, items: readonly ToolbarItemChoice[]): number {
+  if (item.id === "flexible-space" || item.id === "menu-strip") return 0;
+  if (item.id === "group")
+    return items
+      .filter((child) => child.visible && child.container === item.key)
+      .reduce((n, child) => n + stripCapacitySlots(child, items), 0);
+  return 1;
+}
 export function stripSlots(items: readonly ToolbarItemChoice[], container?: string): number {
   return (
     items
       .filter(
         (item) =>
           item.visible &&
-          (container !== undefined || !isRequiredStripItem(item.id)) &&
           (container !== undefined || item.group === "strip") &&
           item.container === container,
       )
-      .reduce((n, item) => n + stripItemSlots(item, items), 0) +
+      .reduce((n, item) => n + stripCapacitySlots(item, items), 0) +
     (container === undefined &&
     !items.some(
       (item) => item.id === "more" && item.visible && item.group === "strip" && !item.container,
@@ -359,9 +389,8 @@ function limitStrip(items: ToolbarItemChoice[]): ToolbarItemChoice[] {
     : 1;
   const overflow = new Set<string>();
   const out = items.map((item) => {
-    if (!item.visible || item.group !== "strip" || item.container || isRequiredStripItem(item.id))
-      return { ...item };
-    const cost = stripItemSlots(item, items);
+    if (!item.visible || item.group !== "strip" || item.container) return { ...item };
+    const cost = stripCapacitySlots(item, items);
     if (used + cost > STRIP_SLOTS - (item.id !== "more" && outMorePending(items, item) ? 1 : 0)) {
       if (item.key) overflow.add(item.key);
       return { ...item, group: "more" as const };

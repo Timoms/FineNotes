@@ -1020,6 +1020,13 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
   }
 
   private async storeControlValue(key: string, value: unknown): Promise<void> {
+    if (key === "hideObsidianNavigation") {
+      this.plugin.settings.hideObsidianNavigation = value === true;
+      if (typeof document !== "undefined")
+        document.body.toggleClass("finenotes-x-hide-navigation", value === true);
+      await this.plugin.saveSettings();
+      return;
+    }
     if (key === "showScrollControls") {
       await this.plugin.setShowScrollControls(value === true);
       return;
@@ -1602,6 +1609,12 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
             "notification",
           ]),
           DESC.checkForUpdates,
+        ),
+        toggle(
+          "hideObsidianNavigation",
+          "Hide Obsidian navigation bar",
+          "Hide the URL and back/forward bar while FineNotes is open.",
+          ["header", "url", "back", "forward", "toolbar"],
         ),
         this.info(
           toggle("debugHud", "Input debug overlay", "", [

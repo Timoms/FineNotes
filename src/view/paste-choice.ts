@@ -34,6 +34,8 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "imag
 export function pickClipboardType(types: readonly string[]): ClipboardPick | null {
   const lower = types.map((type) => type.toLowerCase());
   for (const type of IMAGE_TYPES) if (lower.includes(type)) return { kind: "image", type };
+  const image = lower.find((type) => type.startsWith("image/"));
+  if (image) return { kind: "image", type: image };
   if (lower.includes("text/plain")) return { kind: "text", type: "text/plain" };
   return null;
 }

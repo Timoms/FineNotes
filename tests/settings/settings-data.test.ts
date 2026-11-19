@@ -138,6 +138,7 @@ const FRESH_INSTALL = {
   handwritingCleanup: false,
   hideCompanionAfterSelection: false,
   showScrollControls: true,
+  hideObsidianNavigation: false,
   settingsOpen: [],
   scribbleTipDismissed: false,
 };
@@ -233,6 +234,7 @@ const USED_VAULT = {
   handwritingCleanup: true,
   hideCompanionAfterSelection: true,
   showScrollControls: false,
+  hideObsidianNavigation: true,
   settingsOpen: ["writing", "ai"],
   scribbleTipDismissed: true,
   experimentalFutureFlag: 7,

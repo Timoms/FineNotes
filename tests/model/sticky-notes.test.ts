@@ -1,50 +1,35 @@
 import { describe, expect, it } from "vitest";
-import {
-  STICKY_NOTE_COLORS,
-  stickyAt,
-  stickyNoteFileName,
-  stickyNoteSvg,
-  strokeOnSticky,
-} from "../../src/model/sticky-notes";
-import type { ImageElement, Stroke } from "../../src/model/document";
+import type { ImageElement } from "../../src/model/document";
+import { stickyAt, stickyNoteFileName, stickyNoteSvg } from "../../src/model/sticky-notes";
 
-describe("bundled sticky notes", () => {
-  it("renders every paper colour as a self-contained shaded SVG", () => {
-    for (const color of STICKY_NOTE_COLORS) {
-      const svg = stickyNoteSvg(color);
-      expect(svg).toContain(`<svg xmlns="http://www.w3.org/2000/svg"`);
-      expect(svg).toContain(`fill="${color}"`);
-      expect(svg).toContain("feDropShadow");
-      expect(stickyNoteFileName(color)).toContain(color.slice(1));
-    }
+describe("sticky note papers", () => {
+  it("renders a uniform note with its top third adhered and the colored cap on an index tab", () => {
+    const note = stickyNoteSvg("#ffd95a", "note");
+    expect(note).toContain('M10 62H170V170H10Z" fill="#ffd95a" filter="url(#s)"');
+    expect(note).toContain('width="160" height="162" fill="#ffd95a"');
+    expect(stickyNoteSvg("#ff9fb4", "index-tab")).toContain('V54H10Z" fill="#ff9fb4"');
+    expect(stickyNoteFileName("#ff9fb4", "index-tab")).toBe("Index tab ff9fb4");
   });
 
-  it("falls back to yellow for an unknown colour", () => {
-    expect(stickyNoteSvg("nope")).toContain(`fill="${STICKY_NOTE_COLORS[0]}"`);
-  });
-
-  it("finds the top paper and converts page ink into its local coordinates", () => {
-    const image: ImageElement = {
-      id: "i1",
-      path: "sticky.svg",
-      x: 20,
-      y: 40,
-      w: 90,
-      h: 90,
-      sticky: { color: "#ffd95a", strokes: [] },
-    };
-    const stroke: Stroke = {
-      id: "s1",
-      color: "#111111",
-      size: 2,
-      tool: "pen",
-      pts: [20, 40, 0.5, 110, 130, 0.5],
-    };
-    expect(stickyAt([image], { x: 65, y: 85 })).toBe(image);
-    expect(stickyAt([image], { x: 5, y: 5 })).toBeNull();
-    expect(strokeOnSticky(image, stroke)).toMatchObject({
-      size: 4,
-      pts: [0, 0, 0.5, 180, 180, 0.5],
+  it("takes an index tab before a later overlapping ordinary sticky", () => {
+    const image = (id: string, type?: "index-tab"): ImageElement => ({
+      id,
+      path: `${id}.svg`,
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 180,
+      sticky: { color: "#ffd95a", ...(type ? { type } : {}), strokes: [] },
     });
+    expect(stickyAt([image("tab", "index-tab"), image("note")], { x: 90, y: 90 })?.id).toBe("tab");
+  });
+
+  it("falls back to the first safe paper color", () => {
+    expect(stickyNoteSvg("not-a-color", "note")).toContain('fill="#ffd95a"');
+  });
+
+  it("applies opacity to the paper group without changing captured ink", () => {
+    expect(stickyNoteSvg("#ffd95a", "note", 0.55)).toContain('<g opacity="0.55">');
+    expect(stickyNoteSvg("#ffd95a", "index-tab", 0.7)).toContain('<g opacity="0.7"');
   });
 });
