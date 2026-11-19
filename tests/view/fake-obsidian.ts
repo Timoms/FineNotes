@@ -103,6 +103,7 @@ export class Plugin extends Component {
   readonly protocolHandlers = new Map<string, (params: Record<string, string>) => unknown>();
   readonly settingTabs: unknown[] = [];
   readonly ribbon: { icon: string; title: string; callback: () => unknown }[] = [];
+  readonly statusBar: HTMLElement[] = [];
   /** What `loadData` resolves to: `null` is a vault with no `data.json` yet. */
   stored: unknown = null;
   /** A copy of everything passed to `saveData`, oldest first. */
@@ -127,6 +128,16 @@ export class Plugin extends Component {
   addRibbonIcon(icon: string, title: string, callback: () => unknown): unknown {
     this.ribbon.push({ icon, title, callback });
     return {};
+  }
+
+  addStatusBarItem(): HTMLElement {
+    const item = {
+      tabIndex: -1,
+      addClass: (): void => undefined,
+      setAttribute: (): void => undefined,
+    } as unknown as HTMLElement;
+    this.statusBar.push(item);
+    return item;
   }
 
   addSettingTab(tab: unknown): void {

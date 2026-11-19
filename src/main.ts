@@ -25,6 +25,7 @@ import {
   Notice,
   addIcon,
   getIcon,
+  setIcon,
   Platform,
   Plugin,
   type RequestUrlResponse,
@@ -176,6 +177,7 @@ import {
   renameCalculatorHistory,
 } from "./model/calculator-store";
 import { writeSystemText } from "./view/system-clipboard";
+import { startAppSmartClip } from "./view/app-smart-clip";
 
 /** How many times the Text tool's hint pill is shown before it stops by itself. */
 const TEXT_HINT_SHOWS = 3;
@@ -367,6 +369,13 @@ export default class GoodObsidianPlugin extends Plugin {
     this.providers.set(cloud.id, cloud);
 
     await this.loadSettings();
+    if (typeof document !== "undefined") {
+      document.body.toggleClass(
+        "finenotes-x-hide-navigation",
+        this.settings.hideObsidianNavigation,
+      );
+      this.register(() => document.body.removeClass("finenotes-x-hide-navigation"));
+    }
     // The chosen speech model shows under Settings › Models on this device from the start.
     this.speech.store();
     await this.setUpKeyStore();
@@ -494,6 +503,17 @@ export default class GoodObsidianPlugin extends Plugin {
     );
     this.app.workspace.onLayoutReady(() => this.syncExplorerNotebookButton());
     this.addRibbonIcon(ICON_NEW_NOTEBOOK, "New notebook", () => this.openNewNotebookDialog());
+    const smartClip = this.addStatusBarItem();
+    smartClip.addClass("clickable-icon", "finenotes-x-status-smart-clip");
+    smartClip.setAttribute("aria-label", "Smart Clip");
+    smartClip.setAttribute("title", "Smart Clip");
+    smartClip.setAttribute("role", "button");
+    smartClip.tabIndex = 0;
+    setIcon(smartClip, "camera");
+    this.registerDomEvent(smartClip, "click", () => void startAppSmartClip());
+    this.registerDomEvent(smartClip, "keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") void startAppSmartClip();
+    });
     this.addCommands();
 
     this.settingTab = new GoodObsidianSettingTab(this.app, this);
@@ -1166,6 +1186,7 @@ export default class GoodObsidianPlugin extends Plugin {
   saveSavedPens(pens: readonly SavedPen[]): void {
     this.settings.savedPens = pens.map((pen) => ({ ...pen }));
     void this.saveSettings();
+    for (const view of this.openNotebooks()) view.refreshSavedPens();
   }
 
   /** "Cursor over the page" changed: every open notebook shows the new cursor. */

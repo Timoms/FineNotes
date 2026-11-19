@@ -110,6 +110,7 @@ interface Registered {
   views: Map<string, unknown>;
   protocolHandlers: Map<string, (params: Record<string, string>) => unknown>;
   ribbon: { icon: string; title: string; callback: () => unknown }[];
+  statusBar: HTMLElement[];
   stored: unknown;
   saved: Record<string, unknown>[];
   unload(): void;
@@ -470,11 +471,12 @@ describe("registration", () => {
     for (const c of registered.commands) expect(c.name.trim()).not.toBe("");
   });
 
-  it("registers the notebook view, the ribbon button and the OpenRouter callback", async () => {
+  it("registers the notebook view, ribbon and Smart Clip status buttons", async () => {
     await load();
     expect([...registered.views.keys()]).toEqual([INK]);
     expect(registered.ribbon.map((r) => r.icon)).toEqual(["notebook-pen"]);
     expect(registered.ribbon[0].title).toBe("New notebook");
+    expect(registered.statusBar).toHaveLength(1);
     // The import icon is FineNotes' own, so it must be registered before use.
     expect(addedIcons.has("finenotes-x-notebook-import")).toBe(true);
     expect([...registered.protocolHandlers.keys()].sort()).toEqual([
