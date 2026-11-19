@@ -358,6 +358,10 @@ describe("Smart Clip view-header integration", () => {
         if (selector === ".finenotes-x-smart-clip-action") return current;
         return { closest: () => more };
       },
+      createEl: vi.fn((_tag: string, options: { cls: string }) => {
+        button.className = options.cls;
+        return button;
+      }),
       insertBefore(node: typeof button, before: unknown) {
         current = node;
         expect(before).toBe(more);
@@ -365,7 +369,6 @@ describe("Smart Clip view-header integration", () => {
     };
     vi.stubGlobal("document", {
       querySelectorAll: () => [actions],
-      createElement: () => button,
     });
 
     await plugin.setSmartClipPosition("view-header");

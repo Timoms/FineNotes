@@ -129,15 +129,18 @@ export class UpdateProtectionZone implements Command {
 export class RemoveProtectionZone implements Command {
   readonly label = "Delete protection foil";
   private before: ProtectionZone[] | undefined;
-  constructor(readonly pageId: string, private readonly zone: ProtectionZone) {}
+  constructor(
+    readonly pageId: string,
+    private readonly zone: ProtectionZone,
+  ) {}
   apply(doc: InkDocument): void {
-    const page = doc.pages.find(p => p.id === this.pageId);
+    const page = doc.pages.find((p) => p.id === this.pageId);
     if (!page) return;
     this.before = page.protectionZones;
-    page.protectionZones = page.protectionZones?.filter(zone => zone !== this.zone);
+    page.protectionZones = page.protectionZones?.filter((zone) => zone !== this.zone);
   }
   invert(doc: InkDocument): void {
-    const page = doc.pages.find(p => p.id === this.pageId);
+    const page = doc.pages.find((p) => p.id === this.pageId);
     if (page) page.protectionZones = this.before;
   }
 }

@@ -247,6 +247,7 @@ import {
   type InkDocument,
   type Page,
   type PageGeometry,
+  type ProtectionZone,
   type PdfBackdrop,
   type ShapeKind,
   type Stroke,
@@ -1534,7 +1535,7 @@ export class InkSurface {
   private readonly protectionZonesEl: HTMLElement;
   private selectedProtectionZone: {
     pageId: string;
-    zone: import("../model/document").ProtectionZone;
+    zone: ProtectionZone;
   } | null = null;
   private readonly lockBadgesEl: HTMLElement;
   private readonly lockBadges: HTMLElement[] = [];
@@ -8748,14 +8749,20 @@ export class InkSurface {
     };
     // WKWebView often rejects navigator.clipboard.read(), but can still
     // deliver the same image through its native paste event.
-    if (Platform.isIosApp && typeof document.execCommand === "function") {
+    const execPaste =
+      typeof document === "undefined"
+        ? undefined
+        : (document as unknown as { execCommand?: (command: string) => boolean }).execCommand?.bind(
+            document,
+          );
+    if (Platform.isIosApp && typeof execPaste === "function") {
       window.clearTimeout(this.pasteTimer);
       this.pasteTimer = window.setTimeout(() => {
         this.pasteTimer = 0;
         this.pasteHere(page.id, at);
       }, PASTE_EVENT_WAIT_MS);
       try {
-        document.execCommand("paste");
+        execPaste("paste");
       } catch {
         // The timed Clipboard API fallback still runs.
       }
@@ -9700,7 +9707,7 @@ export class InkSurface {
     this.commentMarkersEl.toggleClass("is-hidden", targets.length === 0);
   }
 
-  private reprotectZone(page: Page, zone: import("../model/document").ProtectionZone): void {
+  private reprotectZone(page: Page, zone: ProtectionZone): void {
     const replacements: StrokeReplacement[] = [];
     for (const original of page.strokes) {
       const pieces = lockStrokeInRect(original, zone, () => this.strokeIds.next());
@@ -9725,7 +9732,7 @@ export class InkSurface {
     event: PointerEvent,
     foil: HTMLElement,
     page: Page,
-    zone: import("../model/document").ProtectionZone,
+    zone: ProtectionZone,
     resize: boolean,
   ): void {
     if (this.callbacks.isLocked?.()) return;
@@ -11153,7 +11160,7 @@ export class InkSurface {
     const from = this.pagePoint(box, event.clientX, event.clientY);
     const scale = this.unitScale;
     const start = transformOf(sel.image);
-    let part =
+    const part =
       hitImagePart(start, from, HANDLE_HIT_RADIUS_PX / scale, ROTATE_HANDLE_OFFSET_PX / scale) ??
       "body";
     const grabbed = part === "body" || part === "rotate" ? from : imageHandlePoint(start, part);

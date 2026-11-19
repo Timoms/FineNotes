@@ -1147,8 +1147,7 @@ export default class GoodObsidianPlugin extends Plugin {
 
   private syncSmartClipPosition(): void {
     const position = this.settings.smartClipPosition;
-    if (this.smartClipStatusButton)
-      this.smartClipStatusButton.hidden = position === "view-header";
+    if (this.smartClipStatusButton) this.smartClipStatusButton.hidden = position === "view-header";
     if (typeof document === "undefined") return;
     const shown = position === "view-header" || position === "both";
     document.querySelectorAll<HTMLElement>(".workspace-leaf .view-actions").forEach((actions) => {
@@ -1158,9 +1157,10 @@ export default class GoodObsidianPlugin extends Plugin {
         return;
       }
       if (!button) {
-        button = document.createElement("button");
-        button.className = "clickable-icon view-action finenotes-x-smart-clip-action";
-        button.type = "button";
+        button = actions.createEl("button", {
+          cls: "clickable-icon view-action finenotes-x-smart-clip-action",
+          attr: { type: "button" },
+        });
         button.setAttribute("aria-label", "Smart Clip");
         button.setAttribute("title", "Smart Clip");
         setIcon(button, "camera");

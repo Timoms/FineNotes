@@ -14,8 +14,8 @@ export class WritingControls {
   menuVisible = false;
   private ownsFullscreen = false;
   private armed: HTMLButtonElement | null = null;
-  private armTimer: ReturnType<typeof setTimeout> | null = null;
-  private confirmTimer: ReturnType<typeof setTimeout> | null = null;
+  private armTimer: number | null = null;
+  private confirmTimer: number | null = null;
   distractionFree = false;
   scrollLocked = false;
 
@@ -105,8 +105,8 @@ export class WritingControls {
   }
 
   private resetConfirmation(): void {
-    if (this.armTimer !== null) clearTimeout(this.armTimer);
-    if (this.confirmTimer !== null) clearTimeout(this.confirmTimer);
+    if (this.armTimer !== null) window.clearTimeout(this.armTimer);
+    if (this.confirmTimer !== null) window.clearTimeout(this.confirmTimer);
     this.armTimer = this.confirmTimer = null;
     this.armed?.removeClass("is-armed", "is-confirmed");
     this.armed?.setAttribute("aria-description", "");
@@ -116,12 +116,12 @@ export class WritingControls {
   private confirmAction(button: HTMLButtonElement, run: () => void): void {
     if (!this.scrollLocked || !this.showArrows || this.confirmTimer !== null) return;
     if (this.armed === button) {
-      if (this.armTimer !== null) clearTimeout(this.armTimer);
+      if (this.armTimer !== null) window.clearTimeout(this.armTimer);
       this.armTimer = null;
       button.removeClass("is-armed");
       button.addClass("is-confirmed");
       button.setAttribute("aria-description", "Confirmed");
-      this.confirmTimer = setTimeout(() => {
+      this.confirmTimer = window.setTimeout(() => {
         this.confirmTimer = null;
         this.resetConfirmation();
         run();
@@ -132,7 +132,7 @@ export class WritingControls {
     this.armed = button;
     button.addClass("is-armed");
     button.setAttribute("aria-description", "Tap again to confirm");
-    this.armTimer = setTimeout(() => this.resetConfirmation(), 1500);
+    this.armTimer = window.setTimeout(() => this.resetConfirmation(), 1500);
   }
 
   setShowArrows(show: boolean): void {
@@ -153,7 +153,7 @@ export class WritingControls {
     this.menuVisible = this.distractionFree && visible;
     this.view.toggleClass("is-fullscreen-menu-visible", this.menuVisible);
     const docked = this.menuVisible && this.menuBar !== undefined;
-    const parent = docked ? this.menuBar! : this.view;
+    const parent = docked ? this.menuBar : this.view;
     for (const button of [this.menuToggle, this.exit]) {
       button.remove();
       parent.append(button);
@@ -171,7 +171,9 @@ export class WritingControls {
       "aria-label",
       this.menuVisible ? "Hide menu strip" : "Show menu strip",
     );
-    const railWidth = this.menuVisible ? (this.menuBar?.getBoundingClientRect?.().width ?? 68) + 20 : 0;
+    const railWidth = this.menuVisible
+      ? (this.menuBar?.getBoundingClientRect?.().width ?? 68) + 20
+      : 0;
     this.view.setCssProps({ "--finenotes-menu-reserve": `${railWidth}px` });
     this.callbacks.changed(true);
   }

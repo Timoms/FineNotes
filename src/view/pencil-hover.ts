@@ -51,7 +51,8 @@ export function installPencilHover(host: HTMLElement, state: () => ToolbarState)
   };
   const move = (event: PointerEvent): void => {
     if (!isPencilHover(event)) {
-      if (event.pointerType === "pen" && (event.buttons !== 0 || event.pressure > 0)) contactAt = Date.now();
+      if (event.pointerType === "pen" && (event.buttons !== 0 || event.pressure > 0))
+        contactAt = Date.now();
       hoverSince = -Infinity;
       clear();
       return;
@@ -119,7 +120,8 @@ export function installPencilHover(host: HTMLElement, state: () => ToolbarState)
       const now = Date.now();
       if (now - lastHover > 250 || hoverSince === -Infinity) hoverSince = now;
       lastHover = now;
-      if (contactAt === -Infinity || (now - contactAt >= 2000 && now - hoverSince >= 2000)) tip.removeClass("is-hidden");
+      if (contactAt === -Infinity || (now - contactAt >= 2000 && now - hoverSince >= 2000))
+        tip.removeClass("is-hidden");
       else tip.addClass("is-hidden");
     } else tip.addClass("is-hidden");
   };
@@ -142,7 +144,13 @@ export function installPencilHover(host: HTMLElement, state: () => ToolbarState)
   host.addEventListener("pointerover", move, { passive: true, capture: true });
   host.addEventListener("pointerout", out, { passive: true, capture: true });
   host.addEventListener("pointermove", move, { passive: true, capture: true });
-  const contact = (event: PointerEvent): void => { if (event.pointerType === "pen") { contactAt = Date.now(); hoverSince = -Infinity; } clear(); };
+  const contact = (event: PointerEvent): void => {
+    if (event.pointerType === "pen") {
+      contactAt = Date.now();
+      hoverSince = -Infinity;
+    }
+    clear();
+  };
   host.addEventListener("pointerdown", contact, true);
   host.addEventListener("pointerleave", clear);
   host.addEventListener("pointercancel", clear);

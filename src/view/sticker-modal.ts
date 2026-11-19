@@ -58,14 +58,17 @@ export class StickerPicker {
     this.destroy();
     const collections = this.collections();
     this.renderColors(body);
-    const groups = [
+    const groups: Array<{
+      name: string;
+      items: Array<{ id: string; label: string; src: string; choice: StickerChoice }>;
+    }> = [
       ...STICKER_CATEGORIES.map((category) => ({
         name: category.label,
         items: STICKERS.filter((sticker) => sticker.category === category.id).map((sticker) => ({
           id: `builtin:${sticker.id}`,
           label: sticker.name,
           src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(stickerSvg(sticker, this.color))}`,
-          choice: { kind: "builtin", sticker, color: this.color } as StickerChoice,
+          choice: { kind: "builtin", sticker, color: this.color } satisfies StickerChoice,
         })),
       })),
       ...collections.map((collection) => ({
@@ -74,7 +77,7 @@ export class StickerPicker {
           id: `file:${file.path}`,
           label: file.basename,
           src: this.app.vault.getResourcePath(file),
-          choice: { kind: "file", file } as StickerChoice,
+          choice: { kind: "file", file } satisfies StickerChoice,
         })),
       })),
     ];
@@ -136,13 +139,13 @@ export class StickerPicker {
     });
     button.toggleClass("is-favorite", favorite);
     button.createEl("img", { attr: { src, alt: "", draggable: "false" } });
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timer: number | undefined;
     let held = false;
-    let refresh: ReturnType<typeof setTimeout> | undefined;
-    this.cleanups.push(() => clearTimeout(refresh));
+    let refresh: number | undefined;
+    this.cleanups.push(() => window.clearTimeout(refresh));
     let origin: { x: number; y: number } | undefined;
     const cancel = (): void => {
-      clearTimeout(timer);
+      window.clearTimeout(timer);
       timer = undefined;
     };
     this.cleanups.push(cancel);
@@ -159,7 +162,7 @@ export class StickerPicker {
       cancel();
       held = false;
       origin = { x: event.clientX, y: event.clientY };
-      timer = setTimeout(() => {
+      timer = window.setTimeout(() => {
         held = true;
         const index = this.favorites.indexOf(id);
         if (index < 0) this.favorites.push(id);
@@ -174,7 +177,7 @@ export class StickerPicker {
     });
     button.addEventListener("pointerup", () => {
       cancel();
-      if (held) refresh = setTimeout(() => this.render(), 0);
+      if (held) refresh = window.setTimeout(() => this.render(), 0);
     });
     button.addEventListener("pointercancel", cancel);
     button.addEventListener("contextmenu", (event) => event.preventDefault());

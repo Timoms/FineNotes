@@ -299,7 +299,7 @@ function rows(tab: InstanceType<typeof GoodObsidianSettingTab>): Row[] {
       if (group.type === "group") {
         walk(group.items ?? [], group.heading ?? "");
       } else if (group.type === "page") {
-        walk(group.items ?? [], group.name === "Pen" ? PENS : group.heading ?? heading);
+        walk(group.items ?? [], group.name === "Pen" ? PENS : (group.heading ?? heading));
       } else {
         out.push({ heading: "", def: item as Def });
         out[out.length - 1].heading = heading;

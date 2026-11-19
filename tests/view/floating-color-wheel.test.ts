@@ -45,7 +45,10 @@ function setup() {
   const wheel = new FloatingColorWheel(host as unknown as HTMLElement, callbacks);
   return { host, wheel, callbacks, root: host.find("finenotes-x-floating-color-wheel")! };
 }
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 describe("floating color wheel", () => {
   it("reports open, close, and destruction so the toolbar reflects visibility", () => {
     const { wheel, callbacks } = setup();
@@ -60,6 +63,7 @@ describe("floating color wheel", () => {
 
   it("pins a held swatch without selecting it and keeps its slot as recent colors change", () => {
     vi.useFakeTimers();
+    vi.stubGlobal("window", globalThis);
     const { wheel, root, callbacks } = setup();
     wheel.toggle();
     const red = root.findAll("finenotes-x-wheel-swatch")[1];
@@ -81,6 +85,7 @@ describe("floating color wheel", () => {
   });
   it("cancels locking on movement, cancellation, closing, and destruction", () => {
     vi.useFakeTimers();
+    vi.stubGlobal("window", globalThis);
     const { wheel, root, callbacks } = setup();
     wheel.toggle();
     let swatch = root.findAll("finenotes-x-wheel-swatch")[0];

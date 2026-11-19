@@ -16,7 +16,7 @@ export class FloatingColorWheel {
   private position: { x: number; y: number };
   private shown = false;
   private picking = false;
-  private holdTimer: ReturnType<typeof setTimeout> | null = null;
+  private holdTimer: number | null = null;
   private readonly resize: ResizeObserver | null;
 
   constructor(
@@ -147,7 +147,7 @@ export class FloatingColorWheel {
         held = false;
         start = { id: event.pointerId, x: event.clientX, y: event.clientY };
         swatch.setPointerCapture(event.pointerId);
-        this.holdTimer = setTimeout(() => {
+        this.holdTimer = window.setTimeout(() => {
           this.holdTimer = null;
           held = true;
           toggleLock();
@@ -187,7 +187,7 @@ export class FloatingColorWheel {
     this.paint();
   }
   private clearHold(): void {
-    if (this.holdTimer !== null) clearTimeout(this.holdTimer);
+    if (this.holdTimer !== null) window.clearTimeout(this.holdTimer);
     this.holdTimer = null;
   }
   destroy(): void {

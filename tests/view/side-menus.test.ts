@@ -47,6 +47,7 @@ describe("right-hand toolbar panels", () => {
     expect(styles).toHaveBeenCalledWith(expect.objectContaining({ left: "636px", top: "100px" }));
   });
   it("hides open options when drawing resumes", () => {
+    vi.stubGlobal("window", globalThis);
     const toolbar = Object.assign(Object.create(Toolbar.prototype), {
       optionsVisible: true,
       popover: {},
@@ -82,8 +83,20 @@ describe("right-hand toolbar panels", () => {
 
 describe("custom submenu actions", () => {
   it("runs a stored action from the stable submenu anchor and toggles the submenu closed", () => {
-    const nodes: Array<{ click?: () => void }> = [];
-    const make = (): any => ({
+    interface Node {
+      click?: () => void;
+      children: Node[];
+      querySelector(): { childElementCount: number };
+      addClass: ReturnType<typeof vi.fn>;
+      removeClass: ReturnType<typeof vi.fn>;
+      setAttribute: ReturnType<typeof vi.fn>;
+      toggleClass: ReturnType<typeof vi.fn>;
+      createEl(tag: string, options: unknown): Node;
+      createDiv(): Node;
+      addEventListener(event: string, handler: () => void): void;
+    }
+    const nodes: Node[] = [];
+    const make = (): Node => ({
       children: [],
       querySelector: () => ({ childElementCount: 1 }),
       addClass: vi.fn(),

@@ -781,7 +781,7 @@ export class Toolbar {
   /** The open popover growing in, and the timer that ends it (and gives back its blur). */
   private popoverGrow: Animation | null = null;
   private popoverGrowTimer = 0;
-  private favoriteHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  private favoriteHoldTimer: number | null = null;
   private popoverFitObserver: ResizeObserver | null = null;
   /** Popovers still closing, each removed by its own timer, never on `finish`. */
   private readonly leavingPopovers = new Map<HTMLElement, number>();
@@ -1398,12 +1398,12 @@ export class Toolbar {
   private intelligentCollapsed = true;
   private hoverOriginal: ToolbarState | null = null;
   private hoverAnchor: HTMLElement | null = null;
-  private hoverTimer: ReturnType<typeof setTimeout> | null = null;
-  private hoverExitTimer: ReturnType<typeof setTimeout> | null = null;
+  private hoverTimer: number | null = null;
+  private hoverExitTimer: number | null = null;
 
   private endToolHover(hide = true): void {
-    if (this.hoverTimer !== null) clearTimeout(this.hoverTimer);
-    if (this.hoverExitTimer !== null) clearTimeout(this.hoverExitTimer);
+    if (this.hoverTimer !== null) window.clearTimeout(this.hoverTimer);
+    if (this.hoverExitTimer !== null) window.clearTimeout(this.hoverExitTimer);
     this.hoverTimer = this.hoverExitTimer = null;
     this.hoverAnchor?.removeClass("is-hover-preview");
     this.hoverAnchor = null;
@@ -1416,11 +1416,11 @@ export class Toolbar {
   }
 
   private installToolHover(): void {
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let timer: number | null = null;
     let tip: HTMLElement | null = null;
     let anchor: HTMLElement | null = null;
     const clear = (): void => {
-      if (timer !== null) clearTimeout(timer);
+      if (timer !== null) window.clearTimeout(timer);
       timer = null;
       tip?.remove();
       tip = null;
@@ -1433,7 +1433,7 @@ export class Toolbar {
       clear();
       if (!button) return;
       anchor = button;
-      timer = setTimeout(() => {
+      timer = window.setTimeout(() => {
         timer = null;
         const name = button.getAttribute("aria-label") ?? button.getAttribute("title");
         if (!name) return;
@@ -2342,7 +2342,7 @@ export class Toolbar {
 
   /** Rebuild the options pill for whatever tool is active. */
   private buildOptions(): void {
-    if (this.favoriteHoldTimer !== null) clearTimeout(this.favoriteHoldTimer);
+    if (this.favoriteHoldTimer !== null) window.clearTimeout(this.favoriteHoldTimer);
     this.favoriteHoldTimer = null;
     // Where the pill is now, mid-glide or not, so it can glide from there.
     const before = this.pillBox();
@@ -2445,8 +2445,8 @@ export class Toolbar {
       swatch.toggleClass("is-locked", locked);
       swatch.addEventListener("pointerdown", () => {
         held = false;
-        if (this.favoriteHoldTimer !== null) clearTimeout(this.favoriteHoldTimer);
-        this.favoriteHoldTimer = setTimeout(() => {
+        if (this.favoriteHoldTimer !== null) window.clearTimeout(this.favoriteHoldTimer);
+        this.favoriteHoldTimer = window.setTimeout(() => {
           held = true;
           const pins = wheelPins(this.callbacks.favoritePins?.());
           pins[slot] = locked ? null : color;
@@ -2456,7 +2456,7 @@ export class Toolbar {
       });
       for (const event of ["pointerup", "pointercancel", "pointerleave"])
         swatch.addEventListener(event, () => {
-          if (this.favoriteHoldTimer !== null) clearTimeout(this.favoriteHoldTimer);
+          if (this.favoriteHoldTimer !== null) window.clearTimeout(this.favoriteHoldTimer);
           this.favoriteHoldTimer = null;
         });
       this.colorSwatches.set(color, swatch);
@@ -4471,8 +4471,7 @@ export class Toolbar {
       });
       return;
     }
-    this.optionsEl.style.maxHeight = "";
-    this.optionsEl.style.maxWidth = "";
+    this.optionsEl.setCssStyles({ maxHeight: "", maxWidth: "" });
     const anchored = this.anchoredPlace(hostBox, pill);
     this.optionsEl.toggleClass("is-anchored", anchored !== null);
     this.optionsEl.toggleClass("is-offscreen", anchored === "hidden");
@@ -4976,7 +4975,7 @@ export class Toolbar {
   /** Close what is open, drop every listener outside the toolbar, and take both tiers away. */
   destroy(): void {
     this.quickColorClose?.();
-    if (this.favoriteHoldTimer !== null) clearTimeout(this.favoriteHoldTimer);
+    if (this.favoriteHoldTimer !== null) window.clearTimeout(this.favoriteHoldTimer);
     this.closeStripMore();
     this.hideUpdateTip();
     this.closePopover();

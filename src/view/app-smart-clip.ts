@@ -86,7 +86,10 @@ export async function startAppSmartClip(): Promise<void> {
 
   spinner.remove();
   overlay.removeClass("is-loading");
-  overlay.setAttribute("aria-label", "Drag a rectangle to copy a screenshot; press Escape to cancel");
+  overlay.setAttribute(
+    "aria-label",
+    "Drag a rectangle to copy a screenshot; press Escape to cancel",
+  );
   overlay.removeAttribute("aria-busy");
   const selection = overlay.createDiv({ cls: "finenotes-x-app-clip-selection" });
   new Notice("FineNotes: drag a rectangle anywhere in Obsidian to copy it.");
@@ -204,17 +207,19 @@ async function copyClip(screenshot: Screenshot, bounds: ClipBounds): Promise<voi
   const canvas = createEl("canvas");
   canvas.width = Math.max(1, Math.round(bounds.width * scaleX));
   canvas.height = Math.max(1, Math.round(bounds.height * scaleY));
-  canvas.getContext("2d")?.drawImage(
-    screenshot.image,
-    Math.round(bounds.left * scaleX),
-    Math.round(bounds.top * scaleY),
-    canvas.width,
-    canvas.height,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  );
+  canvas
+    .getContext("2d")
+    ?.drawImage(
+      screenshot.image,
+      Math.round(bounds.left * scaleX),
+      Math.round(bounds.top * scaleY),
+      canvas.width,
+      canvas.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
   const png = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("PNG encoding failed"))),

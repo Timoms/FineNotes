@@ -1,4 +1,8 @@
-# Contract: GoodObsidian
+# Contract: GoodObsidian (historical vocabulary)
+
+> This is FineNotes X's historical schema contract. Names such as
+> `GoodObsidian` and `goodobsidian` remain here only where they document
+> compatibility identifiers; they are not the current product or plugin ID.
 
 <!-- Single source of truth for the core(model)↔ui(view) boundary.
      ONLY the orchestrator edits this file. Version bump on every change.

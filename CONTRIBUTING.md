@@ -35,7 +35,7 @@ npm run build        # production build
 
 To try your build in a vault:
 
-1. Put the plugin folder's path (`<vault>/.obsidian/plugins/finenotes`) in a
+1. Put the plugin folder's path (`<vault>/.obsidian/plugins/finenotes-x`) in a
    `.deploy-target` file at the repo root. The file is gitignored.
 2. Build: every build is then copied into that folder.
 3. Reload Obsidian.

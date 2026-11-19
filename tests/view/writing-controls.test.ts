@@ -35,7 +35,10 @@ function controls(showArrows = true, native = true, dock = false) {
   return { root, overlay, doc, callbacks, modes, bar };
 }
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("writing modes", () => {
   it("keeps an exit available if native fullscreen is rejected", async () => {
@@ -52,6 +55,7 @@ describe("writing modes", () => {
 
   it("orders Up, Unlock, Fit page, Down and requires two taps per action", () => {
     vi.useFakeTimers();
+    vi.stubGlobal("window", globalThis);
     const { modes, overlay, callbacks } = controls();
     modes.setScrollLocked(true);
     const pad = overlay.find("finenotes-x-scroll-controls")!;
@@ -91,6 +95,7 @@ describe("writing modes", () => {
 
   it("switches arrow directions with notebook orientation", () => {
     vi.useFakeTimers();
+    vi.stubGlobal("window", globalThis);
     const { modes, overlay, callbacks } = controls();
     modes.setScrollLocked(true);
     modes.setScrollDirection("horizontal");
@@ -114,6 +119,7 @@ describe("writing modes", () => {
 
   it("expires the first tap and never combines taps on different controls", () => {
     vi.useFakeTimers();
+    vi.stubGlobal("window", globalThis);
     const { modes, overlay, callbacks } = controls();
     modes.setScrollLocked(true);
     const pad = overlay.find("finenotes-x-scroll-controls")!;

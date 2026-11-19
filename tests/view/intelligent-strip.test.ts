@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 vi.mock("obsidian", () => import("../fakes/obsidian"));
 import { FakeEl } from "../fakes/obsidian";
 const { Toolbar } = await import("../../src/view/toolbar");
+afterEach(() => vi.unstubAllGlobals());
 const make = () => {
   const root = new FakeEl("div", { cls: "is-intelligent-strip" });
   const toolbar = Object.assign(Object.create(Toolbar.prototype), {
@@ -39,7 +40,9 @@ describe("Intelligent Strip", () => {
   });
   it("places the strip beside a vertical bar and below a horizontal bar", () => {
     const { toolbar, root } = make();
-    toolbar.host = { getBoundingClientRect: () => ({ top: 0, right: 1000, width: 1000, height: 800 }) };
+    toolbar.host = {
+      getBoundingClientRect: () => ({ top: 0, right: 1000, width: 1000, height: 800 }),
+    };
     toolbar.barEl.getBoundingClientRect = () => ({ top: 100, bottom: 700, left: 922, right: 990 });
     Object.assign(root, { offsetHeight: 200 });
     vi.stubGlobal("getComputedStyle", () => ({ flexDirection: "column" }));
@@ -52,12 +55,16 @@ describe("Intelligent Strip", () => {
       toolbar.placePill();
       expect(root.style.right).toBe("360px");
       expect(root.style.top).toBe("66px");
-    } finally { vi.unstubAllGlobals(); }
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
   it("aligns the strip with the selected vertical tool", () => {
     const { toolbar, root } = make();
     const active = toolbar.barEl.createEl("button", { cls: "finenotes-x-tool is-active" });
-    toolbar.host = { getBoundingClientRect: () => ({ top: 0, right: 1000, width: 1000, height: 800 }) };
+    toolbar.host = {
+      getBoundingClientRect: () => ({ top: 0, right: 1000, width: 1000, height: 800 }),
+    };
     toolbar.barEl.getBoundingClientRect = () => ({ top: 100, bottom: 700, left: 922, right: 990 });
     toolbar.barEl.querySelector = () => active;
     active.getBoundingClientRect = () => ({ top: 220, left: 922, right: 990 });
@@ -66,12 +73,17 @@ describe("Intelligent Strip", () => {
     try {
       toolbar.placePill();
       expect(root.style.top).toBe("220px");
-    } finally { vi.unstubAllGlobals(); }
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
   it("prefers a transient panel's own button over the selected tool", () => {
     const { toolbar, root } = make();
-    const selected = new FakeEl("button"), more = new FakeEl("button");
-    toolbar.host = { getBoundingClientRect: () => ({ top: 0, right: 1000, width: 1000, height: 800 }) };
+    const selected = new FakeEl("button"),
+      more = new FakeEl("button");
+    toolbar.host = {
+      getBoundingClientRect: () => ({ top: 0, right: 1000, width: 1000, height: 800 }),
+    };
     toolbar.barEl.getBoundingClientRect = () => ({ top: 100, bottom: 700, left: 922, right: 990 });
     toolbar.barEl.querySelector = () => selected;
     selected.getBoundingClientRect = () => ({ top: 180, bottom: 224, left: 922, right: 990 });
@@ -82,7 +94,9 @@ describe("Intelligent Strip", () => {
     try {
       toolbar.placePill();
       expect(root.style.top).toBe("460px");
-    } finally { vi.unstubAllGlobals(); }
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
   it("mounts nested settings inside the strip and returns to the toolkit", () => {
     const { root, toolbar } = make();
@@ -126,6 +140,7 @@ describe("Intelligent Strip", () => {
     expect(toolbar.closeIntelligentTool("stickers")).toBe(false);
   });
   it("hides the toolkit when drawing resumes", () => {
+    vi.stubGlobal("window", globalThis);
     const { root, toolbar } = make();
     toolbar.optionsVisible = true;
     toolbar.openPopover("widths", new FakeEl());

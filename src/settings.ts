@@ -607,7 +607,8 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
 
   private info<T extends SettingDefinition>(def: T, text: string): T {
     this.infos.set(def.name, text);
-    return { ...def, desc: [def.desc, text].filter(Boolean).join(" ") };
+    const desc = typeof def.desc === "string" ? `${def.desc} ${text}` : text;
+    return { ...def, desc };
   }
 
   /** The ⓘ of the row called `name`, if it has one. */
@@ -705,8 +706,7 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
       const label = name.textContent?.trim() ?? "";
       const icon = icons.get(label);
       if (!icon || name.querySelector(".finenotes-x-tool-settings-icon")) continue;
-      const glyph = document.createElement("span");
-      glyph.addClass("finenotes-x-tool-settings-icon");
+      const glyph = name.createSpan({ cls: "finenotes-x-tool-settings-icon" });
       setIcon(glyph, icon);
       name.prepend(glyph);
     }
@@ -720,22 +720,22 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
       get: () => T,
       set: (value: T) => void,
     ): SettingDefinition =>
-      drawnRow(name, "", (setting) =>
+      drawnRow(name, "", (setting) => {
         setting.addDropdown((control) =>
           control
             .addOptions(values)
             .setValue(get())
             .onChange((value) => set(value as T)),
-        ),
-      );
+        );
+      });
     const switchRow = (
       name: string,
       get: () => boolean,
       set: (value: boolean) => void,
     ): SettingDefinition =>
-      drawnRow(name, "", (setting) =>
-        setting.addToggle((control) => control.setValue(get()).onChange(set)),
-      );
+      drawnRow(name, "", (setting) => {
+        setting.addToggle((control) => control.setValue(get()).onChange(set));
+      });
     const persist = (): void => {
       void this.plugin.saveSettings();
       this.plugin.refreshToolOptions();
@@ -853,18 +853,17 @@ export class GoodObsidianSettingTab extends PluginSettingTab {
               "Keep Text active after insertion",
               "Create several text boxes without selecting Text again.",
             ),
-            drawnRow("Font size", "Size in page pixels for new text boxes.", (setting) =>
+            drawnRow("Font size", "Size in page pixels for new text boxes.", (setting) => {
               setting.addSlider((control) =>
                 control
                   .setLimits(8, 96, 1)
                   .setValue(text().fontSize)
-                  .setDynamicTooltip()
                   .onChange((fontSize) => {
                     this.plugin.settings.textStyle = { ...text(), fontSize };
                     persist();
                   }),
-              ),
-            ),
+              );
+            }),
             switchRow(
               "Bold",
               () => text().bold === true,

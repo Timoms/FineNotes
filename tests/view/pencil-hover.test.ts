@@ -2,25 +2,46 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("obsidian", () => import("../fakes/obsidian"));
 import { FakeEl } from "../fakes/obsidian";
 import { installPencilHover, isPencilHover } from "../../src/view/pencil-hover";
-import { Toolbar } from "../../src/view/toolbar";
-afterEach(() => vi.useRealTimers());
+import { Toolbar, type ToolbarState } from "../../src/view/toolbar";
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("Toolbar hover", () => {
   it("shows a name tooltip without changing tools or opening options", () => {
     vi.useFakeTimers();
-    const bar = new FakeEl(), host = new FakeEl();
-    Object.assign(host, { getBoundingClientRect: () => ({ left:0, top:0, width:800, height:600 }) });
+    vi.stubGlobal("window", globalThis);
+    const bar = new FakeEl(),
+      host = new FakeEl();
+    Object.assign(host, {
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+    });
     const button = new FakeEl("button");
-    Object.assign(button, { getAttribute: () => "Shapes", getBoundingClientRect: () => ({ left:100, right:144, top:0, bottom:44 }) });
-    const toolbar = Object.assign(Object.create(Toolbar.prototype), { barEl:bar, host, disposers:[], buildOptions:vi.fn(), state:{ tool:"pen" } });
-    vi.stubGlobal("getComputedStyle", () => ({ flexDirection:"row" }));
+    Object.assign(button, {
+      getAttribute: () => "Shapes",
+      getBoundingClientRect: () => ({ left: 100, right: 144, top: 0, bottom: 44 }),
+    });
+    const toolbar = Object.assign(Object.create(Toolbar.prototype), {
+      barEl: bar,
+      host,
+      disposers: [],
+      buildOptions: vi.fn(),
+      state: { tool: "pen" },
+    });
+    vi.stubGlobal("getComputedStyle", () => ({ flexDirection: "row" }));
     toolbar.installToolHover();
-    bar.dispatch("pointerover", { pointerType:"pen", buttons:0, pressure:0, target:{ closest:() => button } });
+    bar.dispatch("pointerover", {
+      pointerType: "pen",
+      buttons: 0,
+      pressure: 0,
+      target: { closest: () => button },
+    });
     vi.advanceTimersByTime(500);
     expect(host.find("finenotes-x-tool-tooltip")?.text).toBe("Shapes");
     expect(toolbar.buildOptions).not.toHaveBeenCalled();
     expect(toolbar.state.tool).toBe("pen");
-    bar.dispatch("pointerout", { relatedTarget:null });
+    bar.dispatch("pointerout", { relatedTarget: null });
     expect(host.children).toHaveLength(0);
     vi.unstubAllGlobals();
   });
@@ -45,7 +66,13 @@ describe("Pencil range feedback", () => {
     });
     const dispose = installPencilHover(
       host as unknown as HTMLElement,
-      () => ({ tool: "pen", color: "#123456" }) as any,
+      () =>
+        ({
+          tool: "pen",
+          color: "#123456",
+          size: 3,
+          pressureEnabled: false,
+        }) satisfies ToolbarState,
     );
     const target = {
       closest: (selector: string) => (selector === ".finenotes-x-surface" ? host : null),
