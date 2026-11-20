@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   stripSlots,
   stripItemSlots,
+  stripFlexibleSpaces,
+  STRIP_SLOTS,
   type ToolbarItemChoice,
   compactToolbarLabel,
   stripLayoutOf,
@@ -163,22 +165,58 @@ describe("fixed strip capacity and submenus", () => {
     group: "strip",
     visible: true,
   });
-  it("counts spaces, flexible spaces and group contents, reserving More", () => {
+  it("excludes flexible spaces from capacity while counting other pieces and reserving More", () => {
     const items: ToolbarItemChoice[] = [
       space("a"),
       { ...space("b"), id: "flexible-space" },
       { ...space("g"), id: "group" },
       { ...space("c"), container: "g" },
     ];
-    expect(stripItemSlots(items[1], items)).toBe(2);
+    expect(stripItemSlots(items[1], items)).toBe(1);
     expect(stripSlots(items)).toBe(3);
   });
-  it("rejects drops beyond 22 slots without losing the source item", () => {
-    const items = Array.from({ length: 21 }, (_, i) => space(String(i)));
+  it("accepts 25 slots including More, but rejects additional items without losing them", () => {
+    const items = Array.from({ length: 24 }, (_, i) => space(String(i)));
     items.push({ ...space("extra"), visible: false });
-    expect(stripSlots(items)).toBe(22);
-    expect(moveStripItem(items, 21, "strip")).toEqual(items);
-    expect(moveStripItem(items, 0, "library").filter((i) => i.visible)).toHaveLength(20);
+    expect(stripSlots(items)).toBe(25);
+    expect(moveStripItem(items, 24, "strip")).toEqual(items);
+    expect(moveStripItem(items, 0, "library").filter((i) => i.visible)).toHaveLength(23);
+    const flex = { ...space("flex"), id: "flexible-space" as const, visible: false };
+    const withFlex = moveStripItem([...items, flex], 25, "strip");
+    expect(withFlex[25].visible).toBe(true);
+    expect(stripSlots(withFlex)).toBe(25);
+  });
+  it("shares remaining preview slots equally between flexible spaces, including grouped ones", () => {
+    const items: ToolbarItemChoice[] = [
+      ...Array.from({ length: 9 }, (_, i) => space(String(i))),
+      { ...space("flex-a"), id: "flexible-space" },
+      { ...space("group"), id: "group" },
+      { ...space("flex-b"), id: "flexible-space", container: "group" },
+    ];
+    const count = items
+      .filter((item) => !item.container)
+      .reduce((sum, item) => sum + stripFlexibleSpaces(item, items), 0);
+    const share = (STRIP_SLOTS - stripSlots(items)) / count;
+    expect(count).toBe(2);
+    expect(share).toBe(7.5);
+    expect(stripItemSlots(items[9], items, share)).toBe(share);
+    expect(stripItemSlots(items[10], items, share)).toBe(share);
+  });
+  it("enforces the same capacity on additional strips and submenus", () => {
+    for (const id of ["menu-strip", "submenu"] as const) {
+      const items: ToolbarItemChoice[] = [
+        { ...space("container"), id },
+        ...Array.from({ length: 25 }, (_, i) => ({ ...space(String(i)), container: "container" })),
+        { ...space("extra"), visible: false },
+      ];
+      expect(stripSlots(items, "container")).toBe(25);
+      expect(moveStripItem(items, 26, "strip", "container")).toEqual(items);
+      const flex = { ...space("flex"), id: "flexible-space" as const, visible: false };
+      expect(moveStripItem([...items, flex], 27, "strip", "container")[27]).toMatchObject({
+        visible: true,
+        container: "container",
+      });
+    }
   });
   it("keeps submenu children in their own strip and moves descendants together", () => {
     const items: ToolbarItemChoice[] = [
@@ -216,12 +254,12 @@ describe("fixed strip capacity and submenus", () => {
     const moved = moveStripItem(items, 1, "strip", "extra");
     expect(moved.find((item) => item.id === "pen")?.container).toBe("extra");
     expect(stripSlots(moved, "extra")).toBe(1);
-    expect(stripSlots(moved)).toBeLessThanOrEqual(22);
+    expect(stripSlots(moved)).toBeLessThanOrEqual(25);
     expect(stripLayoutOf(moved)).toEqual(moved);
   });
   it("preserves excess legacy actions intact in More", () => {
     const migrated = stripLayoutOf(undefined);
-    expect(stripSlots(migrated)).toBeLessThanOrEqual(22);
+    expect(stripSlots(migrated)).toBeLessThanOrEqual(25);
     expect(migrated.filter((i) => !i.key && i.visible)).toHaveLength(
       DEFAULT_TOOLBAR_ITEMS.filter((item) => item.visible).length,
     );
@@ -238,7 +276,7 @@ it("lets users remove Collapse and Fullscreen", () => {
     );
     expect(moveStripItem(items, index, "more").find((item) => item.id === id)?.group).toBe("more");
   }
-  expect(stripSlots(items)).toBeLessThanOrEqual(22);
+  expect(stripSlots(items)).toBeLessThanOrEqual(25);
 });
 
 it("removes retired wheel and Intelligent Strip toggle actions", () => {

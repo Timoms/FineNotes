@@ -13140,7 +13140,9 @@ body:not(.is-phone) .modal.finenotes-x-move-modal {
   margin-inline: 5px;
   background: color-mix(in srgb, var(--text-muted) 25%, transparent);
 }
-.finenotes-x-strip-pill:not(:has(> button:not(.is-overflowed):not(.is-user-hidden))) {
+.finenotes-x-strip-pill:not(
+  :has(> :not(button), > button:not(.is-overflowed):not(.is-user-hidden))
+) {
   display: none;
 }
 .finenotes-x-strip-more {
@@ -13415,7 +13417,7 @@ body:not(.is-phone) .modal.finenotes-x-move-modal {
   min-width: 0;
   margin: 0;
 }
-.finenotes-x-strip-linear > .finenotes-x-strip-flexible-space {
+.is-strip-linear > .finenotes-x-strip-flexible-space {
   flex: 1 1 0;
   min-width: 8px;
 }
@@ -14302,7 +14304,7 @@ button.finenotes-x-strip-tile {
   opacity: 1;
 }
 
-/* Eighteen labeled slots, without a second scrolling control. */
+/* Labeled slots, without a second scrolling control. */
 .is-strip-preview-editor .finenotes-x-strip-preview {
   display: grid;
   grid-template-columns: repeat(18, minmax(0, 1fr));
@@ -14316,6 +14318,21 @@ button.finenotes-x-strip-tile {
 .is-strip-preview-editor .finenotes-x-strip-preview > * {
   grid-column: span var(--preview-slots, 1);
   min-width: 0;
+}
+.is-strip-preview-editor .finenotes-x-strip-preview.is-capacity-preview {
+  display: flex;
+}
+.is-strip-preview-editor .finenotes-x-strip-preview.is-capacity-preview > * {
+  flex: var(--preview-slots, 1) 1 0;
+  min-width: 0;
+}
+.is-strip-preview-editor
+  .finenotes-x-strip-preview.is-capacity-preview
+  > button.finenotes-x-strip-tile {
+  flex: var(--preview-slots, 1) 1 0;
+}
+.is-strip-preview-editor .finenotes-x-strip-preview.is-capacity-preview button.is-flexible-space {
+  min-width: 8px;
 }
 .is-strip-preview-editor .finenotes-x-strip-preview button.finenotes-x-strip-tile {
   display: flex;
@@ -14399,7 +14416,10 @@ button.finenotes-x-strip-tile {
   width: 100%;
   gap: 2px;
 }
-.is-strip-preview-editor .finenotes-x-strip-preview-group-items > button {
+.is-strip-preview-editor
+  .finenotes-x-strip-preview
+  .finenotes-x-strip-preview-group-items
+  > button.finenotes-x-strip-tile {
   flex: var(--preview-slots, 1) 1 0;
 }
 .finenotes-x-strip-empty-slot {
@@ -14434,16 +14454,26 @@ button.finenotes-x-strip-tile {
   width: var(--gob-touch, 44px);
   flex-basis: var(--gob-touch, 44px);
 }
-.finenotes-x-strip-linear > .finenotes-x-strip-flexible-space {
-  flex: 2 1 calc(2 * var(--gob-touch, 44px));
+.is-strip-linear > .finenotes-x-strip-flexible-space {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.finenotes-x-toolbar .finenotes-x-strip-pill:has(> .finenotes-x-strip-flexible-space) {
+  flex: var(--flexible-spaces, 1) 1 auto;
+  min-width: 0;
+}
+.finenotes-x-toolbar .finenotes-x-strip-pill > .finenotes-x-strip-flexible-space,
+.finenotes-x-added-menu-strip > .finenotes-x-strip-flexible-space {
+  flex: 1 1 0;
+  min-width: 0;
 }
 .finenotes-x-view.is-distraction-free .finenotes-x-toolbar .finenotes-x-strip-fixed-space {
   flex: 0 0 var(--gob-touch, 44px);
   height: var(--gob-touch, 44px);
 }
 .finenotes-x-view.is-distraction-free .finenotes-x-toolbar .finenotes-x-strip-flexible-space {
-  flex: 2 1 calc(2 * var(--gob-touch, 44px));
-  min-height: calc(2 * var(--gob-touch, 44px));
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 /* Side options read downward, as an attached second glass bar. */

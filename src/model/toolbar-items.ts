@@ -317,7 +317,11 @@ export function moveStripItem(
   out.splice(at, 0, ...block);
   if (
     stripSlots(out) > STRIP_SLOTS ||
-    out.some((item) => item.id === "submenu" && stripSlots(out, item.key) > STRIP_SLOTS)
+    out.some(
+      (item) =>
+        (item.id === "submenu" || item.id === "menu-strip") &&
+        stripSlots(out, item.key) > STRIP_SLOTS,
+    )
   )
     return [...items];
   return out;
@@ -338,20 +342,31 @@ export function compactToolbarLabel(label: string): string {
   return labels[label] ?? label;
 }
 
-export const STRIP_SLOTS = 22;
+export const STRIP_SLOTS = 25;
 export function stripItemSlots(
   item: ToolbarItemChoice,
   items: readonly ToolbarItemChoice[],
+  flexibleSlots = 1,
 ): number {
-  if (item.id === "flexible-space") return 2;
+  if (item.id === "flexible-space") return flexibleSlots;
   if (item.id === "group")
     return Math.max(
       1,
       items
         .filter((child) => child.visible && child.container === item.key)
-        .reduce((n, child) => n + stripItemSlots(child, items), 0),
+        .reduce((n, child) => n + stripItemSlots(child, items, flexibleSlots), 0),
     );
   return 1;
+}
+export function stripFlexibleSpaces(
+  item: ToolbarItemChoice,
+  items: readonly ToolbarItemChoice[],
+): number {
+  if (item.id === "flexible-space") return 1;
+  if (item.id !== "group") return 0;
+  return items
+    .filter((child) => child.visible && child.container === item.key)
+    .reduce((count, child) => count + stripFlexibleSpaces(child, items), 0);
 }
 function stripCapacitySlots(item: ToolbarItemChoice, items: readonly ToolbarItemChoice[]): number {
   if (item.id === "flexible-space" || item.id === "menu-strip") return 0;

@@ -197,6 +197,7 @@ import {
 import {
   compactToolbarLabel,
   savedPenToolbarIndex,
+  stripFlexibleSpaces,
   stripLayoutOf,
   MORE_ACTIONS,
   TOOLBAR_ITEMS,
@@ -730,6 +731,10 @@ export class Toolbar {
   private penToolButton: HTMLElement | null = null;
   /** Favorite picked explicitly; matching its ink alone does not select it. */
   private activeSavedPen = -1;
+  private lastSavedPen = -1;
+  /** The main pen remains separate from the favorite currently in hand. */
+  private mainPen: SavedPen;
+  private favoritePenInState = false;
   /** What the pen button last drew, so an unchanged pen is not redrawn. */
   private penPreviewKey = "";
   /** The writing tools, centred on the bar while there is room. */
@@ -830,6 +835,7 @@ export class Toolbar {
     private readonly options: ToolbarOptions = {},
   ) {
     this.palette = [...palette];
+    this.mainPen = penOfState(state);
     this.optionsTool = state.tool;
     this.optionsVisible = !STARTS_TUCKED.has(optionsKey(state.tool));
     this.barEl = host.createDiv({ cls: "finenotes-x-toolbar finenotes-x-main-toolbar" });
@@ -969,7 +975,7 @@ export class Toolbar {
     const colorButton = item(
       "colorwheel",
       this.foldButton(left, FOLD_RANK.ruler, "palette", "Colorwheel", (button) => {
-        if (button.hasClass("is-favorite-locked")) return;
+        if (this.activeSavedPen >= 0) return;
         if (this.quickColorSuppressClick) {
           this.quickColorSuppressClick = false;
           return;
@@ -1032,7 +1038,7 @@ export class Toolbar {
         id,
         this.foldButton(tools, FOLD_RANK.image, "pen-tool", `Favorite pen ${index + 1}`, () => {
           const pen = this.callbacks.savedPens?.()[index];
-          if (pen) this.applySavedPen(pen);
+          if (pen) this.applySavedPen(pen, index);
         }),
       );
     }
@@ -1207,6 +1213,8 @@ export class Toolbar {
           cls: "finenotes-x-strip-pill",
           attr: { role: "group", "aria-label": "Toolbar group" },
         });
+        const flexibleSpaces = stripFlexibleSpaces(choice, items);
+        if (flexibleSpaces) pill.setCssProps({ "--flexible-spaces": String(flexibleSpaces) });
         for (const child of items.filter(
           (i) => i.visible && i.container === choice.key && i.group === "strip",
         ))
@@ -2210,9 +2218,15 @@ export class Toolbar {
   private drawPenPreview(): void {
     const button = this.penToolButton;
     if (!button) return;
-    const spec = this.activePenType();
-    const color = this.state.color;
-    const width = strokeWidthFor({ ...this.state, tool: spec.tool });
+    const pen = this.activeSavedPen >= 0 ? this.mainPen : penOfState(this.state);
+    const spec = PEN_TYPES.find((type) => type.id === pen.type) ?? PEN_TYPES[0];
+    const color = pen.color;
+    const width = strokeWidthFor({
+      ...this.state,
+      tool: spec.tool,
+      penType: pen.type,
+      size: pen.size,
+    });
     const dark = activeDocument.body.hasClass("theme-dark");
     const key = `${spec.id}|${color}|${width}|${dark}`;
     if (key === this.penPreviewKey) return;
@@ -2284,11 +2298,25 @@ export class Toolbar {
    * instead (GoodNotes: the chevron on it says so).
    */
   private tapTool(tool: ActiveTool, button: HTMLElement): void {
+    const leavingFavorite = tool === "pen" && this.favoritePenInState;
     // The pen button stands for every pen type, the highlighter included:
     // it picks the type in hand. Picking plain "pen" with the highlighter as
     // the type wrote opaque pen ink in the highlighter's colour.
     if (tool === "pen") {
       this.activeSavedPen = -1;
+      if (leavingFavorite) {
+        const pen = this.mainPen;
+        const spec = PEN_TYPES.find((type) => type.id === pen.type) ?? PEN_TYPES[0];
+        this.favoritePenInState = false;
+        this.state.penType = pen.type;
+        this.state.color = pen.color;
+        this.state.size = pen.size;
+        this.state.pressureEnabled = spec.pressure && this.callbacks.pressureAllowed?.() === true;
+        this.callbacks.onPressureToggle(this.state.pressureEnabled);
+        this.callbacks.onColorChange(pen.color);
+        this.callbacks.onSizeChange(pen.size);
+        this.callbacks.onPenTypeChange?.(spec);
+      }
       tool = this.activePenType().tool;
     }
     const current = this.state.tool;
@@ -2302,13 +2330,15 @@ export class Toolbar {
       return;
     }
     this.closePopover();
-    if (tool === current) {
+    if (tool === current && !leavingFavorite) {
       this.optionsVisible = !this.optionsVisible;
       this.showOptions(this.optionsVisible);
     } else {
-      this.leaveToolFor(tool);
-      this.state.tool = tool;
-      this.callbacks.onToolChange(tool);
+      if (tool !== current) {
+        this.leaveToolFor(tool);
+        this.state.tool = tool;
+        this.callbacks.onToolChange(tool);
+      }
       this.optionsVisible = false;
       this.intelligentCollapsed = true;
       this.buildOptions();
@@ -2380,7 +2410,7 @@ export class Toolbar {
       switch (this.state.tool) {
         case "pen":
         case "highlighter":
-          this.buildPenOptions();
+          if (this.activeSavedPen < 0) this.buildPenOptions();
           break;
         case "eraser":
           this.buildEraserOptions();
@@ -2543,6 +2573,8 @@ export class Toolbar {
    * picked slot, and stays until another pick needs the room.
    */
   private setPenColor(color: string, replace?: string): void {
+    if (this.activeSavedPen >= 0) return;
+    this.favoritePenInState = false;
     const reserved = this.reservedColors();
     const picked = pickPenColor(this.quickColors(), reserved.length, color, replace);
     const before = this.state.penColors;
@@ -2559,6 +2591,7 @@ export class Toolbar {
 
   /** Remember the ink in hand (colour, row and width) as the active pen type's own. */
   private keepPenInk(): void {
+    if (this.activeSavedPen >= 0) return;
     this.state.penInks = withPenInk(
       this.state.penInks ?? {},
       this.activePenType().id,
@@ -2703,7 +2736,7 @@ export class Toolbar {
       row.toggleClass("is-active", inHand && samePen(pen, current));
       row.addEventListener("click", () => {
         this.closePopover();
-        this.applySavedPen(pen);
+        this.applySavedPen(pen, index);
       });
     });
     if (pens.length === 0) {
@@ -2744,25 +2777,36 @@ export class Toolbar {
    * or highlighter if another tool is in hand (the keys 1 to 8, the saved
    * pens' popover). Every change is reported as a pick by hand would be.
    */
-  applySavedPen(pen: SavedPen): void {
+  applySavedPen(pen: SavedPen, index?: number): void {
     const spec = PEN_TYPES.find((type) => type.id === pen.type) ?? PEN_TYPES[0];
     if (this.practice && spec.tool === "highlighter") return;
-    this.activeSavedPen =
-      this.callbacks.savedPens?.().findIndex((saved) => samePen(saved, pen)) ?? -1;
-    if (this.state.tool !== spec.tool) {
+    this.quickColorClose?.();
+    this.intelligentCollapsed = true;
+    const switchingTool = this.state.tool !== spec.tool;
+    if (switchingTool) {
       this.drawingTool = drawingToolOf(this.drawingTool, spec.tool);
       this.leaveToolFor(spec.tool);
     }
-    // The type first, so its own colour comes back, then the saved pen's
-    // colour and width over it: that colour becomes the type's own.
-    this.choosePenType(spec);
+    this.state.tool = spec.tool;
+    this.state.penType = pen.type;
     this.state.color = pen.color;
     this.state.size = pen.size;
+    this.state.pressureEnabled = spec.pressure && this.callbacks.pressureAllowed?.() === true;
+    this.favoritePenInState = true;
+    this.activeSavedPen =
+      index ?? this.callbacks.savedPens?.().findIndex((saved) => samePen(saved, pen)) ?? -1;
+    this.lastSavedPen = this.activeSavedPen;
+    if (switchingTool) this.callbacks.onToolChange(spec.tool);
+    this.callbacks.onPressureToggle(this.state.pressureEnabled);
+    this.callbacks.onPenTypeChange?.(spec);
     this.callbacks.onColorChange(pen.color);
     this.callbacks.onSizeChange(pen.size);
-    this.keepPenInk();
     this.buildOptions();
     this.syncActive();
+  }
+
+  isFavoritePenSelected(): boolean {
+    return this.activeSavedPen >= 0;
   }
 
   private activateEraser(mode: EraserMode): void {
@@ -3633,7 +3677,22 @@ export class Toolbar {
     // Each pen type keeps its own colour, row and width (GoodNotes): the one
     // being left keeps what it wrote with, the one picked brings back its own.
     const from = this.activePenType().id;
-    if (from !== spec.id) {
+    if (from !== spec.id && this.activeSavedPen >= 0) {
+      // Leaving a favorite manually brings back the pen type's own ink.
+      // Do not let the favorite's ink overwrite the source type's memory.
+      this.activeSavedPen = -1;
+      const step = penInkFor(this.state.penInks ?? {}, spec.id, this.inkInHand());
+      if (step.colors) {
+        this.state.penColors = step.colors;
+        this.callbacks.onPenColors?.(step.colors);
+      }
+      this.state.color = step.color;
+      this.callbacks.onColorChange(step.color);
+      if (step.size !== undefined) {
+        this.state.size = step.size;
+        this.callbacks.onSizeChange(step.size);
+      }
+    } else if (from !== spec.id) {
       const { color, size } = this.state;
       const step = switchPenInk(this.state.penInks ?? {}, from, spec.id, this.inkInHand());
       this.state.penInks = step.inks;
@@ -3824,6 +3883,8 @@ export class Toolbar {
   /** A new pen width, from a preset, the slider or a reset. */
   /** Write with `width` (page px, before the pen type's multiplier); the pen type keeps it. */
   private setWidth(width: number): void {
+    if (this.activeSavedPen >= 0) return;
+    this.favoritePenInState = false;
     this.state.size = width;
     this.callbacks.onSizeChange(width);
     this.keepPenInk();
@@ -4883,13 +4944,29 @@ export class Toolbar {
   /** Mark every choice button that matches the state, and unmark the rest. */
   syncActive(): void {
     const { state } = this;
+    const currentPen =
+      state.tool === "pen" || state.tool === "highlighter" ? penOfState(state) : null;
+    if (this.favoritePenInState && this.activeSavedPen < 0 && currentPen) {
+      const lastFavorite = this.callbacks.savedPens?.()[this.lastSavedPen];
+      if (lastFavorite && samePen(lastFavorite, currentPen))
+        this.activeSavedPen = this.lastSavedPen;
+    }
+    const selectedFavorite =
+      this.activeSavedPen >= 0 ? this.callbacks.savedPens?.()[this.activeSavedPen] : undefined;
+    if (!currentPen || !selectedFavorite || !samePen(selectedFavorite, currentPen))
+      this.activeSavedPen = -1;
+    const favoriteActive = this.activeSavedPen >= 0;
+    if (!favoriteActive && !this.favoritePenInState && currentPen) this.mainPen = currentPen;
     const colorButton = this.itemButtons?.get("colorwheel");
     if (colorButton && !this.quickColorClose) {
       colorButton.empty();
       colorButton
         .createSpan({ cls: "finenotes-x-current-color" })
-        .setCssStyles({ backgroundColor: state.color });
-      colorButton.setAttribute("aria-label", `Colorwheel: ${state.color}`);
+        .setCssStyles({ backgroundColor: favoriteActive ? this.mainPen.color : state.color });
+      colorButton.setAttribute(
+        "aria-label",
+        `Colorwheel: ${favoriteActive ? this.mainPen.color : state.color}`,
+      );
     }
     // Highlighter is a pen type, so the pen button stands for both.
     const tool = state.tool === "highlighter" ? "pen" : state.tool;
@@ -4903,34 +4980,29 @@ export class Toolbar {
       this.setActionActive(id, tool === "eraser" && eraserModeFor(this.state) === mode);
     // The tool in hand stays on the bar, and a chosen tool is wider.
     if (tool !== this.indicatorTool) this.fitBar(tool);
-    this.placeIndicator(tool, from);
+    this.placeIndicator(favoriteActive ? null : tool, from);
     markChosen(this.colorSwatches, state.color);
     markChosen(this.widthButtons, state.size);
     markChosen(this.eraserSizeButtons, eraserSizeFor(state));
     markChosen(this.penTypeButtons, this.activePenType().id);
     markChosen(this.shapeButtons, shapeModeFor(state), true);
-    const currentPen =
-      state.tool === "pen" || state.tool === "highlighter" ? penOfState(state) : null;
-    let favoriteActive = false;
-    const selectedFavorite =
-      this.activeSavedPen >= 0 ? this.callbacks.savedPens?.()[this.activeSavedPen] : undefined;
-    if (!currentPen || !selectedFavorite || !samePen(selectedFavorite, currentPen))
-      this.activeSavedPen = -1;
     for (const [id, button] of this.itemButtons) {
       const index = savedPenToolbarIndex(id);
       if (index < 0) continue;
       const active = index === this.activeSavedPen;
-      favoriteActive ||= active;
       button.toggleClass("is-active", active);
       button.setAttribute("aria-pressed", String(active));
     }
     if (colorButton) {
       colorButton.toggleClass("is-favorite-locked", favoriteActive);
+      (colorButton as HTMLButtonElement).disabled = favoriteActive;
       if (favoriteActive) {
         const lock = colorButton.createSpan({ cls: "finenotes-x-colorwheel-lock" });
         iconOrText(lock, "lock", "Locked");
         colorButton.setAttribute("aria-label", "Colorwheel locked by favorite pen");
         colorButton.setAttribute("title", "Color is locked while a favorite pen is selected");
+      } else {
+        colorButton.setAttribute("title", "Colorwheel");
       }
     }
     if (favoriteActive) {

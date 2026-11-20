@@ -43,6 +43,7 @@ describe("saved pens on the toolbar (FineNotes#24, #25)", () => {
     const bar = Object.assign(Object.create(Toolbar.prototype) as object, {
       state,
       practice,
+      mainPen: { type: "fountain", color: "#000000", size: 3 },
       drawingTool: "pen",
       optionsTool: tool,
       optionsVisible: true,
@@ -71,23 +72,196 @@ describe("saved pens on the toolbar (FineNotes#24, #25)", () => {
       size: 5,
       pressureEnabled: false,
     });
-    // The type first (a highlighter never used starts yellow), then the saved
-    // pen's own colour and width over it.
-    expect(calls).toEqual([
-      "color(#fab005)",
-      "tool(highlighter)",
-      "pressure(false)",
-      "type(highlighter)",
-      "build",
-      "color(#fab005)",
-      "size(5)",
-      "build",
-    ]);
-    // The highlighter keeps the saved pen's width as its own, with the colour.
-    expect((state.penInks as Record<string, unknown>).highlighter).toEqual({
-      color: "#fab005",
-      size: 5,
+    expect(calls).toContain("color(#fab005)");
+    expect(calls).toContain("size(5)");
+    expect(calls).toContain("tool(highlighter)");
+  });
+
+  it("keeps the main pen and favorite pens independent", async () => {
+    const { bar, state } = await toolbar("pen");
+    state.penType = "fountain";
+    state.penInks = {
+      fountain: { color: "#1971c2", size: 5 },
+    };
+
+    bar.applySavedPen({ type: "ball", color: "#e03131", size: 2 });
+    expect(state.penInks).toEqual({
+      fountain: { color: "#1971c2", size: 5 },
     });
+
+    bar.applySavedPen({ type: "brush", color: "#9c36b5", size: 3 });
+    expect(state.penInks).toEqual({
+      fountain: { color: "#1971c2", size: 5 },
+    });
+  });
+
+  it.each([
+    { favorite: { type: "ball" as const, color: "#e03131", size: 2 }, viaEraser: false },
+    { favorite: { type: "ball" as const, color: "#e03131", size: 2 }, viaEraser: true },
+    { favorite: { type: "highlighter" as const, color: "#fab005", size: 5 }, viaEraser: false },
+    { favorite: { type: "highlighter" as const, color: "#fab005", size: 5 }, viaEraser: true },
+  ])(
+    "selects $favorite.type on the first pick and restores the main pen",
+    async ({ favorite, viaEraser }) => {
+      const { Toolbar } = await import("../../src/view/toolbar");
+      const { bar, state } = await toolbar("pen");
+      const mainPen = { type: "fountain" as const, color: "#1971c2", size: 3 };
+      state.color = mainPen.color;
+      state.penType = mainPen.type;
+      const element = () => {
+        const classes = new Set<string>();
+        const attrs: Record<string, string> = {};
+        const style: Record<string, string> = {};
+        return {
+          classes,
+          attrs,
+          style,
+          disabled: false,
+          empty: () => undefined,
+          createSpan: () => ({
+            setCssStyles: (values: Record<string, string>) => Object.assign(style, values),
+            querySelector: () => null,
+            empty: () => undefined,
+            setText: () => undefined,
+            addClass: () => undefined,
+          }),
+          toggleClass: (name: string, on: boolean) =>
+            on ? classes.add(name) : classes.delete(name),
+          removeClass: (name: string) => classes.delete(name),
+          setAttribute: (name: string, value: string) => {
+            attrs[name] = value;
+          },
+        };
+      };
+      const pen = element();
+      const saved = element();
+      const saved2 = element();
+      const color = element();
+      const closeColor = vi.fn(() => Object.assign(bar, { quickColorClose: null }));
+      const build = vi.fn();
+      const show = vi.fn();
+      Object.assign(bar, {
+        activeSavedPen: -1,
+        mainPen,
+        intelligentCollapsed: false,
+        quickColorClose: closeColor,
+        indicatorTool: "pen",
+        toolButtons: new Map([["pen", pen]]),
+        itemButtons: new Map([
+          ["saved-pen-1", saved],
+          ["saved-pen-2", saved2],
+          ["colorwheel", color],
+        ]),
+        colorSwatches: new Map(),
+        widthButtons: new Map(),
+        eraserSizeButtons: new Map(),
+        penTypeButtons: new Map(),
+        shapeButtons: new Map(),
+        callbacks: {
+          savedPens: () => [favorite, favorite],
+          onColorChange: vi.fn(),
+          onSizeChange: vi.fn(),
+          onToolChange: vi.fn(),
+          onPressureToggle: vi.fn(),
+          onPenTypeChange: () => bar.syncActive(),
+          pressureAllowed: () => true,
+        },
+        syncActive: () => Toolbar.prototype.syncActive.call(bar),
+        buildOptions: build,
+        showOptions: show,
+        closePopover: vi.fn(),
+        fitBar: vi.fn(),
+        placeIndicator: vi.fn(),
+        toolPlaces: () => null,
+        drawPenPreview: vi.fn(),
+        drawLassoIcon: vi.fn(),
+        drawEraserIcon: vi.fn(),
+      });
+
+      bar.applySavedPen(favorite, 1);
+      expect(saved2.attrs["aria-pressed"]).toBe("true");
+      expect(saved.attrs["aria-pressed"]).toBe("false");
+      expect(color.disabled).toBe(true);
+      expect(color.style.backgroundColor).toBe(mainPen.color);
+      expect(pen.attrs["aria-pressed"]).toBe("false");
+      expect(state).toMatchObject({ color: favorite.color, size: favorite.size });
+      bar.applySavedPen(favorite, 0);
+      bar.applySavedPen(favorite, 0);
+      expect(saved.classes.has("is-active")).toBe(true);
+      expect(saved.attrs["aria-pressed"]).toBe("true");
+      expect(pen.classes.has("is-active")).toBe(false);
+      expect(pen.attrs["aria-pressed"]).toBe("false");
+      expect(color.disabled).toBe(true);
+      expect(color.attrs["aria-label"]).toBe("Colorwheel locked by favorite pen");
+      expect((bar as unknown as { intelligentCollapsed: boolean }).intelligentCollapsed).toBe(true);
+      expect(show).not.toHaveBeenCalled();
+      expect(closeColor).toHaveBeenCalled();
+
+      const internal = bar as unknown as {
+        setPenColor(color: string): void;
+        setWidth(width: number): void;
+        tapTool(tool: string, button: unknown): void;
+      };
+      internal.setPenColor("#000000");
+      internal.setWidth(9);
+      expect(state).toMatchObject({ color: favorite.color, size: favorite.size });
+
+      if (viaEraser) {
+        internal.tapTool("eraser", pen);
+        state.tool = favorite.type === "highlighter" ? "highlighter" : "pen";
+        bar.syncActive();
+        expect(saved.attrs["aria-pressed"]).toBe("true");
+        expect(color.disabled).toBe(true);
+        expect(color.style.backgroundColor).toBe(mainPen.color);
+      }
+      internal.tapTool("pen", pen);
+      expect(saved.attrs["aria-pressed"]).toBe("false");
+      expect(pen.attrs["aria-pressed"]).toBe("true");
+      expect(color.disabled).toBe(false);
+      expect(state).toMatchObject({
+        color: mainPen.color,
+        size: mainPen.size,
+        penType: mainPen.type,
+      });
+      expect(color.style.backgroundColor).toBe(mainPen.color);
+      expect(show).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not build pen options for a selected favorite", async () => {
+    const { Toolbar } = await import("../../src/view/toolbar");
+    const { bar } = await toolbar("pen");
+    const buildPenOptions = vi.fn();
+    const classes = new Set<string>();
+    Object.assign(bar, {
+      activeSavedPen: 0,
+      intelligentCollapsed: true,
+      favoriteHoldTimer: null,
+      textTarget: null,
+      textAnchor: null,
+      optionsEl: {
+        empty: vi.fn(),
+        createDiv: () => ({ setAttribute: vi.fn() }),
+        toggleClass: (name: string, on: boolean) => (on ? classes.add(name) : classes.delete(name)),
+        removeClass: (name: string) => classes.delete(name),
+      },
+      colorSwatches: new Map(),
+      widthButtons: new Map(),
+      eraserSizeButtons: new Map(),
+      penTypeButtons: new Map(),
+      shapeButtons: new Map(),
+      pillBox: () => null,
+      stopPillMorph: vi.fn(),
+      closePopover: vi.fn(),
+      closeStripMore: vi.fn(),
+      buildPenOptions,
+      applyPosition: vi.fn(),
+      morphPill: vi.fn(),
+    });
+
+    (Toolbar.prototype as unknown as { buildOptions(this: unknown): void }).buildOptions.call(bar);
+    expect(buildPenOptions).not.toHaveBeenCalled();
+    expect(classes.has("is-intelligent-hidden")).toBe(true);
   });
 
   it("gives each pen type its own colour and row, and brings them back", async () => {

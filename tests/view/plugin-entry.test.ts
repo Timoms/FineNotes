@@ -632,6 +632,24 @@ describe("notebook commands", () => {
   });
 });
 
+describe("remembering the main pen", () => {
+  it("does not save a selected favorite as the main pen", () => {
+    const saveLastPen = vi.fn();
+    const favoriteSelected = vi.fn(() => true);
+    const view = inkView({
+      plugin: { saveLastPen },
+      toolbar: { isFavoritePenSelected: favoriteSelected },
+      toolState: { tool: "pen", penType: "ball", color: "#e03131", size: 2 },
+    }) as unknown as { rememberPen(): void };
+
+    view.rememberPen();
+    expect(saveLastPen).not.toHaveBeenCalled();
+    favoriteSelected.mockReturnValue(false);
+    view.rememberPen();
+    expect(saveLastPen).toHaveBeenCalledWith({ type: "ball", color: "#e03131", size: 2 });
+  });
+});
+
 // --- Which view a file opens in -------------------------------------------------------
 
 describe("view routing on open", () => {

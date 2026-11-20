@@ -1134,7 +1134,7 @@ export class InkView extends TextFileView {
   /** Keep the pen in hand for the next notebook, and the next start (FineNotes#24). */
   private rememberPen(): void {
     const tool = this.toolState.tool;
-    if (tool !== "pen" && tool !== "highlighter") return;
+    if ((tool !== "pen" && tool !== "highlighter") || this.toolbar?.isFavoritePenSelected()) return;
     this.plugin.saveLastPen(penOfState(this.toolState));
   }
 
@@ -2660,11 +2660,13 @@ export class InkView extends TextFileView {
         // which is where the surface reads them; the pen is remembered for
         // the next notebook (FineNotes#24).
         onColorChange: (color) => {
-          this.settings.recentPenColors = rememberWheelColor(
-            this.settings.recentPenColors ?? this.settings.recentColors,
-            color,
-          );
-          void this.plugin.saveSettings();
+          if (!this.toolbar?.isFavoritePenSelected()) {
+            this.settings.recentPenColors = rememberWheelColor(
+              this.settings.recentPenColors ?? this.settings.recentColors,
+              color,
+            );
+            void this.plugin.saveSettings();
+          }
           this.surface?.refreshPenCursor();
           this.rememberPen();
         },
@@ -2910,7 +2912,7 @@ export class InkView extends TextFileView {
         onShortcuts: () => this.toggleShortcuts(),
         onSavedPen: (index) => {
           const pen = savedPensOf(this.settings.savedPens)[index];
-          if (pen && !this.isProtected()) this.toolbar?.applySavedPen(pen);
+          if (pen && !this.isProtected()) this.toolbar?.applySavedPen(pen, index);
         },
         barrelAction: () => this.settings.barrelButton,
         onToolChange: (tool) => {

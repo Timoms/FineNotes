@@ -2,6 +2,8 @@ import { type App, Modal, Notice, setIcon } from "obsidian";
 import {
   stripSlots,
   stripItemSlots,
+  stripFlexibleSpaces,
+  STRIP_SLOTS,
   DEFAULT_TOOLBAR_ITEMS,
   TOOLBAR_ITEMS,
   TOOLBAR_LAYOUT_ITEMS,
@@ -74,7 +76,7 @@ export class ToolbarEditorModal extends Modal {
     header.createEl("button", { text: "Close" }).addEventListener("click", () => this.close());
     root.createDiv({
       cls: "finenotes-x-toolbar-editor-hint",
-      text: "Drag to arrange · 22 slots · Changes apply instantly · Hold the eye to preview.",
+      text: `Drag to arrange · ${STRIP_SLOTS} slots · Changes apply instantly · Hold the eye to preview.`,
     });
     const preview = root.createDiv({ cls: "finenotes-x-strip-preview-row" });
     this.area(preview, "strip", "Menu strip");
@@ -220,18 +222,27 @@ export class ToolbarEditorModal extends Modal {
   ): void {
     const section = host.createDiv({ cls: `finenotes-x-strip-preview-section is-${destination}` });
     section.createDiv({ cls: "finenotes-x-strip-preview-label", text: label });
+    const hasCapacity = destination === "strip" || !!container;
     const list = section.createDiv({
-      cls: "finenotes-x-strip-preview",
+      cls: `finenotes-x-strip-preview${hasCapacity ? " is-capacity-preview" : ""}`,
       attr: { role: "group", "aria-label": label },
     });
     list.dataset.destination = destination;
     if (container) list.dataset.container = container;
+    const used = hasCapacity ? stripSlots(this.items, container) : 0;
+    const flexibleCount = this.items
+      .filter((item) => item.visible && item.group === destination && item.container === container)
+      .reduce((count, item) => count + stripFlexibleSpaces(item, this.items), 0);
+    const flexibleSlots =
+      hasCapacity && flexibleCount ? Math.max(0.01, (STRIP_SLOTS - used) / flexibleCount) : 1;
     this.items.forEach((item, index) => {
       if (!item.visible || item.group !== destination || item.container !== container) return;
       if (item.id === "menu-strip" && !container) return;
       if (item.id === "group") {
         const pill = list.createDiv({ cls: "finenotes-x-strip-preview-pill" });
-        pill.setCssProps({ "--preview-slots": String(stripItemSlots(item, this.items)) });
+        pill.setCssProps({
+          "--preview-slots": String(stripItemSlots(item, this.items, flexibleSlots)),
+        });
         const handle = this.tile(pill, item, index);
         handle.addClass("is-group-handle");
         const inside = pill.createDiv({
@@ -241,9 +252,10 @@ export class ToolbarEditorModal extends Modal {
         inside.dataset.destination = destination;
         inside.dataset.container = item.key;
         this.items.forEach((child, at) => {
-          if (child.visible && child.container === item.key) this.tile(inside, child, at);
+          if (child.visible && child.container === item.key)
+            this.tile(inside, child, at, false, flexibleSlots);
         });
-      } else this.tile(list, item, index);
+      } else this.tile(list, item, index, false, flexibleSlots);
     });
     if (
       destination === "strip" &&
@@ -257,14 +269,14 @@ export class ToolbarEditorModal extends Modal {
       more.createSpan({ cls: "finenotes-x-strip-tile-label", text: "More" });
       more.setAttribute("title", "More remains available for overflow actions");
     }
-    if (destination === "strip" || container) {
-      const used = stripSlots(this.items, container);
+    if (hasCapacity) {
       section.createDiv({
         cls: "finenotes-x-strip-slot-count",
-        text: `${used} / 22 slots`,
+        text: `${used} / ${STRIP_SLOTS} slots`,
       });
-      for (let i = used; i < 22; i++)
-        list.createDiv({ cls: "finenotes-x-strip-empty-slot", attr: { "aria-hidden": "true" } });
+      if (!flexibleCount)
+        for (let i = used; i < STRIP_SLOTS; i++)
+          list.createDiv({ cls: "finenotes-x-strip-empty-slot", attr: { "aria-hidden": "true" } });
     }
   }
   private tile(
@@ -272,6 +284,7 @@ export class ToolbarEditorModal extends Modal {
     item: ToolbarItemChoice,
     index: number,
     catalogue = false,
+    flexibleSlots = 1,
   ): HTMLElement {
     const spec = specs.get(item.id)!;
     const savedPen = this.savedPens?.()[savedPenToolbarIndex(item.id)];
@@ -288,7 +301,9 @@ export class ToolbarEditorModal extends Modal {
     });
     if (index >= 0 && !catalogue) tile.dataset.index = String(index);
     tile.toggleClass("is-placed", catalogue && item.visible);
-    tile.setCssProps({ "--preview-slots": String(stripItemSlots(item, this.items)) });
+    tile.setCssProps({
+      "--preview-slots": String(stripItemSlots(item, this.items, flexibleSlots)),
+    });
     const icon = tile.createSpan({ cls: "finenotes-x-strip-tile-icon" });
     if (savedPen) {
       icon.append(penGlyph(savedPen.type, savedPen.color, tile.ownerDocument));
@@ -436,7 +451,7 @@ export class ToolbarEditorModal extends Modal {
     if (JSON.stringify(next) === JSON.stringify(this.items) && destination !== "library") {
       if (created) this.items.splice(index, 1);
       new Notice(
-        "This placement is unavailable. The strip and each submenu have 22 slots; groups cannot nest inside groups.",
+        `This placement is unavailable. Each strip and submenu has ${STRIP_SLOTS} slots; groups cannot nest inside groups.`,
       );
     } else this.items = next;
     this.render();
